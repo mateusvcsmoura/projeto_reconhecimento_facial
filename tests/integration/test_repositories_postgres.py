@@ -9,9 +9,12 @@ from __future__ import annotations
 import datetime as dt
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pytest
 from sqlalchemy import Engine, text
+from sqlalchemy.exc import IntegrityError
 
+from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import AlunoJaCadastrado
 from src.infrastructure.repositories.postgres_aluno_repository import (
     PostgresAlunoRepository,
@@ -21,6 +24,7 @@ from src.infrastructure.repositories.postgres_presenca_repository import (
 )
 
 TZ = ZoneInfo("America/Sao_Paulo")
+MODELO = "Facenet512"
 
 
 @pytest.fixture
@@ -39,7 +43,9 @@ def presencas(banco_limpo: Engine) -> PostgresPresencaRepository:
 def test_cadastrar_devolve_o_id_gerado_pelo_banco(
     alunos: PostgresAlunoRepository,
 ) -> None:
-    aluno = alunos.cadastrar(matricula="42", nome="Maria Silva", foto_arquivo="42.jpg")
+    aluno = alunos.cadastrar(
+        matricula="42", nome="Maria Silva", foto_arquivo="42.jpg", embedding=None
+    )
 
     assert aluno.id > 0
     assert aluno.matricula == "42"
@@ -50,46 +56,87 @@ def test_matricula_duplicada_vira_erro_de_dominio(
     alunos: PostgresAlunoRepository,
 ) -> None:
     """A IntegrityError do banco nao vaza para as camadas de cima."""
-    alunos.cadastrar("42", "Maria", None)
+    alunos.cadastrar("42", "Maria", None, None)
 
     with pytest.raises(AlunoJaCadastrado) as capturado:
-        alunos.cadastrar("42", "Outro", None)
+        alunos.cadastrar("42", "Outro", None, None)
 
     assert capturado.value.matricula == "42"
 
 
 def test_existe_matricula(alunos: PostgresAlunoRepository) -> None:
-    alunos.cadastrar("42", "Maria", None)
+    alunos.cadastrar("42", "Maria", None, None)
 
     assert alunos.existe_matricula("42") is True
     assert alunos.existe_matricula("43") is False
 
 
-def test_listar_vem_ordenado_por_nome(alunos: PostgresAlunoRepository) -> None:
-    alunos.cadastrar("2", "Bruno", None)
-    alunos.cadastrar("1", "Ana", None)
-
-    assert [a.nome for a in alunos.listar()] == ["Ana", "Bruno"]
-
-
-def test_listar_sem_alunos_devolve_lista_vazia(
+def test_embedding_faz_round_trip_pelo_bytea(
     alunos: PostgresAlunoRepository,
 ) -> None:
-    assert alunos.listar() == []
+    """Os floats que saem do banco tem de ser os mesmos que entraram."""
+    original = FaceEmbedding.de_valores(np.random.rand(512), MODELO)
+    alunos.cadastrar("42", "Maria", "42.jpg", original)
+
+    (_, recuperado), = alunos.listar_referencias(MODELO)
+
+    assert recuperado.vetor.tolist() == pytest.approx(original.vetor.tolist())
+    assert recuperado.modelo == MODELO
+    assert recuperado.dimensao == 512
 
 
-def test_aluno_sem_foto_vem_com_foto_arquivo_nulo(
+def test_aluno_sem_embedding_nao_entra_na_referencia(
     alunos: PostgresAlunoRepository,
 ) -> None:
-    alunos.cadastrar("42", "Maria", None)
-    assert alunos.listar()[0].foto_arquivo is None
+    alunos.cadastrar("42", "Maria", None, None)
+    assert alunos.listar_referencias(MODELO) == []
+
+
+def test_referencia_filtra_por_modelo(alunos: PostgresAlunoRepository) -> None:
+    """Vetores de outro modelo nao podem entrar na comparacao."""
+    alunos.cadastrar(
+        "1", "Ana", None, FaceEmbedding.de_valores([1.0, 0.0], "Facenet512")
+    )
+    alunos.cadastrar(
+        "2", "Bruno", None, FaceEmbedding.de_valores([1.0, 0.0], "ArcFace")
+    )
+
+    referencias = alunos.listar_referencias("Facenet512")
+
+    assert [aluno.nome for aluno, _ in referencias] == ["Ana"]
+
+
+def test_embedding_incompleto_e_rejeitado_pelo_banco(banco_limpo: Engine) -> None:
+    """O CHECK impede vetor sem o modelo que o gerou."""
+    with pytest.raises(IntegrityError):
+        with banco_limpo.begin() as conexao:
+            conexao.execute(
+                text(
+                    "INSERT INTO alunos (matricula, nome, embedding)"
+                    " VALUES ('99', 'Incompleto', :vetor)"
+                ),
+                {"vetor": (1).to_bytes(4, "little")},
+            )
+
+
+def test_embedding_de_dimensao_zero_e_rejeitado(banco_limpo: Engine) -> None:
+    with pytest.raises(IntegrityError):
+        with banco_limpo.begin() as conexao:
+            conexao.execute(
+                text(
+                    "INSERT INTO alunos"
+                    " (matricula, nome, embedding, embedding_modelo, embedding_dim)"
+                    " VALUES ('98', 'Dim zero', :vetor, 'Facenet512', 0)"
+                ),
+                {"vetor": (1).to_bytes(4, "little")},
+            )
 
 
 def test_entidade_devolvida_nao_carrega_sqlalchemy(
     alunos: PostgresAlunoRepository,
 ) -> None:
     """A fronteira devolve dataclass pura, nao objeto de sessao."""
-    aluno = alunos.cadastrar("42", "Maria", None)
+    aluno = alunos.cadastrar("42", "Maria", None, None)
     assert type(aluno).__module__.startswith("src.domain")
 
 
@@ -99,7 +146,7 @@ def test_entidade_devolvida_nao_carrega_sqlalchemy(
 def test_primeira_presenca_do_dia_e_inserida(
     alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
 ) -> None:
-    aluno = alunos.cadastrar("42", "Maria", None)
+    aluno = alunos.cadastrar("42", "Maria", None, None)
     momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
 
     assert presencas.registrar_se_ausente(aluno.id, momento.date(), momento) is True
@@ -111,7 +158,7 @@ def test_segunda_presenca_no_mesmo_dia_devolve_false(
     banco_limpo: Engine,
 ) -> None:
     """A constraint do banco resolve, sem SELECT previo e sem corrida."""
-    aluno = alunos.cadastrar("42", "Maria", None)
+    aluno = alunos.cadastrar("42", "Maria", None, None)
     momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
 
     assert presencas.registrar_se_ausente(aluno.id, momento.date(), momento) is True
@@ -130,7 +177,7 @@ def test_segunda_presenca_no_mesmo_dia_devolve_false(
 def test_dias_diferentes_geram_duas_presencas(
     alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
 ) -> None:
-    aluno = alunos.cadastrar("42", "Maria", None)
+    aluno = alunos.cadastrar("42", "Maria", None, None)
 
     for dia in (dt.date(2026, 3, 10), dt.date(2026, 3, 11)):
         momento = dt.datetime.combine(dia, dt.time(8, 0), tzinfo=TZ)
@@ -140,8 +187,8 @@ def test_dias_diferentes_geram_duas_presencas(
 def test_alunos_diferentes_no_mesmo_dia_nao_se_bloqueiam(
     alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
 ) -> None:
-    ana = alunos.cadastrar("1", "Ana", None)
-    bruno = alunos.cadastrar("2", "Bruno", None)
+    ana = alunos.cadastrar("1", "Ana", None, None)
+    bruno = alunos.cadastrar("2", "Bruno", None, None)
     dia = dt.date(2026, 3, 10)
     momento = dt.datetime.combine(dia, dt.time(8, 0), tzinfo=TZ)
 
@@ -154,7 +201,7 @@ def test_instante_gravado_preserva_o_fuso(
     presencas: PostgresPresencaRepository,
     banco_limpo: Engine,
 ) -> None:
-    aluno = alunos.cadastrar("42", "Maria", None)
+    aluno = alunos.cadastrar("42", "Maria", None, None)
     momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
     presencas.registrar_se_ausente(aluno.id, momento.date(), momento)
 
