@@ -18,3 +18,11 @@ class PresencaRepository(Protocol):
         do prototipo (problema A4).
         """
         ...
+
+    def expurgar_anteriores_a(self, dia: dt.date) -> int:
+        """Apaga presencas com data anterior ao limite e devolve a contagem.
+
+        Dado pessoal nao deve ser guardado por mais tempo do que a
+        finalidade exige (LGPD art. 15/16).
+        """
+        ...

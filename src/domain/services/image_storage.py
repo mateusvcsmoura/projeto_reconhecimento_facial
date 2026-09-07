@@ -18,6 +18,10 @@ class ImageStorage(Protocol):
 
     def existe(self, nome_arquivo: str) -> bool: ...
 
+    def remover(self, nome_arquivo: str) -> None:
+        """Apaga a imagem. Silencioso se o arquivo ja nao existir."""
+        ...
+
     def caminho_absoluto(self, nome_arquivo: str) -> str:
         """Caminho no disco -- so para quem precisa ler o arquivo de fato."""
         ...

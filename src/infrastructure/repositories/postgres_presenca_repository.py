@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.infrastructure.database import models
@@ -37,3 +37,13 @@ class PostgresPresencaRepository:
 
         logger.info("Presenca registrada (aluno_id=%s)", aluno_id)
         return True
+
+    def expurgar_anteriores_a(self, dia: dt.date) -> int:
+        comando = delete(models.Presenca).where(
+            models.Presenca.data_referencia < dia
+        )
+        with sessao(self._engine) as session:
+            removidas = session.execute(comando).rowcount
+
+        logger.info("Expurgo de presencas anteriores a %s: %s linhas", dia, removidas)
+        return int(removidas)

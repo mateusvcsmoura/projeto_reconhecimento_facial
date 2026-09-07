@@ -39,5 +39,10 @@ class LocalImageStorage:
     def existe(self, nome_arquivo: str) -> bool:
         return self._caminho(nome_arquivo).is_file()
 
+    def remover(self, nome_arquivo: str) -> None:
+        self._caminho(nome_arquivo).unlink(missing_ok=True)
+        # Sem o nome do arquivo no log: ele e a matricula do aluno.
+        logger.info("Imagem de referencia removida do disco")
+
     def caminho_absoluto(self, nome_arquivo: str) -> str:
         return str(self._caminho(nome_arquivo).resolve())
