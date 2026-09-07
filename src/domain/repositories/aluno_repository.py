@@ -23,6 +23,10 @@ class AlunoRepository(Protocol):
 
     def obter_por_matricula(self, matricula: str) -> Aluno | None: ...
 
+    def listar(self) -> list[Aluno]:
+        """Todos os alunos, ordenados por nome, para exibicao."""
+        ...
+
     def cadastrar(
         self,
         matricula: str,

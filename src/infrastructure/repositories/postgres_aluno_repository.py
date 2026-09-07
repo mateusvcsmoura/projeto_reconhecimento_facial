@@ -49,6 +49,13 @@ class PostgresAlunoRepository:
             )
             return _para_entidade(linha) if linha is not None else None
 
+    def listar(self) -> list[Aluno]:
+        with sessao(self._engine) as session:
+            linhas = session.scalars(
+                select(models.Aluno).order_by(models.Aluno.nome)
+            ).all()
+            return [_para_entidade(linha) for linha in linhas]
+
     def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
         with sessao(self._engine) as session:
             linhas = session.scalars(

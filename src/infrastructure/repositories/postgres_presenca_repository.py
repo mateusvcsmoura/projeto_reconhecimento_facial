@@ -6,9 +6,10 @@ import datetime as dt
 import logging
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, Engine, delete
+from sqlalchemy import CursorResult, Engine, delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from src.domain.repositories.presenca_repository import PresencaRegistrada
 from src.infrastructure.database import models
 from src.infrastructure.database.engine import sessao
 
@@ -18,6 +19,21 @@ logger = logging.getLogger(__name__)
 class PostgresPresencaRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
+
+    def listar_do_dia(self, dia: dt.date) -> list[PresencaRegistrada]:
+        consulta = (
+            select(
+                models.Aluno.id,
+                models.Aluno.matricula,
+                models.Aluno.nome,
+                models.Presenca.registrado_em,
+            )
+            .join(models.Presenca, models.Presenca.aluno_id == models.Aluno.id)
+            .where(models.Presenca.data_referencia == dia)
+            .order_by(models.Presenca.registrado_em)
+        )
+        with sessao(self._engine) as session:
+            return [PresencaRegistrada(*linha) for linha in session.execute(consulta)]
 
     def registrar_se_ausente(
         self, aluno_id: int, dia: dt.date, momento: dt.datetime
