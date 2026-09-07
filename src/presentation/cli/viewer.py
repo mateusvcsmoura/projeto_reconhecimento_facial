@@ -17,10 +17,18 @@ _FONTE = cv2.FONT_HERSHEY_SIMPLEX
 class JanelaDeVideo:
     """Context manager: a janela e sempre fechada, inclusive em excecao."""
 
-    def __init__(self, titulo: str) -> None:
+    def __init__(self, titulo: str, largura: int = 960, altura: int = 540) -> None:
         self._titulo = titulo
+        self._largura = largura
+        self._altura = altura
 
     def __enter__(self) -> JanelaDeVideo:
+        # WINDOW_NORMAL torna a janela redimensionavel E faz a imagem
+        # acompanhar o redimensionamento. Com o padrao (WINDOW_AUTOSIZE),
+        # maximizar a janela so aumenta a moldura: o video continua no
+        # tamanho nativo, encolhido num canto.
+        cv2.namedWindow(self._titulo, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self._titulo, self._largura, self._altura)
         return self
 
     def __exit__(
