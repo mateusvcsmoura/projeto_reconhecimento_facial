@@ -14,19 +14,24 @@ from types import TracebackType
 from typing import Any, Protocol
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
-from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
+from src.application.use_cases.reconhecer_aluno import (
+    Reconhecimento,
+    ReconhecerAluno,
+)
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.errors import ErroDeDominio, FalhaNaLeituraDaCamera
 from src.domain.services.camera_provider import CameraProvider
+from src.domain.services.matcher import MatrizDeReferencia
 from src.presentation.cli import prompts
 from src.presentation.cli.mensagens import para_operador
 from src.presentation.cli.teclas import BRANCO, ENTER, ESC, ESPACO, VERDE, VERMELHO
 
 logger = logging.getLogger(__name__)
 
-# Compara a cada N frames, para nao travar o video a cada quadro.
-# Valor herdado do prototipo; a Fase 5 elimina a necessidade dele.
+# Compara a cada N frames. Com o embedding persistido o custo por ciclo
+# caiu de ate 2N inferencias para uma, mas essa uma ainda e cara o bastante
+# para nao caber em todo quadro.
 INTERVALO_DE_COMPARACAO = 8
 
 Linha = tuple[str, tuple[int, int, int]]
@@ -154,20 +159,22 @@ class MenuCLI:
     # -- reconhecimento ---------------------------------------------------
 
     def reconhecer(self) -> None:
-        candidatos = self._reconhecer_aluno.candidatos()
-        if not candidatos:
-            self._escrever("Nenhum aluno com foto de referencia disponivel.")
+        # Recarrega a cada entrada no modo: cadastros feitos depois da ultima
+        # visita passam a valer imediatamente (problema A15).
+        referencias = self._reconhecer_aluno.carregar_referencias()
+        if len(referencias) == 0:
+            self._escrever("Nenhum aluno com embedding cadastrado.")
             return
 
         self._escrever("\n=== RECONHECIMENTO FACIAL ===")
         self._escrever("Olhe para a camera.")
         self._escrever("ENTER registra a presenca | ESC sai.")
 
-        self._laco_de_reconhecimento(candidatos)
+        self._laco_de_reconhecimento(referencias)
 
-    def _laco_de_reconhecimento(self, candidatos: list[Aluno]) -> None:
+    def _laco_de_reconhecimento(self, referencias: MatrizDeReferencia) -> None:
         rodape: Linha = ("ENTER = registrar | ESC = sair", BRANCO)
-        reconhecido: Aluno | None = None
+        reconhecido: Reconhecimento | None = None
         situacao = "Procurando..."
         contador = 0
 
@@ -185,9 +192,14 @@ class MenuCLI:
 
                 contador += 1
                 if contador % INTERVALO_DE_COMPARACAO == 0:
-                    reconhecido = self._reconhecer_aluno.identificar(frame, candidatos)
+                    reconhecido = self._reconhecer_aluno.identificar(
+                        frame, referencias
+                    )
                     situacao = (
-                        f"Reconhecido: {reconhecido.nome}"
+                        # A distancia agora existe e e informacao util para o
+                        # operador -- o prototipo descartava esse numero.
+                        f"{reconhecido.aluno.nome} "
+                        f"(dist {reconhecido.distancia:.3f})"
                         if reconhecido
                         else "Rosto nao reconhecido"
                     )
@@ -198,7 +210,7 @@ class MenuCLI:
                 if tecla == ESC:
                     return
                 if tecla == ENTER and reconhecido is not None:
-                    self._registrar(reconhecido)
+                    self._registrar(reconhecido.aluno)
 
     def _registrar(self, aluno: Aluno) -> None:
         if self._registrar_presenca.executar(aluno.id):
