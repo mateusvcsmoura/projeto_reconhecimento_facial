@@ -1,6 +1,6 @@
 """Fase 5 -- traducao de falhas do DeepFace em erros de dominio.
 
-O DeepFace nao esta instalado neste ambiente (exige Python 3.10/3.11), mas a
+O DeepFace nao esta instalado neste ambiente (exige Python 3.12/3.13), mas a
 logica que importa aqui nao e a da biblioteca: e a do adaptador. Um modulo
 duble e injetado em sys.modules antes do import, o que permite exercitar
 cada caminho de erro -- justamente o que o `except Exception: continue` do

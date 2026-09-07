@@ -456,7 +456,7 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 **Critério de conclusão** Uma única inferência por ciclo de comparação, medida; benchmark registrado no `ARCHITECTURE.md`; decisão idêntica à do baseline no conjunto de validação.
 
-**Verificado na execução:** uma inferência por ciclo, provada por teste que conta as chamadas ao modelo com N=50 · benchmark real em `scripts/benchmark_matcher.py` (200 alunos: 0,0142 ms de comparação) · comparação vetorizada conferida contra o cálculo ingênuo sobre 50 vetores de 512 dimensões · 122 testes passando. **Pendente:** a comparação com `DeepFace.verify()` sobre imagens reais exige um ambiente Python 3.10/3.11 — ver *Limitações* no README.
+**Verificado na execução:** uma inferência por ciclo, provada por teste que conta as chamadas ao modelo com N=50 · benchmark real em `scripts/benchmark_matcher.py` (200 alunos: 0,0142 ms de comparação) · comparação vetorizada conferida contra o cálculo ingênuo sobre 50 vetores de 512 dimensões · 122 testes passando. **Pendente:** a comparação com `DeepFace.verify()` sobre imagens reais exige um ambiente Python 3.12/3.13 — ver *Limitações* no README.
 
 ---
 
@@ -464,7 +464,7 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 > **Executada em 2026-09-07.** Fecha **A7**, o último problema 🔴 do baseline. Entregues os seis itens (33–38): anti-spoofing nos dois caminhos, migration `0003` com `consentimento_em`, caso de uso `ExcluirAluno`, política de retenção com comando de expurgo, usuário PostgreSQL sem DDL (verificado no container) e auditoria de logs coberta por teste. Política de dados em [`docs/lgpd.md`](docs/lgpd.md).
 >
-> **Pendente, declarado:** a eficácia do anti-spoofing contra foto impressa e tela **não foi medida** — exige um ambiente Python 3.10/3.11 com o DeepFace instalado. A verificação está implementada e testada em nível de software; o que falta é a validação do modelo.
+> **Pendente, declarado:** a eficácia do anti-spoofing contra foto impressa e tela **não foi medida** — exige um ambiente Python 3.12/3.13 com o DeepFace instalado. A verificação está implementada e testada em nível de software; o que falta é a validação do modelo.
 
 **Objetivo** Tratar biometria como dado sensível de fato, não por declaração.
 
@@ -490,7 +490,7 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 >
 > **Bug encontrado pela cobertura:** o relatório apontou `_colher_consentimento` como código morto — o método existia, mas a CLI **nunca o chamava**, e passava `consentiu=True` fixo. O controle central da Fase 6 estava inoperante em produção, e o relatório daquela fase afirmou o contrário. Corrigido aqui, com dois testes que travam a regressão.
 >
-> **Pendente, declarado:** a calibração do `FACE_THRESHOLD` com dados reais exige um ambiente Python 3.10/3.11 e um conjunto de imagens. O script está pronto e a matemática das métricas é coberta por 16 testes; falta rodar a medição.
+> **Pendente, declarado:** a calibração do `FACE_THRESHOLD` com dados reais exige um ambiente Python 3.12/3.13 e um conjunto de imagens. O script está pronto e a matemática das métricas é coberta por 16 testes; falta rodar a medição.
 
 **Objetivo** Rede de segurança permanente (A9).
 

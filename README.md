@@ -2,7 +2,11 @@
 
 ## Instalação
 
-Recomendado: Python 3.10 ou 3.11 em ambiente virtual.
+Requer **Python 3.12 ou 3.13** em ambiente virtual.
+
+A faixa e estreita porque duas dependencias a apertam pelos dois lados:
+o TensorFlow (via DeepFace) publica wheels ate 3.13, e o `numpy==2.5.3`
+so tem wheels a partir de 3.12.
 
 ### Windows
 
@@ -183,7 +187,7 @@ python -m scripts.evaluate_model --dataset ./avaliacao/lfw-subset
 ```
 
 Reporta FAR, FRR, EER, AUC e sugere um limiar por teto de FAR. Requer Python
-3.10/3.11 com DeepFace. **Nunca versione o conjunto de imagens.**
+3.12/3.13 com DeepFace. **Nunca versione o conjunto de imagens.**
 
 A matemática das métricas vive em `scripts/metricas.py` e é coberta por 16
 testes que rodam sem o modelo — um erro de cálculo ali levaria a calibrar o
