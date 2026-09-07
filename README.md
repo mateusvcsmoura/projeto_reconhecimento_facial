@@ -147,8 +147,11 @@ Invariantes verificadas por `grep` e pela suíte:
 - nenhum `sqlite3` e nenhum `CREATE TABLE` na aplicação;
 - `print()` só existe na camada de apresentação — diagnóstico usa `logging`.
 
-O SQLite deixou de ser usado pela aplicação. `escola.db` permanece no disco
-apenas como origem do ETL.
+O SQLite deixou de ser usado pela aplicação, e o `escola.db` legado foi
+apagado — do disco e do histórico do Git (ver
+[`docs/adr/ADR-003-limpeza-do-historico.md`](docs/adr/ADR-003-limpeza-do-historico.md)).
+O script de ETL continua no projeto e funciona com qualquer `escola.db` que
+venha a ser fornecido pelo caminho `--sqlite`.
 
 ## Reconhecimento por embeddings (Fase 4/5)
 
@@ -186,7 +189,17 @@ fase, a partir das imagens já armazenadas.
 
 ## Dados sensíveis
 
-`escola.db`, `fotos/`, `storage/` e `.env` estão no `.gitignore` e não devem
-ser versionados. O `escola.db` foi removido do índice do Git, mas **ainda
-existe no histórico** — a limpeza do histórico depende de decisão explícita
-do responsável (ver `REFACTORING_PLAN.md` §10).
+`*.db`, `/fotos/`, `/storage/` e `.env` estão no `.gitignore` e não devem ser
+versionados.
+
+O `escola.db` legado — que continha o nome real de uma pessoa ligado a 39
+registros de presença — foi **removido de todo o histórico do Git** com
+`git filter-repo`, e apagado do disco. Decisão, alternativas e risco
+residual em
+[`docs/adr/ADR-003-limpeza-do-historico.md`](docs/adr/ADR-003-limpeza-do-historico.md).
+
+Verificação:
+
+```bash
+git rev-list --all --objects | grep escola.db   # não deve retornar nada
+```

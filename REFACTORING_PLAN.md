@@ -156,7 +156,7 @@ Prioridade: 🔴 alta (bloqueia uso ou expõe dado) · 🟡 média (dívida estr
 
 | ID | Problema | Impacto | Evidência | Risco se não tratado | Prio |
 |---|---|---|---|---|---|
-| **A1** | Dado biométrico e nome real versionados no Git | Exposição irreversível de dado sensível (LGPD art. 11) | `git ls-files` lista `escola.db`; tabela `alunos` com nome real | Vazamento permanente no histórico; biometria não se "troca como senha" | 🔴 |
+| **A1** | ~~Dado pessoal versionado no Git~~ **RESOLVIDO** | Nome real de pessoa + 39 registros de presença, recuperáveis do histórico | `git ls-files` lista `escola.db`; tabela `alunos` com nome real | — | ✅ |
 | **A2** | Schema é código executado no boot, sem versionamento | Ambientes divergem silenciosamente | `preparar_banco()` declara `NOT NULL`; `escola.db` não os tem (`P1`) | Toda futura alteração de schema tem o mesmo destino; ambiente irreprodutível | 🔴 |
 | **A3** | Timestamp como TEXT livre; regra de negócio quebrada nos dados legados | A funcionalidade central (1 presença/dia) falha em silêncio | 39/39 linhas com `date(data_hora) IS NULL` (`P2`) | Registro oficial de presença incorreto e não detectável | 🔴 |
 | **A4** | Dedup por `SELECT`-depois-`INSERT`, sem constraint | Condição de corrida; regra não garantida pelo banco | `cadastro.py:185-205` | Presenças duplicadas sob concorrência ou reentrada rápida | 🔴 |
@@ -817,16 +817,23 @@ Escopo real: um sistema local, monousuário, com dado biométrico. As medidas ab
 | **Anti-spoofing** | `anti_spoofing` habilitado; frame não real é recusado com erro próprio | 6 |
 | **Documentação** | `docs/lgpd.md`: quais dados, por que, por quanto tempo, como excluir | 9 |
 
-### Ponto que exige decisão do responsável pelo projeto
+### ~~Ponto que exige decisão do responsável~~ — RESOLVIDO em 2026-09-07
 
-`escola.db` está **commitado** em `08116cf` com o nome real de uma pessoa vinculado a registros biométricos. Remover o arquivo em um novo commit **não** o remove do histórico do Git — ele continua recuperável em qualquer clone.
+`escola.db` foi removido de **todo** o histórico do Git com `git filter-repo`
+(opção 1, a recomendada), preservando as mensagens, a autoria e a estrutura
+dos 33 commits. O arquivo também foi apagado do disco.
 
-Há dois caminhos, e a escolha é do responsável:
+Uma correção de avaliação, apurada na execução: o blob continha **dado
+pessoal**, não dado biométrico — um nome real, 39 registros de presença e um
+caminho de arquivo. Nenhuma imagem facial e nenhum embedding jamais foram
+versionados (`fotos/` estava vazia no commit inicial, e a coluna de embedding
+sequer existia). O repositório também é privado. Os textos anteriores deste
+plano descreviam o problema como "dados biométricos no histórico", o que
+superestimava a gravidade.
 
-1. **Reescrever o histórico** (`git filter-repo`) e forçar o push. Elimina o arquivo, mas **reescreve todos os hashes de commit** — é irreversível e quebra clones existentes. Como o repositório tem um único commit e (aparentemente) nenhum colaborador, o custo aqui é baixo.
-2. **Recomeçar o histórico**: novo commit inicial sem o arquivo. Mais simples, mesmo efeito, perde o histórico anterior — que hoje tem exatamente um commit.
-
-**Recomendação:** opção 1, executada como primeiro passo da Fase 1, **após confirmação explícita** e após criar a tag de backup local. Enquanto isso não acontecer, o repositório não deve ser publicado.
+Decisão, alternativas descartadas, verificação e **risco residual** (as refs
+de Pull Request que o GitHub retém) em
+[`docs/adr/ADR-003-limpeza-do-historico.md`](docs/adr/ADR-003-limpeza-do-historico.md).
 
 ---
 

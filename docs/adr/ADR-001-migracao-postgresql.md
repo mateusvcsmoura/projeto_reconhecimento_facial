@@ -102,12 +102,11 @@ metadata do segundo: adotar um sem o outro custaria mais.
 
 ## Consequências
 
-- `cadastro.py` **ainda usa SQLite** ao fim desta fase. A troca da camada de
-  aplicação é o primeiro item da Fase 2 — ver "Estratégia de transição" no
-  README.
-- Enquanto as duas persistências coexistirem, execuções do protótipo gravam
-  em `escola.db` e não no PostgreSQL. O ETL é idempotente e pode ser
-  reexecutado para sincronizar.
-- `escola.db` foi removido do versionamento (`git rm --cached`), mas
-  **continua presente no histórico do Git**. A limpeza do histórico exige
-  decisão explícita do responsável — ver `REFACTORING_PLAN.md` §10.
+- `cadastro.py` ainda usava SQLite ao fim desta fase. *(Resolvido na Fase 2:
+  o protótipo foi removido e a aplicação passou a usar exclusivamente
+  PostgreSQL.)*
+- `escola.db` foi removido do versionamento (`git rm --cached`) e,
+  posteriormente, de todo o histórico do Git — ver
+  [`ADR-003`](ADR-003-limpeza-do-historico.md). O arquivo não existe mais
+  no disco nem no repositório; o script de ETL permanece, aplicável a
+  qualquer banco legado fornecido por `--sqlite`.
