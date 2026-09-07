@@ -32,6 +32,9 @@ class FakeAlunoRepository:
     def existe_matricula(self, matricula: str) -> bool:
         return any(a.matricula == matricula for a in self.alunos)
 
+    def listar(self) -> list[Aluno]:
+        return sorted(self.alunos, key=lambda a: a.nome)
+
     def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
         return [
             (aluno, self.embeddings[aluno.id])
@@ -79,6 +82,24 @@ class FakePresencaRepository:
         self.registros: set[tuple[int, dt.date]] = set()
         self.chamadas: list[tuple[int, dt.date, dt.datetime]] = []
 
+    def listar_do_dia(self, dia: dt.date) -> list[Any]:
+        from src.domain.repositories.presenca_repository import (
+            PresencaRegistrada,
+        )
+
+        return [
+            PresencaRegistrada(
+                aluno_id=aluno_id,
+                matricula=str(aluno_id),
+                nome=f"Aluno {aluno_id}",
+                registrado_em=dt.datetime.combine(
+                    d, dt.time(8, 0), tzinfo=dt.UTC
+                ),
+            )
+            for aluno_id, d in sorted(self.registros)
+            if d == dia
+        ]
+
     def expurgar_anteriores_a(self, dia: dt.date) -> int:
         antes = len(self.registros)
         self.registros = {(a, d) for a, d in self.registros if d >= dia}
@@ -118,6 +139,10 @@ class FakeFaceRecognition:
         self.erro_ao_extrair = erro_ao_extrair
         self.erro_ao_gerar = erro_ao_gerar
         self.inferencias = 0
+        self.preaquecido = False
+
+    def preaquecer(self) -> None:
+        self.preaquecido = True
 
     def extrair_face_unica(self, imagem: Any) -> Any:
         if self.erro_ao_extrair is not None:
