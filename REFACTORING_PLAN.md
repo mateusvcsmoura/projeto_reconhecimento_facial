@@ -510,6 +510,12 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 8 — Interface
 
+> **Executada em 2026-09-07.** 271 testes (eram 216), cobertura 91%, `ruff` e `mypy` limpos. Entregues: listagem de alunos com sinalização de quem está *sem embedding* (e portanto invisível ao reconhecimento), relatório de presenças do dia com horário de chegada, mensagens de erro que dizem **o que fazer**, overlay com confiança em porcentagem em vez da distância crua, e pré-aquecimento do modelo antes de abrir a câmera.
+>
+> **Item do plano já entregue antes:** a exclusão de aluno saiu na Fase 6, por ser exigência de LGPD e não de usabilidade.
+>
+> **Decisão registrada:** a "confiança" exibida **não é probabilidade** — é uma leitura linear da distância em relação ao limiar. Está documentado no próprio módulo e no README. Convertê-la em probabilidade calibrada depende da avaliação com dados reais, ainda pendente.
+
 **Objetivo** Usabilidade e operação.
 
 **Alterações** Menu com listar alunos, listar/exportar presenças do dia e excluir aluno; mensagens de erro acionáveis (distinguindo "sem rosto", "modelo indisponível", "spoof detectado"); overlay com nome, confiança e estado; feedback de progresso no primeiro download dos pesos.
@@ -521,6 +527,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** Unitários de formatação e roteiro manual de aceitação.
 
 **Critério de conclusão** Roteiro de demonstração acadêmica executável do início ao fim sem intervenção no código.
+
+**Verificado na execução:** o menu cobre cadastrar, reconhecer, listar, consultar presenças e excluir, sem exigir SQL nem edição de código · um teste garante que **todo** erro de domínio tem mensagem própria ao operador, e outro varre as subclasses para impedir que um erro novo passe sem mensagem · o overlay não expõe mais a distância crua · listagem e presenças cobertas por testes unitários e de integração.
 
 ---
 

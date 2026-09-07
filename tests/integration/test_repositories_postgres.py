@@ -223,3 +223,60 @@ def test_instante_gravado_preserva_o_fuso(
         ).scalar_one()
 
     assert gravado == momento
+
+
+# -- listagens para a interface (Fase 8) -----------------------------------
+
+
+def test_listar_vem_ordenado_por_nome(alunos: PostgresAlunoRepository) -> None:
+    alunos.cadastrar("2", "Bruno", None, None, CONSENTIMENTO)
+    alunos.cadastrar("1", "Ana", None, None, CONSENTIMENTO)
+
+    assert [a.nome for a in alunos.listar()] == ["Ana", "Bruno"]
+
+
+def test_listar_sem_alunos_devolve_lista_vazia(
+    alunos: PostgresAlunoRepository,
+) -> None:
+    assert alunos.listar() == []
+
+
+def test_presencas_do_dia_trazem_o_aluno_resolvido(
+    alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
+) -> None:
+    aluno = alunos.cadastrar("42", "Maria Silva", None, None, CONSENTIMENTO)
+    presencas.registrar_se_ausente(aluno.id, CONSENTIMENTO.date(), CONSENTIMENTO)
+
+    registros = presencas.listar_do_dia(CONSENTIMENTO.date())
+
+    assert len(registros) == 1
+    assert registros[0].nome == "Maria Silva"
+    assert registros[0].matricula == "42"
+    assert registros[0].registrado_em == CONSENTIMENTO
+
+
+def test_presencas_do_dia_ignoram_outros_dias(
+    alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
+) -> None:
+    aluno = alunos.cadastrar("42", "Maria", None, None, CONSENTIMENTO)
+    ontem = CONSENTIMENTO - dt.timedelta(days=1)
+    presencas.registrar_se_ausente(aluno.id, ontem.date(), ontem)
+
+    assert presencas.listar_do_dia(CONSENTIMENTO.date()) == []
+    assert len(presencas.listar_do_dia(ontem.date())) == 1
+
+
+def test_presencas_do_dia_vem_ordenadas_por_chegada(
+    alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
+) -> None:
+    tarde = alunos.cadastrar("2", "Chegou depois", None, None, CONSENTIMENTO)
+    cedo = alunos.cadastrar("1", "Chegou antes", None, None, CONSENTIMENTO)
+
+    momento_tarde = CONSENTIMENTO.replace(hour=9)
+    momento_cedo = CONSENTIMENTO.replace(hour=7)
+    presencas.registrar_se_ausente(tarde.id, CONSENTIMENTO.date(), momento_tarde)
+    presencas.registrar_se_ausente(cedo.id, CONSENTIMENTO.date(), momento_cedo)
+
+    nomes = [r.nome for r in presencas.listar_do_dia(CONSENTIMENTO.date())]
+
+    assert nomes == ["Chegou antes", "Chegou depois"]

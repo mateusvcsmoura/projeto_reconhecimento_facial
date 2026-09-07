@@ -104,6 +104,13 @@ class DeepFaceAdapter:
 
         return face
 
+    def preaquecer(self) -> None:
+        """Forca a carga do modelo agora, e nao no meio do fluxo de camera."""
+        try:
+            DeepFace.build_model(self._modelo)
+        except Exception as exc:
+            raise _traduzir(exc, "carregar o modelo") from exc
+
     def extrair_face_unica(self, imagem: Any) -> Any:
         face = self._detectar_rosto_unico(imagem)
         # O prototipo descartava este recorte e gravava o frame inteiro
