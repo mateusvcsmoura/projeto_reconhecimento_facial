@@ -111,8 +111,14 @@ Declarados por honestidade, não resolvidos:
 - **Sem autenticação de operador.** Qualquer pessoa com acesso ao terminal
   pode cadastrar, reconhecer e excluir. O sistema é monousuário e local.
 - **Sem trilha de auditoria.** Não há registro de *quem* excluiu um aluno.
-- **Anti-spoofing não foi validado contra ataques reais.** A verificação está
-  implementada e testada em nível de software; a eficácia do modelo do
-  DeepFace contra foto impressa e tela **não** foi medida neste ambiente.
+- **O anti-spoofing produz falso positivo.** Verificado em 2026-09-07, em
+  webcam comum com janela iluminada ao fundo: o modelo MiniFASNet recusou
+  uma pessoa **ao vivo** três vezes seguidas, com 86% a 96% de confiança de
+  que era uma apresentação. A verificação funciona — o modelo é que erra
+  nessas condições. Mitigações no README (iluminação, resolução); em último
+  caso, `FACE_ANTI_SPOOFING=false`, ao custo de perder a proteção do A7.
+- **A eficácia contra ataques reais não foi medida.** Saber que o modelo
+  recusa pessoas de verdade não diz quanto ele acerta contra foto impressa.
+  Medir isso exige um protocolo próprio, com pares genuínos e de ataque.
 - **Limiar não calibrado.** `FACE_THRESHOLD` é herança da biblioteca. A
   Fase 7 o calibra com FAR/FRR sobre dados reais.
