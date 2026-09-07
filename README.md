@@ -150,6 +150,40 @@ Invariantes verificadas por `grep` e pela suíte:
 O SQLite deixou de ser usado pela aplicação. `escola.db` permanece no disco
 apenas como origem do ETL.
 
+## Reconhecimento por embeddings (Fase 4/5)
+
+Decisão e medições em
+[`docs/adr/ADR-002-armazenamento-de-embeddings.md`](docs/adr/ADR-002-armazenamento-de-embeddings.md).
+
+O embedding facial é calculado **uma vez, no cadastro**, e gravado em
+`alunos.embedding` (`BYTEA`, float32 little-endian, L2-normalizado). No
+reconhecimento, o sistema faz **uma** inferência por ciclo e compara o vetor
+contra todos os cadastrados com um produto matriz-vetor.
+
+Antes: até `2N` inferências Facenet512 por ciclo, com N alunos.
+Agora: uma, independente de N.
+
+```bash
+# custo real da comparação, por número de alunos
+python -m scripts.benchmark_matcher
+```
+
+### Trocar de modelo
+
+`FACE_MODEL` e `FACE_THRESHOLD` vêm do `.env`. Vetores de modelos diferentes
+**não são comparáveis** — o modelo fica gravado junto do vetor, e uma
+divergência levanta erro em vez de identificar a pessoa errada em silêncio.
+
+Depois de mudar `FACE_MODEL`, recalcule os vetores:
+
+```bash
+python -m scripts.backfill_embeddings            # simula
+python -m scripts.backfill_embeddings --apply    # efetiva
+```
+
+O mesmo script preenche os embeddings de alunos cadastrados antes desta
+fase, a partir das imagens já armazenadas.
+
 ## Dados sensíveis
 
 `escola.db`, `fotos/`, `storage/` e `.env` estão no `.gitignore` e não devem
