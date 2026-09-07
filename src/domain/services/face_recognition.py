@@ -1,26 +1,34 @@
 """Contrato do mecanismo de reconhecimento facial.
 
-Nesta fase o contrato cobre exatamente o que o prototipo fazia: validar que
-ha um unico rosto na imagem, e comparar uma imagem com uma foto de
-referencia. A Fase 4 substitui a comparacao imagem-a-imagem por embeddings.
+O dominio fala em "extrair um rosto" e "gerar um embedding". Nao fala em
+DeepFace, em Facenet512 nem em backend de deteccao -- trocar o modelo nao
+deve alcancar os casos de uso.
 
-O ponto ja garantido aqui: a orquestracao nao importa `deepface`.
+A comparacao NAO faz parte deste contrato: ela e aritmetica sobre vetores e
+vive em `domain/services/matcher.py`, onde e testavel sem modelo de IA.
 """
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
+from src.domain.entities.face_embedding import FaceEmbedding
+
 
 class FaceRecognition(Protocol):
-    def validar_rosto_unico(self, imagem: Any) -> None:
-        """Levanta NenhumRostoDetectado ou MultiplosRostosDetectados."""
+    def extrair_face_unica(self, imagem: Any) -> Any:
+        """Detecta, alinha e recorta o unico rosto da imagem.
+
+        Devolve o recorte pronto para gravacao. Levanta
+        NenhumRostoDetectado, MultiplosRostosDetectados ou
+        ModeloIndisponivel.
+        """
         ...
 
-    def sao_a_mesma_pessoa(self, imagem: Any, caminho_referencia: str) -> bool:
-        """Compara a imagem com a foto de referencia.
+    def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+        """Uma inferencia: detecta, alinha e devolve o vetor normalizado.
 
-        Levanta NenhumRostoDetectado quando nao ha rosto na imagem, e
-        ModeloIndisponivel quando a falha e de infraestrutura de ML.
+        Levanta NenhumRostoDetectado, MultiplosRostosDetectados ou
+        ModeloIndisponivel.
         """
         ...
