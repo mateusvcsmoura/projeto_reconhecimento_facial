@@ -82,3 +82,34 @@ def test_todo_erro_de_dominio_com_orientacao_esta_mapeado() -> None:
     faltando = todos - mapeados - sem_orientacao
 
     assert not faltando, f"erros sem mensagem ao operador: {faltando}"
+
+
+# -- causa original nas falhas de infraestrutura de ML ----------------------
+
+
+def test_modelo_indisponivel_mostra_a_causa_original() -> None:
+    """A orientacao generica sozinha nao diagnostica nada.
+
+    Caso real: o anti-spoofing exige torch, e sem ele TODO cadastro falha.
+    Sem a causa anexada, o operador le "verifique a instalacao do DeepFace"
+    e nunca descobre que falta um pacote diferente.
+    """
+    causa = "You must install torch to use face anti spoofing module"
+
+    mensagem = para_operador(errors.ModeloIndisponivel(causa))
+
+    assert "Modelo de reconhecimento indisponivel." in mensagem
+    assert causa in mensagem
+
+
+def test_outros_erros_nao_ganham_causa_anexada() -> None:
+    """So ModeloIndisponivel embrulha falha arbitraria de biblioteca."""
+    mensagem = para_operador(errors.NenhumRostoDetectado("detalhe interno"))
+
+    assert "Causa:" not in mensagem
+
+
+def test_modelo_indisponivel_sem_detalhe_nao_deixa_causa_vazia() -> None:
+    mensagem = para_operador(errors.ModeloIndisponivel(""))
+
+    assert "Causa:" not in mensagem
