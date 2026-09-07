@@ -15,21 +15,38 @@ from types import TracebackType
 from typing import Any
 
 from src.domain.entities.aluno import Aluno
+from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import AlunoJaCadastrado
 
 
 class FakeAlunoRepository:
-    def __init__(self, alunos: list[Aluno] | None = None) -> None:
+    def __init__(
+        self,
+        alunos: list[Aluno] | None = None,
+        embeddings: dict[int, FaceEmbedding] | None = None,
+    ) -> None:
         self.alunos = list(alunos or [])
+        self.embeddings = dict(embeddings or {})
         self._proximo_id = max((a.id for a in self.alunos), default=0) + 1
 
     def existe_matricula(self, matricula: str) -> bool:
         return any(a.matricula == matricula for a in self.alunos)
 
-    def listar(self) -> list[Aluno]:
-        return sorted(self.alunos, key=lambda a: a.nome)
+    def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
+        return [
+            (aluno, self.embeddings[aluno.id])
+            for aluno in self.alunos
+            if aluno.id in self.embeddings
+            and self.embeddings[aluno.id].modelo == modelo
+        ]
 
-    def cadastrar(self, matricula: str, nome: str, foto_arquivo: str | None) -> Aluno:
+    def cadastrar(
+        self,
+        matricula: str,
+        nome: str,
+        foto_arquivo: str | None,
+        embedding: FaceEmbedding | None,
+    ) -> Aluno:
         if self.existe_matricula(matricula):
             raise AlunoJaCadastrado(matricula)
         aluno = Aluno(
@@ -40,6 +57,8 @@ class FakeAlunoRepository:
         )
         self._proximo_id += 1
         self.alunos.append(aluno)
+        if embedding is not None:
+            self.embeddings[aluno.id] = embedding
         return aluno
 
 
@@ -62,31 +81,39 @@ class FakePresencaRepository:
 class FakeFaceRecognition:
     """Reconhecimento controlado pelo teste.
 
-    `erro_ao_validar` e `erro_ao_comparar` permitem exercitar cada falha
+    `erro_ao_extrair` e `erro_ao_gerar` permitem exercitar cada falha
     traduzida pelo adaptador real, sem ter o DeepFace instalado.
+
+    `inferencias` conta quantas vezes o modelo foi acionado -- e o numero
+    que prova que o custo por ciclo deixou de crescer com N (problema A5).
     """
 
     def __init__(
         self,
         *,
-        casa_com: str | None = None,
-        erro_ao_validar: Exception | None = None,
-        erro_ao_comparar: Exception | None = None,
+        embedding: FaceEmbedding | None = None,
+        face: Any = None,
+        erro_ao_extrair: Exception | None = None,
+        erro_ao_gerar: Exception | None = None,
     ) -> None:
-        self.casa_com = casa_com
-        self.erro_ao_validar = erro_ao_validar
-        self.erro_ao_comparar = erro_ao_comparar
-        self.comparacoes: list[str] = []
+        self.embedding = embedding
+        self.face = face if face is not None else object()
+        self.erro_ao_extrair = erro_ao_extrair
+        self.erro_ao_gerar = erro_ao_gerar
+        self.inferencias = 0
 
-    def validar_rosto_unico(self, imagem: Any) -> None:
-        if self.erro_ao_validar is not None:
-            raise self.erro_ao_validar
+    def extrair_face_unica(self, imagem: Any) -> Any:
+        if self.erro_ao_extrair is not None:
+            raise self.erro_ao_extrair
+        return self.face
 
-    def sao_a_mesma_pessoa(self, imagem: Any, caminho_referencia: str) -> bool:
-        self.comparacoes.append(caminho_referencia)
-        if self.erro_ao_comparar is not None:
-            raise self.erro_ao_comparar
-        return self.casa_com is not None and self.casa_com in caminho_referencia
+    def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+        self.inferencias += 1
+        if self.erro_ao_gerar is not None:
+            raise self.erro_ao_gerar
+        if self.embedding is None:
+            return FaceEmbedding.de_valores([1.0, 0.0, 0.0], "Facenet512")
+        return self.embedding
 
 
 class FakeImageStorage:

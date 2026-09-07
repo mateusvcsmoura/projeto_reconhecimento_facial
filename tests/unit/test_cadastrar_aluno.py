@@ -79,7 +79,7 @@ def test_matricula_longa_demais_e_recusada() -> None:
 
 def test_sem_rosto_nao_cadastra_nem_grava_imagem() -> None:
     caso, alunos, storage = montar(
-        reconhecimento=FakeFaceRecognition(erro_ao_validar=NenhumRostoDetectado())
+        reconhecimento=FakeFaceRecognition(erro_ao_extrair=NenhumRostoDetectado())
     )
 
     with pytest.raises(NenhumRostoDetectado):
@@ -91,7 +91,7 @@ def test_sem_rosto_nao_cadastra_nem_grava_imagem() -> None:
 
 def test_multiplos_rostos_nao_cadastra() -> None:
     caso, alunos, _ = montar(
-        reconhecimento=FakeFaceRecognition(erro_ao_validar=MultiplosRostosDetectados(3))
+        reconhecimento=FakeFaceRecognition(erro_ao_extrair=MultiplosRostosDetectados(3))
     )
 
     with pytest.raises(MultiplosRostosDetectados):
