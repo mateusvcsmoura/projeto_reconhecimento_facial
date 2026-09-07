@@ -1,0 +1,29 @@
+# PostgreSQL de desenvolvimento.
+#   1. cp .env.example .env   (e ajuste POSTGRES_PASSWORD)
+#   2. docker compose up -d
+#
+# A porta publicada e 5433 por padrao para nao colidir com uma instalacao
+# nativa do PostgreSQL na 5432. Ajuste POSTGRES_PORT no .env se precisar.
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: escola_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # postgres:18+ espera o mount em /var/lib/postgresql (nao em /data):
+      # a imagem cria subdiretorio por versao maior para viabilizar pg_upgrade.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
