@@ -1,3 +1,18 @@
+# Aplicacao (protótipo atual: cadastro.py)
+# Requer Python 3.10/3.11 — o DeepFace nao suporta versoes mais novas.
 opencv-python==4.13.0.92
 deepface==0.0.92
-pyserial==3.5
+
+# Persistencia — Fase 1 (PostgreSQL)
+SQLAlchemy==2.0.52
+alembic==1.19.2
+psycopg[binary]==3.3.5
+pydantic-settings==2.15.0
+
+# Testes
+pytest==9.1.1
+
+# Removido nesta fase:
+#   pyserial==3.5 — nenhum import no projeto (verificado por grep). Residuo de
+#   uma versao com leitor biometrico serial. REFACTORING_PLAN.md, Fase 1,
+#   item 3 (problema A16).
