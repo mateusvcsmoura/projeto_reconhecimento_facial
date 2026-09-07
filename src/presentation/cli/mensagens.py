@@ -1,37 +1,83 @@
-"""Traducao de erro de dominio para mensagem ao operador.
+"""Traducao de erro de dominio em mensagem acionavel.
 
-Cada falha tem uma mensagem propria. No prototipo, qualquer erro no
-reconhecimento virava "Rosto nao reconhecido" -- o operador nunca sabia se
-o problema era o enquadramento ou a instalacao do TensorFlow.
+Duas regras aqui:
+
+  * cada falha tem mensagem propria. No prototipo, qualquer erro no
+    reconhecimento virava "Rosto nao reconhecido", e o operador nunca sabia
+    se o problema era o enquadramento ou a instalacao do TensorFlow;
+  * toda mensagem diz o que FAZER. "Modelo indisponivel" informa; "verifique
+    a instalacao e rode o cadastro de novo" resolve.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from src.domain import errors
 
-_MENSAGENS: dict[type[Exception], str] = {
-    errors.PossivelFraude: (
-        "Apresentacao de foto ou tela detectada. "
-        "O cadastro exige a pessoa presente."
+
+@dataclass(frozen=True, slots=True)
+class Orientacao:
+    problema: str
+    acao: str
+
+    def __str__(self) -> str:
+        return f"{self.problema} {self.acao}"
+
+
+_ORIENTACOES: dict[type[Exception], Orientacao] = {
+    errors.NenhumRostoDetectado: Orientacao(
+        problema="Nenhum rosto na camera.",
+        acao="Aproxime-se, olhe para a lente e verifique a iluminacao.",
     ),
-    errors.ConsentimentoNaoRegistrado: (
-        "Cadastro cancelado: o consentimento e obrigatorio."
+    errors.MultiplosRostosDetectados: Orientacao(
+        problema="Mais de um rosto na camera.",
+        acao="Peca que as outras pessoas saiam do enquadramento.",
     ),
-    errors.AlunoNaoEncontrado: "Nenhum aluno com essa matricula.",
-    errors.NenhumRostoDetectado: "Nenhum rosto na camera.",
-    errors.MultiplosRostosDetectados: "Deixe somente UM rosto na camera.",
-    errors.ModeloIndisponivel: (
-        "Modelo de reconhecimento indisponivel. "
-        "Verifique a instalacao e os pesos baixados."
+    errors.PossivelFraude: Orientacao(
+        problema="Apresentacao de foto ou tela detectada.",
+        acao="O cadastro exige a pessoa presente, ao vivo.",
     ),
-    errors.CameraIndisponivel: "Nao foi possivel abrir a camera.",
-    errors.FalhaNaLeituraDaCamera: "A camera parou de responder.",
+    errors.ModeloIndisponivel: Orientacao(
+        problema="Modelo de reconhecimento indisponivel.",
+        acao=(
+            "Verifique a instalacao do DeepFace e a conexao "
+            "(a primeira execucao baixa os pesos)."
+        ),
+    ),
+    errors.CameraIndisponivel: Orientacao(
+        problema="Nao foi possivel abrir a camera.",
+        acao="Feche outros programas que a estejam usando e ajuste CAMERA_INDEX.",
+    ),
+    errors.FalhaNaLeituraDaCamera: Orientacao(
+        problema="A camera parou de responder.",
+        acao="Verifique o cabo ou a conexao e tente de novo.",
+    ),
+    errors.ConsentimentoNaoRegistrado: Orientacao(
+        problema="Cadastro cancelado: o consentimento e obrigatorio.",
+        acao="Sem o aceite do titular o dado biometrico nao pode ser coletado.",
+    ),
+    errors.AlunoNaoEncontrado: Orientacao(
+        problema="Nenhum aluno com essa matricula.",
+        acao="Confira a matricula na opcao de listar alunos.",
+    ),
+    errors.AlunoJaCadastrado: Orientacao(
+        problema="Ja existe um aluno com essa matricula.",
+        acao="Use outra matricula, ou exclua o cadastro anterior.",
+    ),
 }
 
 
-def para_operador(erro: Exception) -> str:
-    for tipo, mensagem in _MENSAGENS.items():
+def orientacao_para(erro: Exception) -> Orientacao | None:
+    for tipo, orientacao in _ORIENTACOES.items():
         if isinstance(erro, tipo):
-            return mensagem
-    # DadosInvalidos e AlunoJaCadastrado ja nascem com texto proprio.
+            return orientacao
+    return None
+
+
+def para_operador(erro: Exception) -> str:
+    orientacao = orientacao_para(erro)
+    if orientacao is not None:
+        return str(orientacao)
+    # DadosInvalidos ja nasce com texto especifico ("Informe a matricula.").
     return str(erro)
