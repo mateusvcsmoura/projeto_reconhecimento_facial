@@ -1,5 +1,8 @@
 # Aplicacao (protótipo atual: cadastro.py)
-# Requer Python 3.10/3.11 — o DeepFace nao suporta versoes mais novas.
+# Requer Python 3.12 ou 3.13.
+#   piso 3.12: numpy 2.5.3 nao publica wheel para versoes anteriores;
+#   teto 3.13: o TensorFlow (via DeepFace) nao publica wheel para 3.14.
+# Verificado por resolucao de dependencias, nao por suposicao.
 opencv-python==4.13.0.92
 deepface==0.0.92
 

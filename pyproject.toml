@@ -3,7 +3,7 @@
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 exclude = [".venv", "migrations/versions"]
 
 [tool.ruff.lint]
@@ -30,7 +30,7 @@ ignore = [
 [tool.mypy]
 # Sem `python_version` de proposito: fixa-lo em 3.11 faz o mypy recusar os
 # stubs do numpy 2.5, que usam sintaxe de 3.12. Quem guarda o piso de versao
-# e o ruff, via `target-version = "py311"` -- ele acusa sintaxe nova demais
+# e o ruff, via `target-version = "py312"` -- ele acusa sintaxe nova demais
 # para o interpretador que o DeepFace exige. Ao mypy cabe checar tipos.
 files = ["src", "scripts"]
 exclude = "migrations/versions"

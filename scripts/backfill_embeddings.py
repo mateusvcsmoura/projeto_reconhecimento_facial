@@ -17,7 +17,7 @@ Uso:
     # execucao real
     python -m scripts.backfill_embeddings --apply
 
-Requer um ambiente com DeepFace instalado (Python 3.10/3.11).
+Requer um ambiente com DeepFace instalado (Python 3.12 ou 3.13).
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError as exc:
         print(f"ERRO: DeepFace indisponivel neste ambiente: {exc}", file=sys.stderr)
         print(
-            "Use um Python 3.10 ou 3.11 com as dependencias instaladas.",
+            "Use um Python 3.12 ou 3.13 com as dependencias instaladas.",
             file=sys.stderr,
         )
         return 2

@@ -19,7 +19,7 @@ distintas.
 Uso:
     python -m scripts.evaluate_model --dataset ./avaliacao/lfw-subset
 
-Requisitos: Python 3.10/3.11 com DeepFace instalado.
+Requisitos: Python 3.12 ou 3.13 com DeepFace instalado.
 
 NUNCA versione o conjunto de imagens. Use um dataset publico baixado sob
 demanda (LFW, por exemplo) ou imagens locais em storage/ -- jamais no Git.
@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except ImportError as exc:
         print(f"ERRO: DeepFace indisponivel: {exc}", file=sys.stderr)
-        print("Use um Python 3.10 ou 3.11 com as dependencias.", file=sys.stderr)
+        print("Use um Python 3.12 ou 3.13 com as dependencias.", file=sys.stderr)
         return 2
 
     # Anti-spoofing desligado aqui: o conjunto de avaliacao e composto de
