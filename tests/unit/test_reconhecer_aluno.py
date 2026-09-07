@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import datetime as dt
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
@@ -15,6 +18,7 @@ from src.domain.errors import (
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition
 
 MODELO = "Facenet512"
+TZ = ZoneInfo("America/Sao_Paulo")
 LIMIAR = 0.30
 FRAME = object()
 
@@ -123,6 +127,6 @@ def test_recarregar_enxerga_cadastros_novos() -> None:
     )
     assert len(caso.carregar_referencias()) == 1
 
-    repo.cadastrar("2", "Bruno", None, emb([0.0, 1.0]))
+    repo.cadastrar("2", "Bruno", None, emb([0.0, 1.0]), dt.datetime.now(TZ))
 
     assert len(caso.carregar_referencias()) == 2

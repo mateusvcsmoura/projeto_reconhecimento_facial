@@ -12,7 +12,11 @@ from src.domain.errors import (
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
 )
+from zoneinfo import ZoneInfo
+
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition, FakeImageStorage
+
+TZ = ZoneInfo("America/Sao_Paulo")
 
 FRAME = object()  # a imagem e opaca para o dominio
 
@@ -23,14 +27,16 @@ def montar(
 ) -> tuple[CadastrarAluno, FakeAlunoRepository, FakeImageStorage]:
     alunos = alunos or FakeAlunoRepository()
     storage = FakeImageStorage()
-    caso = CadastrarAluno(alunos, reconhecimento or FakeFaceRecognition(), storage)
+    caso = CadastrarAluno(
+        alunos, reconhecimento or FakeFaceRecognition(), storage, TZ
+    )
     return caso, alunos, storage
 
 
 def test_cadastra_aluno_valido() -> None:
     caso, alunos, storage = montar()
 
-    aluno = caso.executar("  42 ", "  Maria   Silva ", FRAME)
+    aluno = caso.executar("  42 ", "  Maria   Silva ", FRAME, consentiu=True)
 
     assert aluno.matricula == "42"
     assert aluno.nome == "Maria Silva"
@@ -42,7 +48,7 @@ def test_cadastra_aluno_valido() -> None:
 def test_foto_e_gravada_com_nome_relativo_nao_absoluto() -> None:
     """Problema A11: caminho absoluto no banco tornava a base nao portavel."""
     caso, _, _ = montar()
-    aluno = caso.executar("42", "Maria", FRAME)
+    aluno = caso.executar("42", "Maria", FRAME, consentiu=True)
 
     assert aluno.foto_arquivo is not None
     assert "/" not in aluno.foto_arquivo
@@ -54,7 +60,7 @@ def test_matricula_duplicada_e_recusada() -> None:
     caso, _, storage = montar(alunos=repo)
 
     with pytest.raises(AlunoJaCadastrado):
-        caso.executar("42", "Outro Nome", FRAME)
+        caso.executar("42", "Outro Nome", FRAME, consentiu=True)
 
     assert storage.gravacoes == []
 
@@ -62,19 +68,19 @@ def test_matricula_duplicada_e_recusada() -> None:
 def test_nome_em_branco_e_recusado() -> None:
     caso, _, _ = montar()
     with pytest.raises(DadosInvalidos, match="nome"):
-        caso.executar("42", "   ", FRAME)
+        caso.executar("42", "   ", FRAME, consentiu=True)
 
 
 def test_matricula_em_branco_e_recusada() -> None:
     caso, _, _ = montar()
     with pytest.raises(DadosInvalidos, match="matricula"):
-        caso.executar("  ", "Maria", FRAME)
+        caso.executar("  ", "Maria", FRAME, consentiu=True)
 
 
 def test_matricula_longa_demais_e_recusada() -> None:
     caso, _, _ = montar()
     with pytest.raises(DadosInvalidos, match="32 caracteres"):
-        caso.executar("9" * 33, "Maria", FRAME)
+        caso.executar("9" * 33, "Maria", FRAME, consentiu=True)
 
 
 def test_sem_rosto_nao_cadastra_nem_grava_imagem() -> None:
@@ -83,7 +89,7 @@ def test_sem_rosto_nao_cadastra_nem_grava_imagem() -> None:
     )
 
     with pytest.raises(NenhumRostoDetectado):
-        caso.executar("42", "Maria", FRAME)
+        caso.executar("42", "Maria", FRAME, consentiu=True)
 
     assert alunos.alunos == []
     assert storage.gravacoes == []
@@ -95,7 +101,7 @@ def test_multiplos_rostos_nao_cadastra() -> None:
     )
 
     with pytest.raises(MultiplosRostosDetectados):
-        caso.executar("42", "Maria", FRAME)
+        caso.executar("42", "Maria", FRAME, consentiu=True)
 
     assert alunos.alunos == []
 

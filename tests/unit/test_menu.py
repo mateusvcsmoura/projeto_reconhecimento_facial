@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
+from src.application.use_cases.excluir_aluno import ExcluirAluno
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
@@ -63,11 +64,12 @@ def montar(
     fila = list(respostas)
 
     menu = MenuCLI(
-        cadastrar_aluno=CadastrarAluno(repo_alunos, reconhecimento, storage),
+        cadastrar_aluno=CadastrarAluno(repo_alunos, reconhecimento, storage, TZ),
         reconhecer_aluno=ReconhecerAluno(
             repo_alunos, reconhecimento, modelo=MODELO, limiar=0.30
         ),
         registrar_presenca=RegistrarPresenca(repo_presencas, TZ),
+        excluir_aluno=ExcluirAluno(repo_alunos, storage),
         abrir_camera=lambda: camera,
         abrir_janela=lambda _titulo: janela,
         ler=lambda _rotulo: fila.pop(0),
@@ -92,13 +94,13 @@ def texto(contexto: Contexto) -> str:
 
 
 def test_opcao_3_encerra() -> None:
-    menu, ctx = montar(respostas=["3"], teclas=[])
+    menu, ctx = montar(respostas=["4"], teclas=[])
     menu.executar()
     assert "Encerrando..." in texto(ctx)
 
 
 def test_opcao_invalida_avisa_e_continua() -> None:
-    menu, ctx = montar(respostas=["9", "3"], teclas=[])
+    menu, ctx = montar(respostas=["9", "4"], teclas=[])
     menu.executar()
     assert "Opcao invalida." in texto(ctx)
 
@@ -106,7 +108,7 @@ def test_opcao_invalida_avisa_e_continua() -> None:
 def test_erro_de_dominio_vira_mensagem_e_o_menu_sobrevive() -> None:
     """Matricula duplicada nao pode derrubar a aplicacao."""
     menu, ctx = montar(
-        respostas=["1", "Outro Nome", "1", "3"], teclas=[], alunos=[ANA]
+        respostas=["1", "Outro Nome", "1", "4"], teclas=[], alunos=[ANA]
     )
     menu.executar()
 
@@ -118,7 +120,7 @@ def test_erro_de_dominio_vira_mensagem_e_o_menu_sobrevive() -> None:
 
 
 def test_espaco_captura_e_cadastra() -> None:
-    menu, ctx = montar(respostas=["1", "Maria Silva", "42", "3"], teclas=[ESPACO])
+    menu, ctx = montar(respostas=["1", "Maria Silva", "42", "s", "4"], teclas=[ESPACO])
     menu.executar()
 
     assert "CADASTRO REALIZADO COM SUCESSO!" in texto(ctx)
@@ -127,7 +129,7 @@ def test_espaco_captura_e_cadastra() -> None:
 
 
 def test_esc_cancela_o_cadastro() -> None:
-    menu, ctx = montar(respostas=["1", "Maria Silva", "42", "3"], teclas=[ESC])
+    menu, ctx = montar(respostas=["1", "Maria Silva", "42", "s", "4"], teclas=[ESC])
     menu.executar()
 
     assert "Cadastro cancelado." in texto(ctx)
@@ -136,7 +138,7 @@ def test_esc_cancela_o_cadastro() -> None:
 
 def test_camera_e_liberada_no_cadastro() -> None:
     """Problema A17: o prototipo vazava o dispositivo em caso de excecao."""
-    menu, ctx = montar(respostas=["1", "Maria", "42", "3"], teclas=[ESC])
+    menu, ctx = montar(respostas=["1", "Maria", "42", "s", "4"], teclas=[ESC])
     menu.executar()
 
     assert ctx.camera.liberada is True  # type: ignore[attr-defined]
@@ -145,7 +147,7 @@ def test_camera_e_liberada_no_cadastro() -> None:
 
 def test_camera_e_liberada_mesmo_com_falha_de_leitura() -> None:
     menu, ctx = montar(
-        respostas=["1", "Maria", "42", "3"],
+        respostas=["1", "Maria", "42", "s", "4"],
         teclas=[],
         erro_ao_ler=FalhaNaLeituraDaCamera("cabo removido"),
     )
@@ -159,7 +161,7 @@ def test_camera_e_liberada_mesmo_com_falha_de_leitura() -> None:
 
 
 def test_sem_candidatos_nao_abre_a_camera() -> None:
-    menu, ctx = montar(respostas=["2", "3"], teclas=[])
+    menu, ctx = montar(respostas=["2", "4"], teclas=[])
     menu.executar()
 
     assert "Nenhum aluno com embedding cadastrado." in texto(ctx)
@@ -169,7 +171,7 @@ def test_sem_candidatos_nao_abre_a_camera() -> None:
 def test_enter_registra_a_presenca_do_reconhecido() -> None:
     teclas = [0] * (INTERVALO_DE_COMPARACAO - 1) + [0, ENTER, ESC]
     menu, ctx = montar(
-        respostas=["2", "3"],
+        respostas=["2", "4"],
         teclas=teclas,
         alunos=[ANA],
         embeddings={1: emb([1.0, 0.0, 0.0])},
@@ -184,7 +186,7 @@ def test_enter_registra_a_presenca_do_reconhecido() -> None:
 def test_segundo_enter_no_mesmo_dia_avisa_em_vez_de_duplicar() -> None:
     teclas = [0] * (INTERVALO_DE_COMPARACAO - 1) + [0, ENTER, ENTER, ESC]
     menu, ctx = montar(
-        respostas=["2", "3"],
+        respostas=["2", "4"],
         teclas=teclas,
         alunos=[ANA],
         embeddings={1: emb([1.0, 0.0, 0.0])},
@@ -199,7 +201,7 @@ def test_segundo_enter_no_mesmo_dia_avisa_em_vez_de_duplicar() -> None:
 def test_enter_sem_reconhecimento_nao_registra_nada() -> None:
     teclas = [0] * (INTERVALO_DE_COMPARACAO - 1) + [0, ENTER, ESC]
     menu, ctx = montar(
-        respostas=["2", "3"],
+        respostas=["2", "4"],
         teclas=teclas,
         alunos=[ANA],
         embeddings={1: emb([1.0, 0.0, 0.0])},
@@ -212,7 +214,7 @@ def test_enter_sem_reconhecimento_nao_registra_nada() -> None:
 
 def test_esc_sai_do_reconhecimento() -> None:
     menu, ctx = montar(
-        respostas=["2", "3"],
+        respostas=["2", "4"],
         teclas=[ESC],
         alunos=[ANA],
         embeddings={1: emb([1.0, 0.0, 0.0])},
