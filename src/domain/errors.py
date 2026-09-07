@@ -45,3 +45,29 @@ class MultiplosRostosDetectados(ErroDeDominio):
 
 class ModeloIndisponivel(ErroDeDominio):
     """Pesos ausentes, backend quebrado ou modelo impossivel de carregar."""
+
+
+class PossivelFraude(ErroDeDominio):
+    """O rosto apresentado nao parece uma pessoa real.
+
+    Foto impressa, tela de celular, mascara. Distinto de
+    NenhumRostoDetectado de proposito: ha um rosto, e justamente por isso o
+    caso merece uma mensagem propria ao operador.
+    """
+
+    def __init__(self, pontuacao: float | None = None) -> None:
+        detalhe = f" (score {pontuacao:.2f})" if pontuacao is not None else ""
+        super().__init__(
+            f"Apresentacao de foto ou tela detectada{detalhe}."
+        )
+        self.pontuacao = pontuacao
+
+
+class AlunoNaoEncontrado(ErroDeDominio):
+    def __init__(self, matricula: str) -> None:
+        super().__init__(f"Nenhum aluno com a matricula {matricula}.")
+        self.matricula = matricula
+
+
+class ConsentimentoNaoRegistrado(ErroDeDominio):
+    """Cadastro biometrico sem consentimento explicito nao pode ocorrer."""

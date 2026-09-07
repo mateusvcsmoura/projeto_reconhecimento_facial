@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     # heranca da biblioteca -- agora ao menos explicita e ajustavel.
     face_threshold: float = 0.30
 
+    # Recusa frames que o detector classifique como apresentacao (foto
+    # impressa, tela de celular). Sem isto, um controle de presenca por
+    # rosto nao entrega a garantia que promete (problema A7).
+    face_anti_spoofing: bool = True
+
+    # Retencao de presencas, em dias. 0 desliga o expurgo.
+    # Dado pessoal nao deve ser guardado por mais tempo do que a finalidade
+    # exige (LGPD art. 15/16). 1825 dias = 5 anos, prazo tipico de guarda
+    # de registro academico.
+    retencao_presencas_dias: int = 1825
+
     @field_validator("database_url", "test_database_url")
     @classmethod
     def _exigir_driver_postgres(cls, valor: str | None) -> str | None:
@@ -87,6 +98,13 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"FACE_THRESHOLD deve estar em (0, 2]; recebido {valor}."
             )
+        return valor
+
+    @field_validator("retencao_presencas_dias")
+    @classmethod
+    def _exigir_retencao_valida(cls, valor: int) -> int:
+        if valor < 0:
+            raise ValueError("RETENCAO_PRESENCAS_DIAS nao pode ser negativo.")
         return valor
 
     @field_validator("camera_index")
