@@ -218,3 +218,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# ==========================================================================
+# Projeto — dados sensiveis e artefatos locais
+# ==========================================================================
+# Dados biometricos e pessoais NUNCA vao para o Git (CLAUDE.md secao 8).
+
+# Bancos locais / legado SQLite
+*.db
+*.sqlite
+*.sqlite3
+escola.db
+
+# Imagens de rosto e derivados biometricos
+fotos/
+storage/
+*.npy
+
+# Relatorios de ETL (podem conter nome e caminho de aluno)
+storage/etl/
+
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Dumps de banco
+*.sql.gz
+*.dump
