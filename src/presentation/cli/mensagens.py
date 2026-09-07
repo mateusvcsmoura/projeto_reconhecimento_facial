@@ -10,6 +10,14 @@ from __future__ import annotations
 from src.domain import errors
 
 _MENSAGENS: dict[type[Exception], str] = {
+    errors.PossivelFraude: (
+        "Apresentacao de foto ou tela detectada. "
+        "O cadastro exige a pessoa presente."
+    ),
+    errors.ConsentimentoNaoRegistrado: (
+        "Cadastro cancelado: o consentimento e obrigatorio."
+    ),
+    errors.AlunoNaoEncontrado: "Nenhum aluno com essa matricula.",
     errors.NenhumRostoDetectado: "Nenhum rosto na camera.",
     errors.MultiplosRostosDetectados: "Deixe somente UM rosto na camera.",
     errors.ModeloIndisponivel: (

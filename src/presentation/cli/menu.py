@@ -18,6 +18,7 @@ from src.application.use_cases.reconhecer_aluno import (
     Reconhecimento,
     ReconhecerAluno,
 )
+from src.application.use_cases.excluir_aluno import ExcluirAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.errors import ErroDeDominio, FalhaNaLeituraDaCamera
@@ -59,6 +60,7 @@ class MenuCLI:
         cadastrar_aluno: CadastrarAluno,
         reconhecer_aluno: ReconhecerAluno,
         registrar_presenca: RegistrarPresenca,
+        excluir_aluno: ExcluirAluno,
         abrir_camera: Callable[[], CameraProvider],
         abrir_janela: Callable[[str], Janela],
         ler: prompts.Leitor = input,
@@ -67,6 +69,7 @@ class MenuCLI:
         self._cadastrar_aluno = cadastrar_aluno
         self._reconhecer_aluno = reconhecer_aluno
         self._registrar_presenca = registrar_presenca
+        self._excluir_aluno = excluir_aluno
         self._abrir_camera = abrir_camera
         self._abrir_janela = abrir_janela
         self._ler = ler
@@ -78,13 +81,14 @@ class MenuCLI:
         acoes: dict[str, Callable[[], None]] = {
             "1": self.cadastrar,
             "2": self.reconhecer,
+            "3": self.excluir,
         }
 
         while True:
             self._mostrar_menu()
-            opcao = prompts.perguntar_opcao({"1", "2", "3"}, self._ler)
+            opcao = prompts.perguntar_opcao({"1", "2", "3", "4"}, self._ler)
 
-            if opcao == "3":
+            if opcao == "4":
                 self._escrever("Encerrando...")
                 return
 
@@ -105,7 +109,8 @@ class MenuCLI:
         self._escrever("==============================")
         self._escrever("1 - Cadastrar aluno")
         self._escrever("2 - Reconhecer aluno")
-        self._escrever("3 - Sair")
+        self._escrever("3 - Excluir aluno e seus dados")
+        self._escrever("4 - Sair")
 
     # -- cadastro ---------------------------------------------------------
 
@@ -127,11 +132,33 @@ class MenuCLI:
             self._escrever("Cadastro cancelado.")
             return
 
-        aluno = self._cadastrar_aluno.executar(matricula, nome, imagem)
+        aluno = self._cadastrar_aluno.executar(
+            matricula, nome, imagem, consentiu=True
+        )
 
         self._escrever("\nCADASTRO REALIZADO COM SUCESSO!")
         self._escrever(f"Aluno: {aluno.nome}")
         self._escrever(f"Matricula: {aluno.matricula}")
+
+    def _colher_consentimento(self, nome: str) -> bool:
+        """Termo de consentimento, exibido antes de qualquer captura.
+
+        O rosto so e pedido depois do "sim". Coletar a biometria para so
+        entao perguntar inverteria a ordem que a LGPD exige.
+        """
+        self._escrever("")
+        self._escrever("--- CONSENTIMENTO (LGPD art. 11) ---")
+        self._escrever(
+            f"{nome}, o sistema vai registrar a sua imagem facial e um vetor"
+        )
+        self._escrever(
+            "derivado dela, com a unica finalidade de controlar a presenca."
+        )
+        self._escrever(
+            "Voce pode pedir a exclusao a qualquer momento (opcao 3 do menu)."
+        )
+        resposta = prompts.perguntar("Voce concorda? (s/N): ", self._ler)
+        return resposta.strip().lower() in {"s", "sim"}
 
     def _capturar_rosto(self) -> Any | None:
         """Devolve o frame capturado, ou None se o operador cancelar."""
@@ -155,6 +182,26 @@ class MenuCLI:
                     return None
                 if tecla == ESPACO:
                     return frame
+
+    # -- exclusao ---------------------------------------------------------
+
+    def excluir(self) -> None:
+        self._escrever("\n=== EXCLUSAO DE ALUNO ===")
+        self._escrever("Remove o cadastro, a imagem, o embedding e as presencas.")
+
+        matricula = prompts.perguntar("Matricula: ", self._ler)
+        aluno = self._excluir_aluno.localizar(matricula)
+
+        self._escrever(f"\nAluno: {aluno.nome} (matricula {aluno.matricula})")
+        confirmacao = prompts.perguntar(
+            "Confirma a exclusao? Esta acao e irreversivel (s/N): ", self._ler
+        )
+        if confirmacao.strip().lower() not in {"s", "sim"}:
+            self._escrever("Exclusao cancelada.")
+            return
+
+        self._excluir_aluno.executar(aluno)
+        self._escrever("Aluno e todos os seus dados foram removidos.")
 
     # -- reconhecimento ---------------------------------------------------
 
