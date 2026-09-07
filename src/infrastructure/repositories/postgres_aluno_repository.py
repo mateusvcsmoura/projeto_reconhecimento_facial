@@ -6,9 +6,10 @@ caso de uso executa SQL (instructions/02-desenvolvedor.md, secao 4).
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.exc import IntegrityError
 
 from src.domain.entities.aluno import Aluno
@@ -26,6 +27,7 @@ def _para_entidade(linha: models.Aluno) -> Aluno:
         matricula=linha.matricula,
         nome=linha.nome,
         foto_arquivo=linha.foto_arquivo,
+        consentimento_em=linha.consentimento_em,
     )
 
 
@@ -39,6 +41,13 @@ class PostgresAlunoRepository:
                 select(models.Aluno.id).where(models.Aluno.matricula == matricula)
             )
         return encontrado is not None
+
+    def obter_por_matricula(self, matricula: str) -> Aluno | None:
+        with sessao(self._engine) as session:
+            linha = session.scalar(
+                select(models.Aluno).where(models.Aluno.matricula == matricula)
+            )
+            return _para_entidade(linha) if linha is not None else None
 
     def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
         with sessao(self._engine) as session:
@@ -63,6 +72,7 @@ class PostgresAlunoRepository:
         nome: str,
         foto_arquivo: str | None,
         embedding: FaceEmbedding | None,
+        consentimento_em: dt.datetime,
     ) -> Aluno:
         try:
             with sessao(self._engine) as session:
@@ -73,6 +83,7 @@ class PostgresAlunoRepository:
                     embedding=embedding.para_bytes() if embedding else None,
                     embedding_modelo=embedding.modelo if embedding else None,
                     embedding_dim=embedding.dimensao if embedding else None,
+                    consentimento_em=consentimento_em,
                 )
                 session.add(linha)
                 session.flush()
@@ -86,3 +97,12 @@ class PostgresAlunoRepository:
 
         logger.info("Aluno cadastrado (id=%s)", aluno.id)
         return aluno
+
+    def excluir(self, aluno_id: int) -> None:
+        with sessao(self._engine) as session:
+            session.execute(
+                delete(models.Aluno).where(models.Aluno.id == aluno_id)
+            )
+        # As presencas caem por ON DELETE CASCADE -- a integridade e do
+        # banco, nao de uma varredura da aplicacao.
+        logger.info("Aluno excluido (id=%s)", aluno_id)

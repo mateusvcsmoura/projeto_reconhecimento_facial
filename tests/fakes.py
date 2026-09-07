@@ -40,12 +40,23 @@ class FakeAlunoRepository:
             and self.embeddings[aluno.id].modelo == modelo
         ]
 
+    def obter_por_matricula(self, matricula: str) -> Aluno | None:
+        for aluno in self.alunos:
+            if aluno.matricula == matricula:
+                return aluno
+        return None
+
+    def excluir(self, aluno_id: int) -> None:
+        self.alunos = [a for a in self.alunos if a.id != aluno_id]
+        self.embeddings.pop(aluno_id, None)
+
     def cadastrar(
         self,
         matricula: str,
         nome: str,
         foto_arquivo: str | None,
         embedding: FaceEmbedding | None,
+        consentimento_em: dt.datetime,
     ) -> Aluno:
         if self.existe_matricula(matricula):
             raise AlunoJaCadastrado(matricula)
@@ -54,6 +65,7 @@ class FakeAlunoRepository:
             matricula=matricula,
             nome=nome,
             foto_arquivo=foto_arquivo,
+            consentimento_em=consentimento_em,
         )
         self._proximo_id += 1
         self.alunos.append(aluno)
@@ -66,6 +78,11 @@ class FakePresencaRepository:
     def __init__(self) -> None:
         self.registros: set[tuple[int, dt.date]] = set()
         self.chamadas: list[tuple[int, dt.date, dt.datetime]] = []
+
+    def expurgar_anteriores_a(self, dia: dt.date) -> int:
+        antes = len(self.registros)
+        self.registros = {(a, d) for a, d in self.registros if d >= dia}
+        return antes - len(self.registros)
 
     def registrar_se_ausente(
         self, aluno_id: int, dia: dt.date, momento: dt.datetime
@@ -120,6 +137,7 @@ class FakeImageStorage:
     def __init__(self, existentes: set[str] | None = None) -> None:
         self.arquivos: set[str] = set(existentes or set())
         self.gravacoes: list[str] = []
+        self.remocoes: list[str] = []
 
     def salvar(self, nome_arquivo: str, imagem: Any) -> str:
         self.arquivos.add(nome_arquivo)
@@ -128,6 +146,10 @@ class FakeImageStorage:
 
     def existe(self, nome_arquivo: str) -> bool:
         return nome_arquivo in self.arquivos
+
+    def remover(self, nome_arquivo: str) -> None:
+        self.arquivos.discard(nome_arquivo)
+        self.remocoes.append(nome_arquivo)
 
     def caminho_absoluto(self, nome_arquivo: str) -> str:
         return f"/fake/storage/{nome_arquivo}"

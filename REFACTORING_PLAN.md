@@ -152,28 +152,30 @@ Zero testes. Zero infraestrutura de teste. Nenhuma função é testável sem web
 
 ## 3. Problemas
 
-Prioridade: 🔴 alta (bloqueia uso ou expõe dado) · 🟡 média (dívida estrutural) · 🟢 baixa (higiene).
+Prioridade original: 🔴 alta (bloqueia uso ou expõe dado) · 🟡 média (dívida estrutural) · 🟢 baixa (higiene). ✅ = fechado, com a fase e a evidência na penúltima coluna.
 
-| ID | Problema | Impacto | Evidência | Risco se não tratado | Prio |
+**Situação em 2026-09-07: 17 dos 18 problemas fechados.** O único aberto é o A9 (cobertura formal de testes), que é o objeto da Fase 7.
+
+| ID | Problema | Impacto | Evidência original | Risco / como foi fechado | Status |
 |---|---|---|---|---|---|
 | **A1** | ~~Dado pessoal versionado no Git~~ **RESOLVIDO** | Nome real de pessoa + 39 registros de presença, recuperáveis do histórico | `git ls-files` lista `escola.db`; tabela `alunos` com nome real | — | ✅ |
-| **A2** | Schema é código executado no boot, sem versionamento | Ambientes divergem silenciosamente | `preparar_banco()` declara `NOT NULL`; `escola.db` não os tem (`P1`) | Toda futura alteração de schema tem o mesmo destino; ambiente irreprodutível | 🔴 |
-| **A3** | Timestamp como TEXT livre; regra de negócio quebrada nos dados legados | A funcionalidade central (1 presença/dia) falha em silêncio | 39/39 linhas com `date(data_hora) IS NULL` (`P2`) | Registro oficial de presença incorreto e não detectável | 🔴 |
-| **A4** | Dedup por `SELECT`-depois-`INSERT`, sem constraint | Condição de corrida; regra não garantida pelo banco | `cadastro.py:185-205` | Presenças duplicadas sob concorrência ou reentrada rápida | 🔴 |
-| **A5** | Embeddings nunca persistidos; comparação O(N) com `verify()` | Até 2N inferências Facenet512 por ciclo; loop de vídeo congela | `cadastro.py:268-291` (`P4`, `P5`) | Sistema inviável acima de poucas dezenas de alunos | 🔴 |
-| **A6** | `except Exception: continue` sem log no caminho crítico | Falha de modelo é indistinguível de "sem rosto" | `cadastro.py:288-291` (`P6`) | Sistema falha em silêncio; diagnóstico impossível | 🔴 |
-| **A7** | Ausência de anti-spoofing | Presença burlável com foto impressa ou tela | `cadastro.py:125-130`, `273-280` (`P8`) | O sistema não cumpre a finalidade que declara | 🔴 |
-| **A8** | Módulo único: UI + câmera + IA + SQL + regra acoplados | Nada é testável sem hardware; regressão concentrada | `cadastro.py` inteiro (`P9`) | Impede toda a evolução planejada | 🟡 |
+| **A2** | ~~Schema é código executado no boot, sem versionamento~~ **RESOLVIDO (Fase 1)** | Ambientes divergem silenciosamente | `preparar_banco()` declara `NOT NULL`; `escola.db` não os tem (`P1`) | Alembic; `alembic check` sem divergencia | ✅ |
+| **A3** | ~~Timestamp como TEXT livre; regra de negócio quebrada nos dados legados~~ **RESOLVIDO (Fase 1)** | A funcionalidade central (1 presença/dia) falha em silêncio | 39/39 linhas com `date(data_hora) IS NULL` (`P2`) | `TIMESTAMPTZ` + `data_referencia DATE` | ✅ |
+| **A4** | ~~Dedup por `SELECT`-depois-`INSERT`, sem constraint~~ **RESOLVIDO (Fase 1)** | Condição de corrida; regra não garantida pelo banco | `cadastro.py:185-205` | `UNIQUE(aluno_id, data_referencia)` + `ON CONFLICT` | ✅ |
+| **A5** | ~~Embeddings nunca persistidos; comparação O(N) com `verify()`~~ **RESOLVIDO (Fase 5)** | Até 2N inferências Facenet512 por ciclo; loop de vídeo congela | `cadastro.py:268-291` (`P4`, `P5`) | 1 inferencia/ciclo, provada por teste com N=50 | ✅ |
+| **A6** | ~~`except Exception: continue` sem log no caminho crítico~~ **RESOLVIDO (Fase 2/4)** | Falha de modelo é indistinguível de "sem rosto" | `cadastro.py:288-291` (`P6`) | erros nomeados; teste com duble do DeepFace | ✅ |
+| **A7** | ~~Ausência de anti-spoofing~~ **RESOLVIDO** | Presença burlável com foto impressa ou tela | `cadastro.py:125-130`, `273-280` (`P8`) | — | ✅ |
+| **A8** | ~~Módulo único: UI + câmera + IA + SQL + regra acoplados~~ **RESOLVIDO (Fase 2)** | Nada é testável sem hardware; regressão concentrada | `cadastro.py` inteiro (`P9`) | arquitetura em camadas; 144 testes | ✅ |
 | **A9** | Cobertura de testes = 0 | Nenhuma rede de segurança | projeto inteiro (`P10`) | A2 e A3 são exatamente o defeito que um teste trivial pegaria | 🟡 |
-| **A10** | Sem FK, sem índice, sem unique | Presenças órfãs possíveis; varredura completa no dedup | `PRAGMA` vazios (`P11`) | Degradação linear e inconsistência de dados | 🟡 |
-| **A11** | Caminho absoluto de foto persistido no banco | Banco não é portátil entre máquinas | `cadastro.py:73`,`160`; dado real quebrado (`P3`) | Backup/restauração inutiliza o reconhecimento | 🟡 |
-| **A12** | Configuração hardcoded (modelo, detector, câmera, caminhos) | Impossível ajustar por ambiente | `cadastro.py:10-18` | Threshold e modelo não avaliáveis; sem separação dev/prod | 🟡 |
-| **A13** | `print()` como único mecanismo de diagnóstico | Sem observabilidade, sem níveis, sem destino | 30+ ocorrências | Impossível auditar ou depurar execução real | 🟡 |
-| **A14** | Foto de referência salva sem recorte; face alinhada descartada | Mais dado sensível armazenado; custo extra por comparação | `cadastro.py:125-136` (`P14`) | Volume biométrico desnecessário e acurácia mais variável | 🟡 |
-| **A15** | Lista de alunos materializada uma vez ao entrar no modo | Cadastros novos invisíveis até reiniciar o modo | `cadastro.py:218-238` (`P12`) | Comportamento surpreendente para o operador | 🟢 |
-| **A16** | `pyserial` órfão; `alunos.biometria_id` morto | Superfície e schema maiores que o necessário | `requirements.txt`; `cadastro.py:38`,`160` (`P13`) | Confunde quem lê o código; contraria CLAUDE.md §7.5 | 🟢 |
-| **A17** | Recursos liberados sem `finally` | Câmera/janela vazam se houver exceção no laço | `cadastro.py:145-146`, `328-329` | Dispositivo travado exigindo reinício | 🟢 |
-| **A18** | Aceita o **primeiro** match, não o melhor | Identidade errada quando há candidatos próximos | `cadastro.py:282-286` | Presença atribuída ao aluno errado | 🟡 |
+| **A10** | ~~Sem FK, sem índice, sem unique~~ **RESOLVIDO (Fase 1)** | Presenças órfãs possíveis; varredura completa no dedup | `PRAGMA` vazios (`P11`) | FK, `ON DELETE CASCADE` e indice | ✅ |
+| **A11** | ~~Caminho absoluto de foto persistido no banco~~ **RESOLVIDO (Fase 2)** | Banco não é portátil entre máquinas | `cadastro.py:73`,`160`; dado real quebrado (`P3`) | `foto_arquivo` relativo a `STORAGE_DIR` | ✅ |
+| **A12** | ~~Configuração hardcoded (modelo, detector, câmera, caminhos)~~ **RESOLVIDO (Fase 2)** | Impossível ajustar por ambiente | `cadastro.py:10-18` | `settings` validado, falha no boot | ✅ |
+| **A13** | ~~`print()` como único mecanismo de diagnóstico~~ **RESOLVIDO (Fase 2)** | Sem observabilidade, sem níveis, sem destino | 30+ ocorrências | `logging`; zero `print()` fora da apresentacao | ✅ |
+| **A14** | ~~Foto de referência salva sem recorte; face alinhada descartada~~ **RESOLVIDO (Fase 5)** | Mais dado sensível armazenado; custo extra por comparação | `cadastro.py:125-136` (`P14`) | so o recorte alinhado e gravado | ✅ |
+| **A15** | ~~Lista de alunos materializada uma vez ao entrar no modo~~ **RESOLVIDO (Fase 5)** | Cadastros novos invisíveis até reiniciar o modo | `cadastro.py:218-238` (`P12`) | referencias recarregadas ao entrar no modo | ✅ |
+| **A16** | ~~`pyserial` órfão; `alunos.biometria_id` morto~~ **RESOLVIDO (Fase 1)** | Superfície e schema maiores que o necessário | `requirements.txt`; `cadastro.py:38`,`160` (`P13`) | `pyserial` e `biometria_id` removidos | ✅ |
+| **A17** | ~~Recursos liberados sem `finally`~~ **RESOLVIDO (Fase 2)** | Câmera/janela vazam se houver exceção no laço | `cadastro.py:145-146`, `328-329` | context manager; teste de liberacao com falha | ✅ |
+| **A18** | ~~Aceita o **primeiro** match, não o melhor~~ **RESOLVIDO (Fase 5)** | Identidade errada quando há candidatos próximos | `cadastro.py:282-286` | menor distancia vence; teste dedicado | ✅ |
 
 ---
 
@@ -460,6 +462,10 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 6 — Segurança e dados biométricos
 
+> **Executada em 2026-09-07.** Fecha **A7**, o último problema 🔴 do baseline. Entregues os seis itens (33–38): anti-spoofing nos dois caminhos, migration `0003` com `consentimento_em`, caso de uso `ExcluirAluno`, política de retenção com comando de expurgo, usuário PostgreSQL sem DDL (verificado no container) e auditoria de logs coberta por teste. Política de dados em [`docs/lgpd.md`](docs/lgpd.md).
+>
+> **Pendente, declarado:** a eficácia do anti-spoofing contra foto impressa e tela **não foi medida** — exige um ambiente Python 3.10/3.11 com o DeepFace instalado. A verificação está implementada e testada em nível de software; o que falta é a validação do modelo.
+
 **Objetivo** Tratar biometria como dado sensível de fato, não por declaração.
 
 **Alterações** `anti_spoofing` habilitado com recusa de frames não reais (A7); usuário PostgreSQL da aplicação com privilégio mínimo (somente DML, sem DDL); armazenamento apenas do embedding e da face recortada, descartando o frame completo (A14); caso de uso `ExcluirAluno` (remove linha, arquivo e embedding; presenças caem por `ON DELETE CASCADE`); política de retenção configurável para presenças antigas; registro de consentimento no cadastro; revisão do logging para garantir ausência de PII, imagem e embedding.
@@ -473,6 +479,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** Unitário: frame marcado como não real nunca chega ao matcher; integração: exclusão de aluno remove presenças por cascade e apaga o arquivo; teste de log verificando que nenhum campo sensível é emitido.
 
 **Critério de conclusão** Cadastro e reconhecimento recusam apresentação de foto/tela; existe caminho de exclusão completo; nenhum dado biométrico legível fora do diretório de armazenamento controlado.
+
+**Verificado na execução:** anti-spoofing aplicado num único ponto de entrada, para não poder ser esquecido em um dos caminhos · consentimento colhido **antes** de a câmera ligar, e `consentiu` sem valor padrão no caso de uso · exclusão remove linha, embedding, imagem e presenças (cascade do banco) · expurgo não apaga o aluno, só o histórico · usuário `escola_app` recusa `DROP`/`CREATE`/`ALTER` e escrita em `alembic_version`, testado no container · três testes provam que nome, nome de arquivo e vetor não aparecem em log · 144 testes passando.
 
 ---
 

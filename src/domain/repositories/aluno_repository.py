@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Protocol
 
 from src.domain.entities.aluno import Aluno
@@ -20,15 +21,25 @@ class AlunoRepository(Protocol):
         """
         ...
 
+    def obter_por_matricula(self, matricula: str) -> Aluno | None: ...
+
     def cadastrar(
         self,
         matricula: str,
         nome: str,
         foto_arquivo: str | None,
         embedding: FaceEmbedding | None,
+        consentimento_em: dt.datetime,
     ) -> Aluno:
         """Insere e devolve o aluno com o id atribuido pelo banco.
 
         Levanta AlunoJaCadastrado se a matricula ja existir.
+        """
+        ...
+
+    def excluir(self, aluno_id: int) -> None:
+        """Remove o aluno e, por cascade, todas as suas presencas.
+
+        Direito do titular a eliminacao (LGPD art. 18, VI).
         """
         ...

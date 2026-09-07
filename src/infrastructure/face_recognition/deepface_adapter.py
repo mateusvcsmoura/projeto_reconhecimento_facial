@@ -27,6 +27,7 @@ from src.domain.errors import (
     ModeloIndisponivel,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
+    PossivelFraude,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,49 +59,78 @@ def _para_bgr_uint8(face: np.ndarray) -> np.ndarray:
 
 
 class DeepFaceAdapter:
-    def __init__(self, modelo: str, detector: str) -> None:
+    def __init__(
+        self, modelo: str, detector: str, anti_spoofing: bool = True
+    ) -> None:
         self._modelo = modelo
         self._detector = detector
+        self._anti_spoofing = anti_spoofing
 
     @property
     def modelo(self) -> str:
         return self._modelo
 
-    def extrair_face_unica(self, imagem: Any) -> Any:
+    def _detectar_rosto_unico(self, imagem: Any) -> dict[str, Any]:
+        """Deteccao, alinhamento e -- quando ligado -- prova de vida.
+
+        Um unico ponto de entrada para as duas operacoes publicas, para que
+        a verificacao de autenticidade nao possa ser esquecida em um dos
+        caminhos.
+        """
         try:
             faces = DeepFace.extract_faces(
                 img_path=imagem,
                 detector_backend=self._detector,
                 enforce_detection=True,
                 align=True,
+                anti_spoofing=self._anti_spoofing,
             )
         except Exception as exc:
             raise _traduzir(exc, "detectar rosto") from exc
 
+        if not faces:
+            raise NenhumRostoDetectado("O detector nao devolveu nenhum rosto.")
         if len(faces) != 1:
             raise MultiplosRostosDetectados(len(faces))
 
+        face = faces[0]
+
+        if self._anti_spoofing and not face.get("is_real", True):
+            pontuacao = face.get("antispoof_score")
+            logger.warning(
+                "Frame recusado por anti-spoofing (score=%s)", pontuacao
+            )
+            raise PossivelFraude(pontuacao)
+
+        return face
+
+    def extrair_face_unica(self, imagem: Any) -> Any:
+        face = self._detectar_rosto_unico(imagem)
         # O prototipo descartava este recorte e gravava o frame inteiro
         # (problema A14): mais dado biometrico guardado do que o necessario,
         # e uma redeteccao a cada comparacao.
-        return _para_bgr_uint8(np.asarray(faces[0]["face"]))
+        return _para_bgr_uint8(np.asarray(face["face"]))
 
     def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+        # Detecta (com prova de vida) e so entao gera o vetor sobre o
+        # recorte ja validado. `detector_backend="skip"` evita redetectar o
+        # que acabou de ser detectado -- continua sendo UMA inferencia do
+        # modelo de embedding por ciclo.
+        recorte = _para_bgr_uint8(np.asarray(self._detectar_rosto_unico(imagem)["face"]))
+
         try:
             representacoes = DeepFace.represent(
-                img_path=imagem,
+                img_path=recorte,
                 model_name=self._modelo,
-                detector_backend=self._detector,
-                enforce_detection=True,
-                align=True,
+                detector_backend="skip",
+                enforce_detection=False,
+                align=False,
             )
         except Exception as exc:
             raise _traduzir(exc, "gerar embedding") from exc
 
         if not representacoes:
             raise NenhumRostoDetectado("O modelo nao devolveu nenhum vetor.")
-        if len(representacoes) > 1:
-            raise MultiplosRostosDetectados(len(representacoes))
 
         # `represent()` nao devolve vetor normalizado; FaceEmbedding
         # normaliza na construcao, para que a distancia cosseno seja um

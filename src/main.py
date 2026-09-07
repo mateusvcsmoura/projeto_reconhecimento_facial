@@ -16,6 +16,7 @@ import logging
 import sys
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
+from src.application.use_cases.excluir_aluno import ExcluirAluno
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.config.logging import configurar_logging
@@ -44,11 +45,21 @@ def montar_menu(settings: Settings) -> MenuCLI:
     presencas = PostgresPresencaRepository(engine)
     storage = LocalImageStorage(settings.storage_dir)
     reconhecimento = DeepFaceAdapter(
-        modelo=settings.face_model, detector=settings.face_detector
+        modelo=settings.face_model,
+        detector=settings.face_detector,
+        anti_spoofing=settings.face_anti_spoofing,
     )
 
+    if not settings.face_anti_spoofing:
+        logger.warning(
+            "Anti-spoofing DESLIGADO: o sistema aceita foto impressa ou tela "
+            "no lugar da pessoa. Use apenas em desenvolvimento."
+        )
+
     return MenuCLI(
-        cadastrar_aluno=CadastrarAluno(alunos, reconhecimento, storage),
+        cadastrar_aluno=CadastrarAluno(
+            alunos, reconhecimento, storage, settings.timezone
+        ),
         reconhecer_aluno=ReconhecerAluno(
             alunos,
             reconhecimento,
@@ -56,6 +67,7 @@ def montar_menu(settings: Settings) -> MenuCLI:
             limiar=settings.face_threshold,
         ),
         registrar_presenca=RegistrarPresenca(presencas, settings.timezone),
+        excluir_aluno=ExcluirAluno(alunos, storage),
         abrir_camera=lambda: OpenCVCamera(settings.camera_index),
         abrir_janela=JanelaDeVideo,
     )

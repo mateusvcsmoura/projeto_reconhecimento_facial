@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from src.domain.entities.aluno import Aluno
-from src.domain.errors import AlunoJaCadastrado, DadosInvalidos
+from src.domain.errors import (
+    AlunoJaCadastrado,
+    ConsentimentoNaoRegistrado,
+    DadosInvalidos,
+)
 from src.domain.repositories.aluno_repository import AlunoRepository
 from src.domain.services.face_recognition import FaceRecognition
 from src.domain.services.image_storage import ImageStorage
@@ -20,10 +26,12 @@ class CadastrarAluno:
         alunos: AlunoRepository,
         reconhecimento: FaceRecognition,
         storage: ImageStorage,
+        tz: ZoneInfo,
     ) -> None:
         self._alunos = alunos
         self._reconhecimento = reconhecimento
         self._storage = storage
+        self._tz = tz
 
     def validar_identificacao(self, matricula: str, nome: str) -> tuple[str, str]:
         """Valida antes de acender a camera.
@@ -51,15 +59,28 @@ class CadastrarAluno:
 
         return matricula_limpa, nome_limpo
 
-    def executar(self, matricula: str, nome: str, imagem: Any) -> Aluno:
+    def executar(
+        self, matricula: str, nome: str, imagem: Any, consentiu: bool
+    ) -> Aluno:
         """Extrai o rosto, calcula o embedding e persiste tudo de uma vez.
 
         O embedding e calculado UMA vez, aqui. Era o recalculo dele a cada
         comparacao que tornava o reconhecimento inviavel (problema A5).
 
-        Levanta NenhumRostoDetectado, MultiplosRostosDetectados,
-        ModeloIndisponivel ou AlunoJaCadastrado.
+        `consentiu` nao tem valor padrao de proposito: cadastrar biometria
+        sem consentimento explicito do titular nao pode ser o caminho mais
+        facil de escrever (LGPD art. 11, I).
+
+        Levanta ConsentimentoNaoRegistrado, NenhumRostoDetectado,
+        MultiplosRostosDetectados, PossivelFraude, ModeloIndisponivel ou
+        AlunoJaCadastrado.
         """
+        if not consentiu:
+            raise ConsentimentoNaoRegistrado(
+                "O titular precisa consentir com o tratamento do dado "
+                "biometrico antes do cadastro."
+            )
+
         matricula_limpa, nome_limpo = self.validar_identificacao(matricula, nome)
 
         # Guarda-se o recorte alinhado, nao o frame inteiro (problema A14):
@@ -75,4 +96,5 @@ class CadastrarAluno:
             nome=nome_limpo,
             foto_arquivo=nome_arquivo,
             embedding=embedding,
+            consentimento_em=dt.datetime.now(self._tz),
         )
