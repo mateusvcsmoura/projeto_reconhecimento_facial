@@ -26,11 +26,13 @@ python -m src.main
 
 1. Escolha `1` para cadastrar um aluno.
 2. Digite o nome e a matrícula (aceita letras e números).
-3. Posicione apenas um rosto na câmera.
-4. Pressione ESPAÇO para capturar.
-5. Escolha `2` para iniciar o reconhecimento.
-6. Quando o aluno for reconhecido, pressione ENTER para registrar a presença.
-7. ESC fecha a câmera.
+3. Leia o termo de consentimento e confirme — **sem isso a câmera nem liga**.
+4. Posicione apenas um rosto na câmera.
+5. Pressione ESPAÇO para capturar.
+6. Escolha `2` para iniciar o reconhecimento.
+7. Quando o aluno for reconhecido, pressione ENTER para registrar a presença.
+8. ESC fecha a câmera.
+9. Escolha `3` para excluir um aluno e todos os seus dados.
 
 As imagens de referência vão para `STORAGE_DIR` (padrão `./storage/faces`),
 que é criado na primeira gravação e fica fora do Git.
@@ -41,6 +43,9 @@ que é criado na primeira gravação e fica fora do Git.
 - Na primeira execução, o DeepFace pode baixar os modelos e demorar.
 - A matrícula é validada antes de a câmera ser acionada: matrícula duplicada
   ou nome vazio falham de imediato, sem pedir o rosto do aluno.
+- O anti-spoofing recusa foto impressa e tela de celular. Se o cadastro
+  falhar com "apresentação detectada", é a pessoa real que precisa estar
+  na frente da câmera.
 
 ---
 
@@ -186,6 +191,45 @@ python -m scripts.backfill_embeddings --apply    # efetiva
 
 O mesmo script preenche os embeddings de alunos cadastrados antes desta
 fase, a partir das imagens já armazenadas.
+
+## Segurança e dados pessoais (Fase 6)
+
+Política completa em [`docs/lgpd.md`](docs/lgpd.md).
+
+### Anti-spoofing
+
+Ligado por padrão. Frames classificados como apresentação — foto impressa,
+tela de celular — são recusados **no cadastro e no reconhecimento**. Sem
+isso, um controle de presença por rosto é burlável com uma fotografia.
+
+Desligue apenas em desenvolvimento (`FACE_ANTI_SPOOFING=false`); a aplicação
+registra um aviso no boot quando isso acontece.
+
+### Menor privilégio no banco
+
+A aplicação não deve conectar com o dono do banco. Crie o usuário restrito:
+
+```bash
+psql -U escola -d escola      -v senha="'SENHA_DA_APLICACAO'"      -f scripts/sql/criar_usuario_aplicacao.sql
+```
+
+Depois aponte o `DATABASE_URL` da aplicação para `escola_app`, e mantenha o
+usuário dono apenas para `alembic upgrade`.
+
+O papel `escola_app` executa somente `SELECT`, `INSERT`, `UPDATE` e
+`DELETE`. Verificado: toda tentativa de alterar o schema, ou de escrever na
+tabela de controle do Alembic, é recusada pelo PostgreSQL.
+
+### Exclusão e retenção
+
+Opção 3 do menu remove o aluno, o embedding, a imagem e as presenças.
+
+```bash
+python -m scripts.expurgar_presencas            # simula
+python -m scripts.expurgar_presencas --apply    # efetiva
+```
+
+`RETENCAO_PRESENCAS_DIAS` controla o prazo; `0` desliga.
 
 ## Dados sensíveis
 
