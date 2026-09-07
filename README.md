@@ -24,15 +24,36 @@ python -m src.main
 
 ## Uso
 
-1. Escolha `1` para cadastrar um aluno.
-2. Digite o nome e a matrícula (aceita letras e números).
-3. Leia o termo de consentimento e confirme — **sem isso a câmera nem liga**.
-4. Posicione apenas um rosto na câmera.
-5. Pressione ESPAÇO para capturar.
-6. Escolha `2` para iniciar o reconhecimento.
-7. Quando o aluno for reconhecido, pressione ENTER para registrar a presença.
-8. ESC fecha a câmera.
-9. Escolha `3` para excluir um aluno e todos os seus dados.
+```text
+1 - Cadastrar aluno
+2 - Reconhecer aluno
+3 - Listar alunos
+4 - Presencas de hoje
+5 - Excluir aluno e seus dados
+6 - Sair
+```
+
+**Cadastrar (1):** informe nome e matrícula, leia o termo de consentimento e
+confirme — **sem o aceite a câmera nem liga**. Posicione apenas um rosto e
+pressione ESPAÇO. ESC cancela.
+
+**Reconhecer (2):** o overlay mostra o nome e a **confiança em porcentagem**.
+Abaixo de 40% ele avisa "confiança baixa" — vale conferir antes de registrar.
+ENTER registra a presença, ESC sai.
+
+**Listar (3):** mostra matrícula, nome e situação. Alunos marcados como *sem
+embedding* existem no cadastro mas **não serão reconhecidos** — rode o
+backfill antes da aula.
+
+**Presenças de hoje (4):** horário de chegada, matrícula e nome.
+
+**Excluir (5):** remove cadastro, imagem, embedding e presenças. Pede
+confirmação e mostra quem será apagado antes.
+
+Na primeira execução o modelo é carregado **antes** de qualquer câmera abrir,
+com aviso na tela — os pesos do DeepFace são baixados nesse momento e isso
+demora. Sem esse pré-aquecimento, a espera aconteceria com o aluno já parado
+na frente da câmera.
 
 As imagens de referência vão para `STORAGE_DIR` (padrão `./storage/faces`),
 que é criado na primeira gravação e fica fora do Git.
@@ -46,6 +67,13 @@ que é criado na primeira gravação e fica fora do Git.
 - O anti-spoofing recusa foto impressa e tela de celular. Se o cadastro
   falhar com "apresentação detectada", é a pessoa real que precisa estar
   na frente da câmera.
+- Toda mensagem de erro diz **o que fazer**, não apenas o que houve. "Modelo
+  indisponível" vem acompanhado de "verifique a instalação do DeepFace e a
+  conexão".
+- A confiança exibida **não é probabilidade**: é uma leitura linear de quão
+  longe do limiar a decisão ficou. Serve para o operador perceber um match
+  fraco. Transformá-la em probabilidade real exigiria a calibração descrita
+  em *Avaliação do modelo*.
 
 ---
 
