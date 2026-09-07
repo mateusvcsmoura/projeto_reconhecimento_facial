@@ -534,6 +534,10 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 9 — Documentação
 
+> **Executada em 2026-09-07.** `ARCHITECTURE.md` reescrito para o sistema atual, com diagramas Mermaid (camadas, sequência do reconhecimento, modelo de dados). A auditoria original foi **preservada** como `docs/baseline-arquitetura.md`: é o retrato do ponto de partida, e sem ela o que veio depois perde a medida. ADR-004 registra o critério do limiar. `docs/apresentacao.md` traz o roteiro de demonstração, incluindo o que responder se o anti-spoofing falhar ao vivo. README reorganizado — o texto vinha crescendo por acumulação, com seções nomeadas por fase e setup duplicado.
+>
+> **Pendente:** a validação do README por setup do zero em máquina limpa. O setup foi executado nesta máquina (Python 3.12, venv, dependências, migrations, aplicação rodando), e as correções que isso exigiu estão no README — mas em máquina limpa, por outra pessoa, ainda não.
+
 **Objetivo** Projeto apresentável.
 
 **Alterações** `ARCHITECTURE.md` atualizado para o estado final; ADRs numerados; diagramas (componentes, sequência do reconhecimento, modelo de dados); README com setup reproduzível; `docs/apresentacao.md` com roteiro e números da avaliação do modelo.
@@ -545,6 +549,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** Setup do zero, em máquina limpa, seguindo apenas o README.
 
 **Critério de conclusão** Todos os itens da §12.
+
+**Verificado na execução:** todos os links internos entre os documentos resolvem (verificado por script) · quatro ADRs cobrindo ORM+migrations, embeddings, limpeza do histórico e limiar · diagramas em Mermaid, que o GitHub renderiza sem ferramenta externa · `ARCHITECTURE.md` traz os comandos que **provam** as invariantes de camada, em vez de apenas descrevê-las · a seção "o que não foi feito" lista as quatro pendências com o estado de cada uma.
 
 ---
 
