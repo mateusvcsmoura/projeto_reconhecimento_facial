@@ -380,6 +380,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 2 — Separação em camadas
 
+> **Executada em 2026-09-07, com escopo ampliado.** Extrair a infraestrutura de `cadastro.py` sem um tipo de retorno e sem um seam de teste não era possível, então os itens 19–22 da Fase 3 (entidade `Aluno`, `Protocol`s de repositório e serviço, `errors.py`, casos de uso `RegistrarPresenca` e `CadastrarAluno`) foram antecipados. Com a orquestração fora do script, manter um `cadastro.py` esvaziado seria código morto: ele foi **removido nesta fase**, e não na Fase 4 (item 27). Consequência: a Fase 4 passa a ser o trabalho de embeddings e do `matcher` — a escolha do *melhor* candidato (A18) depende da distância, informação que `DeepFace.verify()` não expõe de forma útil, e por isso só é resolvível junto com a Fase 5.
+
 **Objetivo** Extrair de `cadastro.py` as responsabilidades de infraestrutura e apresentação, deixando um script fino.
 
 **Alterações** `CameraProvider` + `OpenCVCamera` (com liberação em `finally` — resolve A17); `src/presentation/cli/` (menu, prompts, viewer); `src/config/logging.py` e substituição dos `print()` de diagnóstico por `logger` (A13); valores hardcoded movidos para `settings` (A12).
@@ -393,6 +395,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** Unitário de `prompts` (matrícula não numérica, nome vazio) com entrada injetada; unitário de `viewer` com câmera falsa; roteiro manual de regressão.
 
 **Critério de conclusão** `cadastro.py` não contém mais `cv2.VideoCapture` nem `input()`; nenhum `print()` usado para diagnóstico; a aplicação inicia por `python -m src.main`.
+
+**Verificado na execução:** `cadastro.py` removido · `src/domain/` e `src/application/` sem `cv2`/`deepface`/`sqlalchemy` · `cv2`/`deepface` confinados a 4 módulos de infraestrutura e apresentação · zero `sqlite3` e zero `CREATE TABLE` na aplicação · zero chamadas de `print()` fora da apresentação · 82 testes passando, dos quais 44 unitários rodam sem webcam, sem OpenCV, sem DeepFace e sem PostgreSQL.
 
 ---
 
