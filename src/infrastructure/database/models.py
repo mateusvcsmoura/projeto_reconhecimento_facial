@@ -65,6 +65,13 @@ class Aluno(Base):
     embedding_modelo: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_dim: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
+    # Momento em que o aluno consentiu com o tratamento do dado biometrico.
+    # Nullable apenas para nao quebrar linhas anteriores a Fase 6; a
+    # aplicacao nao cadastra sem consentimento.
+    consentimento_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

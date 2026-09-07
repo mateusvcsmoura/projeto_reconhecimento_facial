@@ -6,6 +6,7 @@ fronteira entre a infraestrutura e o resto do sistema.
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 
 
@@ -17,3 +18,7 @@ class Aluno:
     # Nome do arquivo, relativo a STORAGE_DIR. None enquanto o aluno nao tem
     # imagem de referencia utilizavel.
     foto_arquivo: str | None = None
+
+    # Quando o titular consentiu com o tratamento do dado biometrico.
+    # None so em linhas anteriores a Fase 6.
+    consentimento_em: dt.datetime | None = None
