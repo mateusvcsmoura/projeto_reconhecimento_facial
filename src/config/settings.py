@@ -4,8 +4,8 @@ Regra do projeto (CLAUDE.md secao 4): credenciais nunca no codigo. A unica
 fonte e o ambiente / arquivo .env, e a aplicacao falha no boot se a conexao
 nao estiver definida.
 
-Escopo: somente o que a Fase 1 realmente le. Chaves de fases posteriores
-(modelo, detector, threshold) entram quando houver codigo que as consuma.
+Escopo: somente chaves que algum modulo realmente le. Nada de
+configuracao morta.
 """
 
 from __future__ import annotations
@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     app_timezone: str = "America/Sao_Paulo"
     storage_dir: Path = PROJECT_ROOT / "storage" / "faces"
 
+    log_level: str = "INFO"
+
+    # Camera e reconhecimento -- eram constantes no topo do cadastro.py.
+    camera_index: int = 0
+    face_model: str = "Facenet512"
+    face_detector: str = "opencv"
+
     @field_validator("database_url", "test_database_url")
     @classmethod
     def _exigir_driver_postgres(cls, valor: str | None) -> str | None:
@@ -53,6 +60,24 @@ class Settings(BaseSettings):
             ZoneInfo(valor)
         except ZoneInfoNotFoundError as exc:
             raise ValueError(f"APP_TIMEZONE desconhecido: {valor!r}") from exc
+        return valor
+
+    @field_validator("log_level")
+    @classmethod
+    def _exigir_nivel_de_log_valido(cls, valor: str) -> str:
+        nivel = valor.strip().upper()
+        validos = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        if nivel not in validos:
+            raise ValueError(
+                f"LOG_LEVEL invalido: {valor!r}. Use um de {sorted(validos)}."
+            )
+        return nivel
+
+    @field_validator("camera_index")
+    @classmethod
+    def _exigir_indice_de_camera_valido(cls, valor: int) -> int:
+        if valor < 0:
+            raise ValueError("CAMERA_INDEX nao pode ser negativo.")
         return valor
 
     @property
