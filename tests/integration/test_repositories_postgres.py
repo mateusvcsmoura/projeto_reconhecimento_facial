@@ -85,7 +85,8 @@ def test_embedding_faz_round_trip_pelo_bytea(
 
     (_, recuperado), = alunos.listar_referencias(MODELO)
 
-    assert recuperado.vetor.tolist() == pytest.approx(original.vetor.tolist())
+    esperado = original.vetor.tolist()
+    assert recuperado.vetor.tolist() == pytest.approx(esperado)
     assert recuperado.modelo == MODELO
     assert recuperado.dimensao == 512
 
@@ -100,10 +101,18 @@ def test_aluno_sem_embedding_nao_entra_na_referencia(
 def test_referencia_filtra_por_modelo(alunos: PostgresAlunoRepository) -> None:
     """Vetores de outro modelo nao podem entrar na comparacao."""
     alunos.cadastrar(
-        "1", "Ana", None, FaceEmbedding.de_valores([1.0, 0.0], "Facenet512"), CONSENTIMENTO
+        "1",
+        "Ana",
+        None,
+        FaceEmbedding.de_valores([1.0, 0.0], "Facenet512"),
+        CONSENTIMENTO,
     )
     alunos.cadastrar(
-        "2", "Bruno", None, FaceEmbedding.de_valores([1.0, 0.0], "ArcFace"), CONSENTIMENTO
+        "2",
+        "Bruno",
+        None,
+        FaceEmbedding.de_valores([1.0, 0.0], "ArcFace"),
+        CONSENTIMENTO,
     )
 
     referencias = alunos.listar_referencias("Facenet512")
@@ -113,28 +122,26 @@ def test_referencia_filtra_por_modelo(alunos: PostgresAlunoRepository) -> None:
 
 def test_embedding_incompleto_e_rejeitado_pelo_banco(banco_limpo: Engine) -> None:
     """O CHECK impede vetor sem o modelo que o gerou."""
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text(
-                    "INSERT INTO alunos (matricula, nome, embedding)"
-                    " VALUES ('99', 'Incompleto', :vetor)"
-                ),
-                {"vetor": (1).to_bytes(4, "little")},
-            )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text(
+                "INSERT INTO alunos (matricula, nome, embedding)"
+                " VALUES ('99', 'Incompleto', :vetor)"
+            ),
+            {"vetor": (1).to_bytes(4, "little")},
+        )
 
 
 def test_embedding_de_dimensao_zero_e_rejeitado(banco_limpo: Engine) -> None:
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text(
-                    "INSERT INTO alunos"
-                    " (matricula, nome, embedding, embedding_modelo, embedding_dim)"
-                    " VALUES ('98', 'Dim zero', :vetor, 'Facenet512', 0)"
-                ),
-                {"vetor": (1).to_bytes(4, "little")},
-            )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text(
+                "INSERT INTO alunos"
+                " (matricula, nome, embedding, embedding_modelo, embedding_dim)"
+                " VALUES ('98', 'Dim zero', :vetor, 'Facenet512', 0)"
+            ),
+            {"vetor": (1).to_bytes(4, "little")},
+        )
 
 
 def test_entidade_devolvida_nao_carrega_sqlalchemy(

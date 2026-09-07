@@ -23,8 +23,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.domain.entities.face_embedding import FaceEmbedding  # noqa: E402
-from src.domain.services.matcher import MatrizDeReferencia  # noqa: E402
+from src.domain.entities.face_embedding import FaceEmbedding
+from src.domain.services.matcher import MatrizDeReferencia
 
 MODELO = "Facenet512"
 DIMENSAO = 512
@@ -48,7 +48,11 @@ def main() -> int:
     consulta = FaceEmbedding.de_valores(rng.random(DIMENSAO), MODELO)
 
     print(f"Vetores de {DIMENSAO} dimensoes | {REPETICOES} repeticoes por tamanho\n")
-    print(f"{'alunos':>7} | {'comparacao':>12} | {'ciclos/s':>10} | {'antes (2N inf.)':>16}")
+    cabecalho = (
+        f"{'alunos':>7} | {'comparacao':>12} | "
+        f"{'ciclos/s':>10} | {'antes (2N inf.)':>16}"
+    )
+    print(cabecalho)
     print("-" * 56)
 
     for n in TAMANHOS:

@@ -116,7 +116,8 @@ class DeepFaceAdapter:
         # recorte ja validado. `detector_backend="skip"` evita redetectar o
         # que acabou de ser detectado -- continua sendo UMA inferencia do
         # modelo de embedding por ciclo.
-        recorte = _para_bgr_uint8(np.asarray(self._detectar_rosto_unico(imagem)["face"]))
+        face = self._detectar_rosto_unico(imagem)
+        recorte = _para_bgr_uint8(np.asarray(face["face"]))
 
         try:
             representacoes = DeepFace.represent(

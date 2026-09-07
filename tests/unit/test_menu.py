@@ -6,7 +6,7 @@ cv2 direto, estes testes deixam de importar -- e isso e proposital.
 
 from __future__ import annotations
 
-import pytest
+from zoneinfo import ZoneInfo
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
 from src.application.use_cases.excluir_aluno import ExcluirAluno
@@ -25,7 +25,6 @@ from tests.fakes import (
     FakeJanela,
     FakePresencaRepository,
 )
-from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("America/Sao_Paulo")
 MODELO = "Facenet512"
@@ -224,3 +223,92 @@ def test_esc_sai_do_reconhecimento() -> None:
 
     assert ctx.camera.liberada is True  # type: ignore[attr-defined]
     assert "Encerrando..." in texto(ctx)
+
+
+# -- exclusao (Fase 6/7) ---------------------------------------------------
+
+
+def test_exclusao_pede_confirmacao_e_remove() -> None:
+    menu, ctx = montar(
+        respostas=["3", "1", "s", "4"],
+        teclas=[],
+        alunos=[ANA],
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+    )
+    menu.executar()
+
+    assert "Aluno e todos os seus dados foram removidos." in texto(ctx)
+    assert ctx.alunos.alunos == []  # type: ignore[attr-defined]
+
+
+def test_exclusao_mostra_quem_sera_apagado_antes_de_apagar() -> None:
+    menu, ctx = montar(respostas=["3", "1", "s", "4"], teclas=[], alunos=[ANA])
+    menu.executar()
+
+    saida = texto(ctx)
+    assert "Ana" in saida
+    assert saida.index("Ana") < saida.index("removidos")
+
+
+def test_resposta_diferente_de_sim_cancela_a_exclusao() -> None:
+    menu, ctx = montar(respostas=["3", "1", "n", "4"], teclas=[], alunos=[ANA])
+    menu.executar()
+
+    assert "Exclusao cancelada." in texto(ctx)
+    assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
+
+
+def test_enter_vazio_nao_confirma_a_exclusao() -> None:
+    """Confirmacao destrutiva nao pode ter o "sim" como padrao."""
+    menu, ctx = montar(respostas=["3", "1", "", "4"], teclas=[], alunos=[ANA])
+    menu.executar()
+
+    assert "Exclusao cancelada." in texto(ctx)
+    assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
+
+
+def test_matricula_inexistente_vira_mensagem_sem_derrubar_o_menu() -> None:
+    menu, ctx = montar(respostas=["3", "999", "4"], teclas=[], alunos=[ANA])
+    menu.executar()
+
+    assert "ERRO:" in texto(ctx)
+    assert "Encerrando..." in texto(ctx)
+
+
+# -- consentimento no fluxo da CLI -----------------------------------------
+
+
+def test_recusar_o_consentimento_nao_liga_a_camera() -> None:
+    menu, ctx = montar(respostas=["1", "Maria", "42", "n", "4"], teclas=[])
+    menu.executar()
+
+    assert "Cadastro cancelado: sem consentimento." in texto(ctx)
+    assert ctx.camera.aberta is False  # type: ignore[attr-defined]
+    assert ctx.alunos.alunos == []  # type: ignore[attr-defined]
+
+
+def test_termo_de_consentimento_e_exibido_antes_da_captura() -> None:
+    menu, ctx = montar(respostas=["1", "Maria", "42", "s", "4"], teclas=[ESPACO])
+    menu.executar()
+
+    saida = texto(ctx)
+    assert "CONSENTIMENTO" in saida
+    assert saida.index("CONSENTIMENTO") < saida.index("Posicione o rosto")
+
+
+# -- falha de camera no reconhecimento -------------------------------------
+
+
+def test_falha_de_leitura_no_reconhecimento_encerra_com_mensagem() -> None:
+    menu, ctx = montar(
+        respostas=["2", "4"],
+        teclas=[],
+        alunos=[ANA],
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
+        erro_ao_ler=FalhaNaLeituraDaCamera("cabo removido"),
+    )
+    menu.executar()
+
+    assert "A camera parou de responder." in texto(ctx)
+    assert ctx.camera.liberada is True  # type: ignore[attr-defined]

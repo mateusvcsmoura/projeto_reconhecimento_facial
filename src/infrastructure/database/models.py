@@ -10,15 +10,15 @@ import datetime as dt
 
 from sqlalchemy import (
     BigInteger,
-    Identity,
-    LargeBinary,
-    SmallInteger,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
+    LargeBinary,
     MetaData,
+    SmallInteger,
     String,
     UniqueConstraint,
     func,
@@ -79,7 +79,7 @@ class Aluno(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    presencas: Mapped[list["Presenca"]] = relationship(
+    presencas: Mapped[list[Presenca]] = relationship(
         back_populates="aluno", cascade="all, delete-orphan", passive_deletes=True
     )
 

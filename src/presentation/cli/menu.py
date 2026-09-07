@@ -14,11 +14,11 @@ from types import TracebackType
 from typing import Any, Protocol
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
-from src.application.use_cases.reconhecer_aluno import (
-    Reconhecimento,
-    ReconhecerAluno,
-)
 from src.application.use_cases.excluir_aluno import ExcluirAluno
+from src.application.use_cases.reconhecer_aluno import (
+    ReconhecerAluno,
+    Reconhecimento,
+)
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.errors import ErroDeDominio, FalhaNaLeituraDaCamera
@@ -123,6 +123,12 @@ class MenuCLI:
         # Valida ANTES de acender a camera: nao faz sentido pedir o rosto do
         # aluno para so entao descobrir que a matricula esta duplicada.
         matricula, nome = self._cadastrar_aluno.validar_identificacao(matricula, nome)
+
+        # O termo vem ANTES de a camera ligar. Coletar a biometria para so
+        # entao perguntar inverteria a ordem que a LGPD exige.
+        if not self._colher_consentimento(nome):
+            self._escrever("Cadastro cancelado: sem consentimento.")
+            return
 
         self._escrever("\nPosicione o rosto dentro da camera.")
         self._escrever("ESPACO captura | ESC cancela.")

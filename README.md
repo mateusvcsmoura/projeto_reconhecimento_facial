@@ -108,11 +108,64 @@ Conversão de data: aceita `dd/mm/aaaa HH:MM:SS` (formato legado) e
 `aaaa-mm-dd HH:MM:SS` (formato atual), localizando em `APP_TIMEZONE`.
 Qualquer outro formato é **rejeitado e relatado** — nunca adivinhado.
 
-## Testes
+## Testes e qualidade
 
 ```bash
-pytest
+pip install -r requirements-dev.txt
+
+pytest                                   # 216 testes
+pytest --cov=src --cov-report=term       # com cobertura
+ruff check .                             # lint
+mypy                                     # tipos
 ```
+
+`requirements-dev.txt` **não** inclui `opencv-python` nem `deepface`: a suíte
+inteira roda sem eles, usando dublês de módulo injetados em `sys.modules`. Se
+algum dia um teste passar a exigir OpenCV ou TensorFlow, ele quebra — e essa
+quebra é o aviso de que uma fronteira vazou.
+
+Estrutura:
+
+```text
+tests/
+├── unit/          domínio, casos de uso, CLI, adaptadores (com dublês)
+├── integration/   PostgreSQL real: schema, constraints, repositories, ETL
+└── features/      cenários BDD em Gherkin (pytest-bdd)
+```
+
+### BDD
+
+Os `.feature` estão em português e são executados por `pytest-bdd` — não são
+documentação decorativa, falham de verdade quando o comportamento muda.
+
+```bash
+pytest tests/features -v
+```
+
+Cobrem os cenários obrigatórios de `instructions/03-qa.md` §6: cadastro,
+reconhecimento, presença e integridade do banco.
+
+### Avaliação do modelo (≠ teste de software)
+
+Teste de software verifica se o pipeline faz o que promete; avaliação de
+modelo mede se o modelo **acerta**. São coisas diferentes.
+
+```bash
+python -m scripts.evaluate_model --dataset ./avaliacao/lfw-subset
+```
+
+Reporta FAR, FRR, EER, AUC e sugere um limiar por teto de FAR. Requer Python
+3.10/3.11 com DeepFace. **Nunca versione o conjunto de imagens.**
+
+A matemática das métricas vive em `scripts/metricas.py` e é coberta por 16
+testes que rodam sem o modelo — um erro de cálculo ali levaria a calibrar o
+`FACE_THRESHOLD` no valor errado.
+
+### CI
+
+`.github/workflows/ci.yml` roda a cada push e PR: lint, tipos, migrations
+(sobem e descem), `alembic check`, testes com piso de 80% de cobertura, e uma
+verificação de que nenhum arquivo sensível foi versionado.
 
 Os testes de integração usam `TEST_DATABASE_URL`, que precisa apontar para um
 banco **diferente** do de desenvolvimento: a suíte cria e destrói o schema.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from src.config.settings import Settings
 from src.presentation.cli import prompts
@@ -33,7 +34,7 @@ def test_opcao_vazia_vira_none() -> None:
 
 def test_database_url_ausente_falha_no_boot() -> None:
     """Sem conexao definida nao ha default silencioso -- ha erro."""
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError, match="database_url"):
         Settings(_env_file=None)  # type: ignore[call-arg]
 
 

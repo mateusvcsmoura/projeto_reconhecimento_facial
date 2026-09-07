@@ -55,7 +55,9 @@ def test_constraints_esperadas_existem(engine: Engine) -> None:
     uniques_alunos = {u["name"] for u in inspetor.get_unique_constraints("alunos")}
     assert "uq_alunos_matricula" in uniques_alunos
 
-    uniques_presencas = {u["name"] for u in inspetor.get_unique_constraints("presencas")}
+    uniques_presencas = {
+        u["name"] for u in inspetor.get_unique_constraints("presencas")
+    }
     assert "uq_presencas_aluno_dia" in uniques_presencas
 
     checks_alunos = {c["name"] for c in inspetor.get_check_constraints("alunos")}
@@ -78,31 +80,28 @@ def test_matricula_duplicada_e_rejeitada(banco_limpo: Engine) -> None:
         conexao.execute(
             text("INSERT INTO alunos (matricula, nome) VALUES ('100', 'Aluno Um')")
         )
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text("INSERT INTO alunos (matricula, nome) VALUES ('100', 'Outro')")
-            )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text("INSERT INTO alunos (matricula, nome) VALUES ('100', 'Outro')")
+        )
 
 
 def test_nome_vazio_e_rejeitado(banco_limpo: Engine) -> None:
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text("INSERT INTO alunos (matricula, nome) VALUES ('101', '   ')")
-            )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text("INSERT INTO alunos (matricula, nome) VALUES ('101', '   ')")
+        )
 
 
 def test_presenca_orfa_e_rejeitada(banco_limpo: Engine) -> None:
     """A FK que o SQLite nunca teve (PRAGMA foreign_keys estava desligado)."""
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text(
-                    "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
-                    " VALUES (999999, now(), CURRENT_DATE)"
-                )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text(
+                "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
+                " VALUES (999999, now(), CURRENT_DATE)"
             )
+        )
 
 
 def test_segunda_presenca_no_mesmo_dia_e_rejeitada(banco_limpo: Engine) -> None:
@@ -122,15 +121,14 @@ def test_segunda_presenca_no_mesmo_dia_e_rejeitada(banco_limpo: Engine) -> None:
             {"a": aluno_id},
         )
 
-    with pytest.raises(IntegrityError):
-        with banco_limpo.begin() as conexao:
-            conexao.execute(
-                text(
-                    "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
-                    " VALUES (:a, now(), DATE '2026-03-10')"
-                ),
-                {"a": aluno_id},
-            )
+    with pytest.raises(IntegrityError), banco_limpo.begin() as conexao:
+        conexao.execute(
+            text(
+                "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
+                " VALUES (:a, now(), DATE '2026-03-10')"
+            ),
+            {"a": aluno_id},
+        )
 
 
 def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:

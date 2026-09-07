@@ -1,0 +1,26 @@
+# Dependencias de desenvolvimento e CI.
+#
+# NAO inclui opencv-python nem deepface de proposito: a suite inteira roda
+# sem eles, usando dubles de modulo injetados em sys.modules. Se algum dia um
+# teste passar a exigir OpenCV ou TensorFlow, ele quebra aqui -- e essa
+# quebra e o aviso de que uma fronteira vazou.
+#
+# Instalar com:  pip install -r requirements-dev.txt
+
+# Persistencia
+SQLAlchemy==2.0.52
+alembic==1.19.2
+psycopg[binary]==3.3.5
+pydantic-settings==2.15.0
+
+# Comparacao de embeddings
+numpy==2.5.3
+
+# Testes
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-bdd==8.1.0
+
+# Qualidade
+ruff==0.16.6
+mypy==2.3.1

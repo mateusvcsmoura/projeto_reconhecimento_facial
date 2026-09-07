@@ -38,9 +38,9 @@ from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.config.settings import get_settings  # noqa: E402
-from src.infrastructure.database.engine import criar_engine, sessao  # noqa: E402
-from src.infrastructure.database.models import Aluno, Presenca  # noqa: E402
+from src.config.settings import get_settings
+from src.infrastructure.database.engine import criar_engine, sessao
+from src.infrastructure.database.models import Aluno, Presenca
 
 # Formatos aceitos em presencas.data_hora. Sao os dois que o projeto
 # comprovadamente gravou ao longo da sua historia. Qualquer outro e
@@ -70,7 +70,7 @@ class Relatorio:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "gerado_em": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "gerado_em": dt.datetime.now(dt.UTC).isoformat(),
             "sqlite_path": self.sqlite_path,
             "dry_run": self.dry_run,
             "alunos": {
@@ -256,14 +256,14 @@ def _migrar_presencas(
         # mesma constraint que passa a garantir a regra de negocio. Torna a
         # reexecucao segura e colapsa as repeticoes do legado.
         comando = (
-            pg_insert(Presenca.__table__)
+            pg_insert(Presenca)
             .values(
                 aluno_id=aluno_id,
                 registrado_em=registrado_em,
                 data_referencia=data_referencia,
             )
             .on_conflict_do_nothing(constraint="uq_presencas_aluno_dia")
-            .returning(Presenca.__table__.c.id)
+            .returning(Presenca.id)
         )
         inserido = session.execute(comando).scalar()
 

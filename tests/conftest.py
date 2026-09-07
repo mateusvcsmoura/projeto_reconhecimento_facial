@@ -60,7 +60,8 @@ def database_url() -> str:
 @pytest.fixture(scope="session")
 def engine(database_url: str) -> Iterator[Engine]:
     """Aplica as migrations na entrada e desfaz na saida."""
-    _alembic("downgrade", "base", url=database_url)  # limpa resíduo de execucao anterior
+    # Limpa residuo de uma execucao anterior interrompida.
+    _alembic("downgrade", "base", url=database_url)
     _alembic("upgrade", "head", url=database_url)
 
     motor = criar_engine(database_url)

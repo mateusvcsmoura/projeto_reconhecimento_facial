@@ -154,7 +154,7 @@ Zero testes. Zero infraestrutura de teste. Nenhuma função é testável sem web
 
 Prioridade original: 🔴 alta (bloqueia uso ou expõe dado) · 🟡 média (dívida estrutural) · 🟢 baixa (higiene). ✅ = fechado, com a fase e a evidência na penúltima coluna.
 
-**Situação em 2026-09-07: 17 dos 18 problemas fechados.** O único aberto é o A9 (cobertura formal de testes), que é o objeto da Fase 7.
+**Situação em 2026-09-07: os 18 problemas do baseline estão fechados.**
 
 | ID | Problema | Impacto | Evidência original | Risco / como foi fechado | Status |
 |---|---|---|---|---|---|
@@ -166,7 +166,7 @@ Prioridade original: 🔴 alta (bloqueia uso ou expõe dado) · 🟡 média (dí
 | **A6** | ~~`except Exception: continue` sem log no caminho crítico~~ **RESOLVIDO (Fase 2/4)** | Falha de modelo é indistinguível de "sem rosto" | `cadastro.py:288-291` (`P6`) | erros nomeados; teste com duble do DeepFace | ✅ |
 | **A7** | ~~Ausência de anti-spoofing~~ **RESOLVIDO** | Presença burlável com foto impressa ou tela | `cadastro.py:125-130`, `273-280` (`P8`) | — | ✅ |
 | **A8** | ~~Módulo único: UI + câmera + IA + SQL + regra acoplados~~ **RESOLVIDO (Fase 2)** | Nada é testável sem hardware; regressão concentrada | `cadastro.py` inteiro (`P9`) | arquitetura em camadas; 144 testes | ✅ |
-| **A9** | Cobertura de testes = 0 | Nenhuma rede de segurança | projeto inteiro (`P10`) | A2 e A3 são exatamente o defeito que um teste trivial pegaria | 🟡 |
+| **A9** | ~~Cobertura de testes = 0~~ **RESOLVIDO (Fase 7)** | Nenhuma rede de segurança | projeto inteiro (`P10`) | 216 testes; 91% de cobertura; CI com piso de 80% | ✅ |
 | **A10** | ~~Sem FK, sem índice, sem unique~~ **RESOLVIDO (Fase 1)** | Presenças órfãs possíveis; varredura completa no dedup | `PRAGMA` vazios (`P11`) | FK, `ON DELETE CASCADE` e indice | ✅ |
 | **A11** | ~~Caminho absoluto de foto persistido no banco~~ **RESOLVIDO (Fase 2)** | Banco não é portátil entre máquinas | `cadastro.py:73`,`160`; dado real quebrado (`P3`) | `foto_arquivo` relativo a `STORAGE_DIR` | ✅ |
 | **A12** | ~~Configuração hardcoded (modelo, detector, câmera, caminhos)~~ **RESOLVIDO (Fase 2)** | Impossível ajustar por ambiente | `cadastro.py:10-18` | `settings` validado, falha no boot | ✅ |
@@ -486,6 +486,12 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 7 — QA
 
+> **Executada em 2026-09-07.** Fecha **A9**, o último problema do baseline. 216 testes (eram 144), 91% de cobertura total e 97%+ em `domain/`+`application/`. 24 cenários BDD em Gherkin. CI no GitHub Actions com lint, tipos, migrations, cobertura e verificação de dados sensíveis. `ruff` e `mypy` limpos.
+>
+> **Bug encontrado pela cobertura:** o relatório apontou `_colher_consentimento` como código morto — o método existia, mas a CLI **nunca o chamava**, e passava `consentiu=True` fixo. O controle central da Fase 6 estava inoperante em produção, e o relatório daquela fase afirmou o contrário. Corrigido aqui, com dois testes que travam a regressão.
+>
+> **Pendente, declarado:** a calibração do `FACE_THRESHOLD` com dados reais exige um ambiente Python 3.10/3.11 e um conjunto de imagens. O script está pronto e a matemática das métricas é coberta por 16 testes; falta rodar a medição.
+
 **Objetivo** Rede de segurança permanente (A9).
 
 **Alterações** Suíte completa (§11), fixtures de banco por transação, `pytest-bdd` com os `.feature`, `scripts/evaluate_model.py` para FAR/FRR/ROC, meta de cobertura em `pyproject.toml`, CI rodando unitários + integração.
@@ -497,6 +503,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** A própria fase.
 
 **Critério de conclusão** Cobertura ≥ 80% em `domain/` e `application/`; todos os cenários obrigatórios de `instructions/03-qa.md` §6 cobertos; CI verde.
+
+**Verificado na execução:** 216 testes · cobertura 91% total, e `domain/`+`application/` acima de 97% · 24 cenários Gherkin cobrindo cadastro, reconhecimento, presença e banco · `ruff check` e `mypy` sem achados · os módulos que dependem de `cv2` saíram de 0% para cobertura alta, via dublês de módulo · a suíte roda **sem** OpenCV e sem DeepFace instalados, o que é verificado pelo próprio `requirements-dev.txt` do CI.
 
 ---
 
