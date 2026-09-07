@@ -1,0 +1,47 @@
+"""Janela de video da CLI.
+
+Junto com o modulo de camera, um dos dois unicos lugares que importam cv2.
+Nao decide nada: desenha o que recebe e devolve a tecla pressionada.
+"""
+
+from __future__ import annotations
+
+from types import TracebackType
+from typing import Any
+
+import cv2
+
+_FONTE = cv2.FONT_HERSHEY_SIMPLEX
+
+
+class JanelaDeVideo:
+    """Context manager: a janela e sempre fechada, inclusive em excecao."""
+
+    def __init__(self, titulo: str) -> None:
+        self._titulo = titulo
+
+    def __enter__(self) -> JanelaDeVideo:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        cv2.destroyWindow(self._titulo)
+        # No Windows a janela so some depois de alguns ciclos de evento.
+        cv2.waitKey(1)
+
+    def mostrar(
+        self,
+        frame: Any,
+        linhas: list[tuple[str, tuple[int, int, int]]],
+    ) -> int:
+        """Desenha as linhas sobre o frame e devolve a tecla pressionada."""
+        for indice, (texto, cor) in enumerate(linhas):
+            y = 40 + indice * 35
+            cv2.putText(frame, texto, (20, y), _FONTE, 0.7, cor, 2)
+
+        cv2.imshow(self._titulo, frame)
+        return cv2.waitKey(1) & 0xFF
