@@ -49,7 +49,12 @@ def montar_menu(settings: Settings) -> MenuCLI:
 
     return MenuCLI(
         cadastrar_aluno=CadastrarAluno(alunos, reconhecimento, storage),
-        reconhecer_aluno=ReconhecerAluno(alunos, reconhecimento, storage),
+        reconhecer_aluno=ReconhecerAluno(
+            alunos,
+            reconhecimento,
+            modelo=settings.face_model,
+            limiar=settings.face_threshold,
+        ),
         registrar_presenca=RegistrarPresenca(presencas, settings.timezone),
         abrir_camera=lambda: OpenCVCamera(settings.camera_index),
         abrir_janela=JanelaDeVideo,

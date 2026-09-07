@@ -1,8 +1,7 @@
-"""Modelos ORM — schema PostgreSQL do dominio atual.
+"""Modelos ORM -- schema PostgreSQL.
 
-Escopo deliberado: apenas as entidades que ja existem no sistema
-(`alunos`, `presencas`). Colunas de embedding e consentimento entram nas
-Fases 5 e 6, com suas proprias migrations.
+Colunas de consentimento e retencao entram na Fase 6, com sua propria
+migration.
 """
 
 from __future__ import annotations
@@ -12,6 +11,8 @@ import datetime as dt
 from sqlalchemy import (
     BigInteger,
     Identity,
+    LargeBinary,
+    SmallInteger,
     CheckConstraint,
     Date,
     DateTime,
@@ -55,6 +56,15 @@ class Aluno(Base):
     # dump nao portavel — foi o que quebrou os dados legados.
     foto_arquivo: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Embedding facial: float32 little-endian, L2-normalizado.
+    # Calculado uma vez, no cadastro, e reutilizado a cada reconhecimento.
+    # O modelo fica gravado junto porque vetores de modelos diferentes nao
+    # sao comparaveis -- misturar os dois produziria identificacao errada
+    # em silencio.
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    embedding_modelo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    embedding_dim: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -70,6 +80,15 @@ class Aluno(Base):
         UniqueConstraint("matricula", name="uq_alunos_matricula"),
         CheckConstraint("length(btrim(nome)) > 0", name="nome_nao_vazio"),
         CheckConstraint("length(btrim(matricula)) > 0", name="matricula_nao_vazia"),
+        # Os tres campos do embedding andam juntos: ou todos preenchidos, ou
+        # todos nulos. Um vetor sem o modelo que o gerou e inutilizavel.
+        CheckConstraint(
+            "(embedding IS NULL AND embedding_modelo IS NULL "
+            "AND embedding_dim IS NULL) OR "
+            "(embedding IS NOT NULL AND embedding_modelo IS NOT NULL "
+            "AND embedding_dim IS NOT NULL AND embedding_dim > 0)",
+            name="embedding_completo",
+        ),
     )
 
 

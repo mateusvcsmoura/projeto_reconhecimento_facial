@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     face_model: str = "Facenet512"
     face_detector: str = "opencv"
 
+    # Distancia cosseno maxima para considerar duas faces a mesma pessoa.
+    # 0.30 e o limiar que o DeepFace usa para (Facenet512, cosine). Ate a
+    # Fase 7 calibrar este numero com FAR/FRR sobre dados reais, ele e uma
+    # heranca da biblioteca -- agora ao menos explicita e ajustavel.
+    face_threshold: float = 0.30
+
     @field_validator("database_url", "test_database_url")
     @classmethod
     def _exigir_driver_postgres(cls, valor: str | None) -> str | None:
@@ -72,6 +78,16 @@ class Settings(BaseSettings):
                 f"LOG_LEVEL invalido: {valor!r}. Use um de {sorted(validos)}."
             )
         return nivel
+
+    @field_validator("face_threshold")
+    @classmethod
+    def _exigir_limiar_valido(cls, valor: float) -> float:
+        # Distancia cosseno entre vetores normalizados vive em [0, 2].
+        if not 0.0 < valor <= 2.0:
+            raise ValueError(
+                f"FACE_THRESHOLD deve estar em (0, 2]; recebido {valor}."
+            )
+        return valor
 
     @field_validator("camera_index")
     @classmethod

@@ -12,6 +12,7 @@ from src.application.use_cases.cadastrar_aluno import CadastrarAluno
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
+from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import FalhaNaLeituraDaCamera
 from src.presentation.cli.menu import INTERVALO_DE_COMPARACAO, MenuCLI
 from src.presentation.cli.teclas import ENTER, ESC, ESPACO
@@ -26,7 +27,12 @@ from tests.fakes import (
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("America/Sao_Paulo")
+MODELO = "Facenet512"
 ANA = Aluno(id=1, matricula="1", nome="Ana", foto_arquivo="1.jpg")
+
+
+def emb(valores: list[float]) -> FaceEmbedding:
+    return FaceEmbedding.de_valores(valores, MODELO)
 
 
 class Contexto:
@@ -42,14 +48,14 @@ def montar(
     teclas: list[int],
     frames: int = 40,
     alunos: list[Aluno] | None = None,
-    fotos: set[str] | None = None,
-    casa_com: str | None = None,
+    embeddings: dict[int, FaceEmbedding] | None = None,
+    consulta: FaceEmbedding | None = None,
     erro_ao_ler: Exception | None = None,
 ) -> tuple[MenuCLI, Contexto]:
-    repo_alunos = FakeAlunoRepository(alunos or [])
+    repo_alunos = FakeAlunoRepository(alunos or [], embeddings or {})
     repo_presencas = FakePresencaRepository()
-    storage = FakeImageStorage(existentes=fotos or set())
-    reconhecimento = FakeFaceRecognition(casa_com=casa_com)
+    storage = FakeImageStorage()
+    reconhecimento = FakeFaceRecognition(embedding=consulta)
 
     camera = FakeCamera([object() for _ in range(frames)], erro_ao_ler=erro_ao_ler)
     janela = FakeJanela(teclas)
@@ -58,7 +64,9 @@ def montar(
 
     menu = MenuCLI(
         cadastrar_aluno=CadastrarAluno(repo_alunos, reconhecimento, storage),
-        reconhecer_aluno=ReconhecerAluno(repo_alunos, reconhecimento, storage),
+        reconhecer_aluno=ReconhecerAluno(
+            repo_alunos, reconhecimento, modelo=MODELO, limiar=0.30
+        ),
         registrar_presenca=RegistrarPresenca(repo_presencas, TZ),
         abrir_camera=lambda: camera,
         abrir_janela=lambda _titulo: janela,
@@ -154,7 +162,7 @@ def test_sem_candidatos_nao_abre_a_camera() -> None:
     menu, ctx = montar(respostas=["2", "3"], teclas=[])
     menu.executar()
 
-    assert "Nenhum aluno com foto de referencia disponivel." in texto(ctx)
+    assert "Nenhum aluno com embedding cadastrado." in texto(ctx)
     assert ctx.camera.aberta is False  # type: ignore[attr-defined]
 
 
@@ -164,8 +172,8 @@ def test_enter_registra_a_presenca_do_reconhecido() -> None:
         respostas=["2", "3"],
         teclas=teclas,
         alunos=[ANA],
-        fotos={"1.jpg"},
-        casa_com="1.jpg",
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
     )
     menu.executar()
 
@@ -179,8 +187,8 @@ def test_segundo_enter_no_mesmo_dia_avisa_em_vez_de_duplicar() -> None:
         respostas=["2", "3"],
         teclas=teclas,
         alunos=[ANA],
-        fotos={"1.jpg"},
-        casa_com="1.jpg",
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
     )
     menu.executar()
 
@@ -194,8 +202,8 @@ def test_enter_sem_reconhecimento_nao_registra_nada() -> None:
         respostas=["2", "3"],
         teclas=teclas,
         alunos=[ANA],
-        fotos={"1.jpg"},
-        casa_com=None,
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([0.0, 1.0, 0.0]),
     )
     menu.executar()
 
@@ -207,7 +215,8 @@ def test_esc_sai_do_reconhecimento() -> None:
         respostas=["2", "3"],
         teclas=[ESC],
         alunos=[ANA],
-        fotos={"1.jpg"},
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
     )
     menu.executar()
 

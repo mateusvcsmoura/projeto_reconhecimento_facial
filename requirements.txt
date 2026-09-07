@@ -3,6 +3,11 @@
 opencv-python==4.13.0.92
 deepface==0.0.92
 
+# Comparacao de embeddings — Fase 5
+# Declarada explicitamente: o dominio depende dela (matcher vetorizado),
+# nao apenas transitivamente via opencv/deepface.
+numpy==2.5.3
+
 # Persistencia — Fase 1 (PostgreSQL)
 SQLAlchemy==2.0.52
 alembic==1.19.2

@@ -438,6 +438,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 
 ### FASE 5 — Performance: embeddings persistidos
 
+> **Executada em 2026-09-07, fundida com a Fase 4.** As duas fases foram unidas porque o item 24 (matcher, escolha do melhor candidato — A18) depende da distância entre vetores, informação que `DeepFace.verify()` não expõe de forma útil: só existe depois que os embeddings passam a ser persistidos. O item 23 (provider atrás do contrato) e o 26 (fake sem TensorFlow) já haviam sido entregues na Fase 2. **Fechados aqui: A5, A14, A15, A18.** Medição da comparação em `docs/adr/ADR-002`.
+
 **Objetivo** Eliminar o reprocessamento (A5, A14) — de até `2N` inferências por ciclo para **1**.
 
 **Alterações** Migration adicionando `embedding`, `embedding_modelo`, `embedding_dim`; `CadastrarAluno` passa a calcular e persistir o embedding da face **recortada e alinhada**; `ReconhecerAluno` carrega a matriz de referência uma vez, extrai 1 embedding do frame e compara por distância cosseno vetorizada em NumPy; recarga da lista quando houver novo cadastro (A15).
@@ -451,6 +453,8 @@ Nenhuma fase anterior. Requer Docker (ou PostgreSQL local) na máquina de desenv
 **Testes** Equivalência: para o mesmo par de imagens, a decisão do novo caminho coincide com `DeepFace.verify()`; benchmark comparando ciclos/segundo antes e depois com N sintético (10, 50, 200); unitário da comparação vetorizada contra cálculo ingênuo.
 
 **Critério de conclusão** Uma única inferência por ciclo de comparação, medida; benchmark registrado no `ARCHITECTURE.md`; decisão idêntica à do baseline no conjunto de validação.
+
+**Verificado na execução:** uma inferência por ciclo, provada por teste que conta as chamadas ao modelo com N=50 · benchmark real em `scripts/benchmark_matcher.py` (200 alunos: 0,0142 ms de comparação) · comparação vetorizada conferida contra o cálculo ingênuo sobre 50 vetores de 512 dimensões · 122 testes passando. **Pendente:** a comparação com `DeepFace.verify()` sobre imagens reais exige um ambiente Python 3.10/3.11 — ver *Limitações* no README.
 
 ---
 
