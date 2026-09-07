@@ -229,13 +229,13 @@ __marimo__/
 *.sqlite3
 escola.db
 
-# Imagens de rosto e derivados biometricos
-fotos/
-storage/
+# Imagens de rosto e derivados biometricos.
+# Ancorados na raiz (/) de proposito: sem a barra inicial, o padrao casaria
+# qualquer diretorio com esse nome em qualquer nivel -- e "storage/" chegou a
+# excluir o modulo de codigo src/infrastructure/storage/.
+/fotos/
+/storage/
 *.npy
-
-# Relatorios de ETL (podem conter nome e caminho de aluno)
-storage/etl/
 
 # Segredos
 .env

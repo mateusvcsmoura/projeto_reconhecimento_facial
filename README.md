@@ -15,27 +15,32 @@ pip install -r requirements.txt
 
 ## Executar
 
+Antes do primeiro uso, suba o banco e aplique as migrations (ver a seção
+*Banco de dados*, abaixo).
+
 ```bat
-python cadastro.py
+python -m src.main
 ```
 
 ## Uso
 
 1. Escolha `1` para cadastrar um aluno.
-2. Digite nome e ID/matrícula numérica.
+2. Digite o nome e a matrícula (aceita letras e números).
 3. Posicione apenas um rosto na câmera.
 4. Pressione ESPAÇO para capturar.
 5. Escolha `2` para iniciar o reconhecimento.
 6. Quando o aluno for reconhecido, pressione ENTER para registrar a presença.
 7. ESC fecha a câmera.
 
-A pasta `fotos` é criada automaticamente.
+As imagens de referência vão para `STORAGE_DIR` (padrão `./storage/faces`),
+que é criado na primeira gravação e fica fora do Git.
 
 ## Observações
 
 - A câmera precisa estar disponível para o computador.
 - Na primeira execução, o DeepFace pode baixar os modelos e demorar.
-- O banco `escola.db` é local e foi mantido separado do arquivo original.
+- A matrícula é validada antes de a câmera ser acionada: matrícula duplicada
+  ou nome vazio falham de imediato, sem pedir o rosto do aluno.
 
 ---
 
@@ -115,16 +120,35 @@ docker exec escola_postgres psql -U escola -d postgres \
 Nenhum teste lê o `escola.db` real — os dados legados de teste são sintéticos,
 para que dado pessoal ou biométrico não entre na suíte nem no Git.
 
-## Estratégia de transição (estado atual)
+## Arquitetura (Fase 2)
 
-A Fase 1 entregou a infraestrutura PostgreSQL. O `cadastro.py` **ainda grava
-em SQLite** — a troca da camada de aplicação é o primeiro item da Fase 2.
+O protótipo monolítico `cadastro.py` foi removido. A aplicação agora é
+executada por `python -m src.main` e está separada em camadas:
 
-Enquanto as duas persistências coexistirem:
+```text
+Presentation   src/presentation/cli/    menu, prompts, janela de vídeo
+      ↓
+Application    src/application/         casos de uso
+      ↓
+Domain         src/domain/              entidades, contratos, erros
+      ↓
+Infrastructure src/infrastructure/      PostgreSQL, OpenCV, DeepFace, arquivos
+```
 
-- executar `python cadastro.py` grava em `escola.db`, **não** no PostgreSQL;
-- para sincronizar, reexecute o ETL (é idempotente);
-- o PostgreSQL é a fonte de verdade a partir da Fase 2.
+As dependências apontam sempre para dentro. `src/main.py` é o único módulo
+que conhece as implementações concretas e as injeta.
+
+Invariantes verificadas por `grep` e pela suíte:
+
+- `src/domain/` e `src/application/` não importam `cv2`, `deepface` nem
+  `sqlalchemy`;
+- apenas quatro módulos de infraestrutura/apresentação importam `cv2` ou
+  `deepface`;
+- nenhum `sqlite3` e nenhum `CREATE TABLE` na aplicação;
+- `print()` só existe na camada de apresentação — diagnóstico usa `logging`.
+
+O SQLite deixou de ser usado pela aplicação. `escola.db` permanece no disco
+apenas como origem do ETL.
 
 ## Dados sensíveis
 
