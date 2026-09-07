@@ -31,11 +31,11 @@ from sqlalchemy import select
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.config.logging import configurar_logging  # noqa: E402
-from src.config.settings import get_settings  # noqa: E402
-from src.domain.errors import ErroDeDominio  # noqa: E402
-from src.infrastructure.database import models  # noqa: E402
-from src.infrastructure.database.engine import criar_engine, sessao  # noqa: E402
+from src.config.logging import configurar_logging
+from src.config.settings import get_settings
+from src.domain.errors import ErroDeDominio
+from src.infrastructure.database import models
+from src.infrastructure.database.engine import criar_engine, sessao
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     except ImportError as exc:
         print(f"ERRO: DeepFace indisponivel neste ambiente: {exc}", file=sys.stderr)
-        print("Use um Python 3.10 ou 3.11 com as dependencias instaladas.", file=sys.stderr)
+        print(
+            "Use um Python 3.10 ou 3.11 com as dependencias instaladas.",
+            file=sys.stderr,
+        )
         return 2
 
     from src.infrastructure.storage.local_image_storage import LocalImageStorage

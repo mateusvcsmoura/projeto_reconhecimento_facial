@@ -44,7 +44,7 @@ def test_o_dia_e_calculado_no_fuso_da_aplicacao() -> None:
     presencas = FakePresencaRepository()
     caso = RegistrarPresenca(presencas, TZ)
 
-    caso.executar(1, dt.datetime(2026, 3, 10, 23, 30, tzinfo=dt.timezone.utc))
+    caso.executar(1, dt.datetime(2026, 3, 10, 23, 30, tzinfo=dt.UTC))
 
     _, dia, _ = presencas.chamadas[0]
     assert dia == dt.date(2026, 3, 10)

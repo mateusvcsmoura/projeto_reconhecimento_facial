@@ -204,7 +204,9 @@ class FakeJanela:
     ) -> None:
         self.fechada = True
 
-    def mostrar(self, frame: Any, linhas: list[tuple[str, tuple[int, int, int]]]) -> int:
+    def mostrar(
+        self, frame: Any, linhas: list[tuple[str, tuple[int, int, int]]]
+    ) -> int:
         self.exibicoes.append(linhas)
         if not self._teclas:
             raise AssertionError("O teste consumiu mais teclas do que forneceu.")

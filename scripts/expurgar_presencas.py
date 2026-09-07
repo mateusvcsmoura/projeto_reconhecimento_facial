@@ -19,13 +19,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.application.use_cases.expurgar_presencas import (  # noqa: E402
+from src.application.use_cases.expurgar_presencas import (
     ExpurgarPresencas,
 )
-from src.config.logging import configurar_logging  # noqa: E402
-from src.config.settings import get_settings  # noqa: E402
-from src.infrastructure.database.engine import criar_engine  # noqa: E402
-from src.infrastructure.repositories.postgres_presenca_repository import (  # noqa: E402
+from src.config.logging import configurar_logging
+from src.config.settings import get_settings
+from src.infrastructure.database.engine import criar_engine
+from src.infrastructure.repositories.postgres_presenca_repository import (
     PostgresPresencaRepository,
 )
 
@@ -43,7 +43,7 @@ class _RepositorioSimulado:
         from src.infrastructure.database import models
         from src.infrastructure.database.engine import sessao
 
-        with sessao(self._real._engine) as session:  # noqa: SLF001
+        with sessao(self._real._engine) as session:
             self.contadas = int(
                 session.scalar(
                     select(func.count())

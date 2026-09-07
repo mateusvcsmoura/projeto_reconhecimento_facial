@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from typing import Any, cast
 
-from sqlalchemy import Engine, delete
+from sqlalchemy import CursorResult, Engine, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.infrastructure.database import models
@@ -22,10 +23,10 @@ class PostgresPresencaRepository:
         self, aluno_id: int, dia: dt.date, momento: dt.datetime
     ) -> bool:
         comando = (
-            pg_insert(models.Presenca.__table__)
+            pg_insert(models.Presenca)
             .values(aluno_id=aluno_id, registrado_em=momento, data_referencia=dia)
             .on_conflict_do_nothing(constraint="uq_presencas_aluno_dia")
-            .returning(models.Presenca.__table__.c.id)
+            .returning(models.Presenca.id)
         )
 
         with sessao(self._engine) as session:
@@ -43,7 +44,8 @@ class PostgresPresencaRepository:
             models.Presenca.data_referencia < dia
         )
         with sessao(self._engine) as session:
-            removidas = session.execute(comando).rowcount
+            resultado = cast(CursorResult[Any], session.execute(comando))
+            removidas = resultado.rowcount
 
         logger.info("Expurgo de presencas anteriores a %s: %s linhas", dia, removidas)
         return int(removidas)

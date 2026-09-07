@@ -68,7 +68,8 @@ def test_uma_unica_inferencia_por_ciclo_independente_de_n() -> None:
     """Problema A5: o custo por ciclo nao pode crescer com o numero de alunos."""
     reconhecimento = FakeFaceRecognition(embedding=emb([0.0, 1.0, 0.0]))
     muitos = [Aluno(id=i, matricula=str(i), nome=f"Aluno {i}") for i in range(1, 51)]
-    caso = montar(muitos, {i: emb([1.0, 0.0, 0.0]) for i in range(1, 51)}, reconhecimento)
+    embeddings = {i: emb([1.0, 0.0, 0.0]) for i in range(1, 51)}
+    caso = montar(muitos, embeddings, reconhecimento)
 
     referencias = caso.carregar_referencias()
     assert len(referencias) == 50

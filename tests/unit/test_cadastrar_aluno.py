@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
@@ -12,8 +14,6 @@ from src.domain.errors import (
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
 )
-from zoneinfo import ZoneInfo
-
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition, FakeImageStorage
 
 TZ = ZoneInfo("America/Sao_Paulo")
