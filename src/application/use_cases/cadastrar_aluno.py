@@ -33,6 +33,10 @@ class CadastrarAluno:
         self._storage = storage
         self._tz = tz
 
+    def preaquecer(self) -> None:
+        """Carrega o modelo agora, e nao no meio do fluxo de camera."""
+        self._reconhecimento.preaquecer()
+
     def validar_identificacao(self, matricula: str, nome: str) -> tuple[str, str]:
         """Valida antes de acender a camera.
 

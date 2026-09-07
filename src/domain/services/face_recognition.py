@@ -16,6 +16,15 @@ from src.domain.entities.face_embedding import FaceEmbedding
 
 
 class FaceRecognition(Protocol):
+    def preaquecer(self) -> None:
+        """Carrega o modelo antes do primeiro uso.
+
+        Na primeira execucao o DeepFace baixa os pesos, o que leva minutos.
+        Sem isso, a espera acontece com a camera ja aberta e o aluno
+        parado na frente dela, sem nenhuma explicacao na tela.
+        """
+        ...
+
     def extrair_face_unica(self, imagem: Any) -> Any:
         """Detecta, alinha e recorta o unico rosto da imagem.
 

@@ -16,6 +16,7 @@ import logging
 import sys
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
+from src.application.use_cases.consultar import ListarAlunos, ListarPresencasDoDia
 from src.application.use_cases.excluir_aluno import ExcluirAluno
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
@@ -68,9 +69,31 @@ def montar_menu(settings: Settings) -> MenuCLI:
         ),
         registrar_presenca=RegistrarPresenca(presencas, settings.timezone),
         excluir_aluno=ExcluirAluno(alunos, storage),
+        listar_alunos=ListarAlunos(alunos, settings.face_model),
+        listar_presencas=ListarPresencasDoDia(presencas, settings.timezone),
+        limiar=settings.face_threshold,
         abrir_camera=lambda: OpenCVCamera(settings.camera_index),
         abrir_janela=JanelaDeVideo,
     )
+
+
+def _preaquecer(menu: MenuCLI, modelo: str) -> None:
+    """Carrega o modelo antes de abrir a camera.
+
+    Na primeira execucao o DeepFace baixa os pesos, o que leva minutos. Sem
+    isto, a espera acontece com a camera ja aberta e o aluno parado na
+    frente dela, sem nenhuma explicacao na tela.
+    """
+    print(f"Carregando o modelo {modelo}...")
+    print("Na primeira execucao os pesos sao baixados; pode demorar.")
+    try:
+        menu.preaquecer()
+    except ErroDeDominio as erro:
+        # Nao e fatal: o operador ainda pode listar alunos e presencas.
+        print(f"AVISO: {erro}")
+        print("As funcoes de camera ficarao indisponiveis.")
+    else:
+        print("Modelo pronto.")
 
 
 def main() -> int:
@@ -88,7 +111,9 @@ def main() -> int:
     logger.info("Iniciando aplicacao (ambiente de log=%s)", settings.log_level)
 
     try:
-        montar_menu(settings).executar()
+        menu = montar_menu(settings)
+        _preaquecer(menu, settings.face_model)
+        menu.executar()
     except ErroDeDominio as erro:
         logger.error("Encerrado por erro de dominio: %s", type(erro).__name__)
         print(f"ERRO: {erro}", file=sys.stderr)

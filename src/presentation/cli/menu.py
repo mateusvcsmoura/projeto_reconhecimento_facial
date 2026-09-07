@@ -14,6 +14,10 @@ from types import TracebackType
 from typing import Any, Protocol
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
+from src.application.use_cases.consultar import (
+    ListarAlunos,
+    ListarPresencasDoDia,
+)
 from src.application.use_cases.excluir_aluno import ExcluirAluno
 from src.application.use_cases.reconhecer_aluno import (
     ReconhecerAluno,
@@ -25,8 +29,9 @@ from src.domain.errors import ErroDeDominio, FalhaNaLeituraDaCamera
 from src.domain.services.camera_provider import CameraProvider
 from src.domain.services.matcher import MatrizDeReferencia
 from src.presentation.cli import prompts
+from src.presentation.cli.confianca import rotulo_de_estado
 from src.presentation.cli.mensagens import para_operador
-from src.presentation.cli.teclas import BRANCO, ENTER, ESC, ESPACO, VERDE, VERMELHO
+from src.presentation.cli.teclas import BRANCO, ENTER, ESC, ESPACO, VERDE
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +66,9 @@ class MenuCLI:
         reconhecer_aluno: ReconhecerAluno,
         registrar_presenca: RegistrarPresenca,
         excluir_aluno: ExcluirAluno,
+        listar_alunos: ListarAlunos,
+        listar_presencas: ListarPresencasDoDia,
+        limiar: float,
         abrir_camera: Callable[[], CameraProvider],
         abrir_janela: Callable[[str], Janela],
         ler: prompts.Leitor = input,
@@ -70,10 +78,17 @@ class MenuCLI:
         self._reconhecer_aluno = reconhecer_aluno
         self._registrar_presenca = registrar_presenca
         self._excluir_aluno = excluir_aluno
+        self._listar_alunos = listar_alunos
+        self._listar_presencas = listar_presencas
+        self._limiar = limiar
         self._abrir_camera = abrir_camera
         self._abrir_janela = abrir_janela
         self._ler = ler
         self._escrever = escrever
+
+    def preaquecer(self) -> None:
+        """Repassa o pre-aquecimento ao provider de reconhecimento."""
+        self._cadastrar_aluno.preaquecer()
 
     # -- laco principal ---------------------------------------------------
 
@@ -81,14 +96,18 @@ class MenuCLI:
         acoes: dict[str, Callable[[], None]] = {
             "1": self.cadastrar,
             "2": self.reconhecer,
-            "3": self.excluir,
+            "3": self.listar,
+            "4": self.presencas_de_hoje,
+            "5": self.excluir,
         }
 
         while True:
             self._mostrar_menu()
-            opcao = prompts.perguntar_opcao({"1", "2", "3", "4"}, self._ler)
+            opcao = prompts.perguntar_opcao(
+                {"1", "2", "3", "4", "5", "6"}, self._ler
+            )
 
-            if opcao == "4":
+            if opcao == "6":
                 self._escrever("Encerrando...")
                 return
 
@@ -109,8 +128,10 @@ class MenuCLI:
         self._escrever("==============================")
         self._escrever("1 - Cadastrar aluno")
         self._escrever("2 - Reconhecer aluno")
-        self._escrever("3 - Excluir aluno e seus dados")
-        self._escrever("4 - Sair")
+        self._escrever("3 - Listar alunos")
+        self._escrever("4 - Presencas de hoje")
+        self._escrever("5 - Excluir aluno e seus dados")
+        self._escrever("6 - Sair")
 
     # -- cadastro ---------------------------------------------------------
 
@@ -189,6 +210,51 @@ class MenuCLI:
                 if tecla == ESPACO:
                     return frame
 
+    # -- consultas --------------------------------------------------------
+
+    def listar(self) -> None:
+        alunos = self._listar_alunos.executar()
+
+        self._escrever("\n=== ALUNOS CADASTRADOS ===")
+        if not alunos:
+            self._escrever("Nenhum aluno cadastrado ainda. Use a opcao 1.")
+            return
+
+        self._escrever(f"{'MATRICULA':<12} {'NOME':<32} SITUACAO")
+        self._escrever("-" * 60)
+        for item in alunos:
+            self._escrever(
+                f"{item.aluno.matricula:<12} {item.aluno.nome[:32]:<32} "
+                f"{item.situacao}"
+            )
+
+        pendentes = [a for a in alunos if not a.pronto_para_reconhecimento]
+        self._escrever(f"\nTotal: {len(alunos)} aluno(s)")
+        if pendentes:
+            # Estes alunos existem no cadastro mas sao invisiveis ao
+            # reconhecimento. Melhor descobrir agora do que durante a aula.
+            self._escrever(
+                f"ATENCAO: {len(pendentes)} sem embedding do modelo em uso. "
+                "Rode 'python -m scripts.backfill_embeddings --apply'."
+            )
+
+    def presencas_de_hoje(self) -> None:
+        dia = self._listar_presencas.hoje()
+        registros = self._listar_presencas.executar(dia)
+
+        self._escrever(f"\n=== PRESENCAS DE {dia.strftime('%d/%m/%Y')} ===")
+        if not registros:
+            self._escrever("Nenhuma presenca registrada hoje.")
+            return
+
+        self._escrever(f"{'HORA':<7} {'MATRICULA':<12} NOME")
+        self._escrever("-" * 52)
+        for registro in registros:
+            hora = self._listar_presencas.horario_local(registro)
+            self._escrever(f"{hora:<7} {registro.matricula:<12} {registro.nome}")
+
+        self._escrever(f"\nTotal: {len(registros)} presenca(s)")
+
     # -- exclusao ---------------------------------------------------------
 
     def excluir(self) -> None:
@@ -229,6 +295,7 @@ class MenuCLI:
         rodape: Linha = ("ENTER = registrar | ESC = sair", BRANCO)
         reconhecido: Reconhecimento | None = None
         situacao = "Procurando..."
+        cor_situacao = BRANCO
         contador = 0
 
         with (
@@ -248,17 +315,13 @@ class MenuCLI:
                     reconhecido = self._reconhecer_aluno.identificar(
                         frame, referencias
                     )
-                    situacao = (
-                        # A distancia agora existe e e informacao util para o
-                        # operador -- o prototipo descartava esse numero.
-                        f"{reconhecido.aluno.nome} "
-                        f"(dist {reconhecido.distancia:.3f})"
-                        if reconhecido
-                        else "Rosto nao reconhecido"
+                    situacao, cor_situacao = rotulo_de_estado(
+                        reconhecido.aluno.nome if reconhecido else None,
+                        reconhecido.distancia if reconhecido else None,
+                        self._limiar,
                     )
 
-                cor = VERDE if reconhecido else VERMELHO
-                tecla = janela.mostrar(frame, [(situacao, cor), rodape])
+                tecla = janela.mostrar(frame, [(situacao, cor_situacao), rodape])
 
                 if tecla == ESC:
                     return
