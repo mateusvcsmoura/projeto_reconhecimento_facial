@@ -64,9 +64,30 @@ def test_foto_inexistente_vira_nulo_com_motivo(tmp_path: Path) -> None:
     assert motivo is not None
 
 
-def test_foto_presente_no_storage_vira_caminho_relativo(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "caminho_legado",
+    [
+        r"C:\Users\OUTRO\Temp\aluno.jpg",
+        "/home/outro/tmp/aluno.jpg",
+        "C:/Users/OUTRO/Temp/aluno.jpg",
+        "aluno.jpg",
+    ],
+    ids=["windows", "posix", "windows-barra-normal", "relativo"],
+)
+def test_foto_presente_no_storage_vira_caminho_relativo(
+    tmp_path: Path, caminho_legado: str
+) -> None:
+    """O nome do arquivo tem de sair de qualquer estilo de caminho.
+
+    Regressao: com pathlib.Path, a barra invertida nao e separador no POSIX,
+    entao um caminho Windows virava um "nome de arquivo" inteiro quando o
+    ETL rodava em Linux -- e o banco legado veio justamente do Windows.
+    O teste passava no Windows e quebrava no CI.
+    """
     (tmp_path / "aluno.jpg").write_bytes(b"conteudo-sintetico")
-    valor, motivo = resolver_foto(r"C:\Users\OUTRO\Temp\aluno.jpg", tmp_path)
+
+    valor, motivo = resolver_foto(caminho_legado, tmp_path)
+
     assert valor == "aluno.jpg"
     assert motivo is None
 

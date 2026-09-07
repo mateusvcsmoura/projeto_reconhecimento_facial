@@ -28,7 +28,7 @@ import json
 import sqlite3
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -140,12 +140,20 @@ def resolver_foto(
     if not foto_path or not foto_path.strip():
         return None, "aluno sem foto_path no legado"
 
-    origem = Path(foto_path)
-    if origem.is_file():
-        return origem.name, None
+    # PureWindowsPath, e nao Path: o banco legado guarda caminhos do Windows,
+    # e no Linux a Path tratava "C:\Users\x\foto.jpg" como um nome de
+    # arquivo inteiro -- a barra invertida nao e separador no POSIX. O
+    # PureWindowsPath aceita os dois estilos de barra, entao serve para
+    # qualquer origem.
+    nome_arquivo = PureWindowsPath(foto_path).name
+    if not nome_arquivo:
+        return None, "foto_path legado nao contem nome de arquivo"
 
-    if (storage_dir / origem.name).is_file():
-        return origem.name, None
+    if Path(foto_path).is_file():
+        return nome_arquivo, None
+
+    if (storage_dir / nome_arquivo).is_file():
+        return nome_arquivo, None
 
     return None, (
         "foto_path legado aponta para arquivo inexistente neste ambiente; "
