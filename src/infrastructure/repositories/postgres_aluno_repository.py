@@ -12,6 +12,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.exc import IntegrityError
 
 from src.domain.entities.aluno import Aluno
+from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import AlunoJaCadastrado
 from src.infrastructure.database import models
 from src.infrastructure.database.engine import sessao
@@ -39,18 +40,39 @@ class PostgresAlunoRepository:
             )
         return encontrado is not None
 
-    def listar(self) -> list[Aluno]:
+    def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
         with sessao(self._engine) as session:
             linhas = session.scalars(
-                select(models.Aluno).order_by(models.Aluno.nome)
+                select(models.Aluno)
+                .where(models.Aluno.embedding.is_not(None))
+                .where(models.Aluno.embedding_modelo == modelo)
+                .order_by(models.Aluno.id)
             ).all()
-            return [_para_entidade(linha) for linha in linhas]
 
-    def cadastrar(self, matricula: str, nome: str, foto_arquivo: str | None) -> Aluno:
+            referencias = []
+            for linha in linhas:
+                assert linha.embedding is not None  # garantido pelo WHERE
+                embedding = FaceEmbedding.de_bytes(linha.embedding, modelo)
+                referencias.append((_para_entidade(linha), embedding))
+
+        return referencias
+
+    def cadastrar(
+        self,
+        matricula: str,
+        nome: str,
+        foto_arquivo: str | None,
+        embedding: FaceEmbedding | None,
+    ) -> Aluno:
         try:
             with sessao(self._engine) as session:
                 linha = models.Aluno(
-                    matricula=matricula, nome=nome, foto_arquivo=foto_arquivo
+                    matricula=matricula,
+                    nome=nome,
+                    foto_arquivo=foto_arquivo,
+                    embedding=embedding.para_bytes() if embedding else None,
+                    embedding_modelo=embedding.modelo if embedding else None,
+                    embedding_dim=embedding.dimensao if embedding else None,
                 )
                 session.add(linha)
                 session.flush()
