@@ -32,8 +32,17 @@ def test_opcao_vazia_vira_none() -> None:
     assert prompts.perguntar_opcao({"1"}, leitor("   ")) is None
 
 
-def test_database_url_ausente_falha_no_boot() -> None:
-    """Sem conexao definida nao ha default silencioso -- ha erro."""
+def test_database_url_ausente_falha_no_boot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sem conexao definida nao ha default silencioso -- ha erro.
+
+    O monkeypatch e necessario: em CI a DATABASE_URL vem do ambiente, e o
+    pydantic-settings a encontraria mesmo com _env_file desligado. O teste
+    precisa controlar o proprio ambiente para significar algo.
+    """
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
     with pytest.raises(ValidationError, match="database_url"):
         Settings(_env_file=None)  # type: ignore[call-arg]
 
