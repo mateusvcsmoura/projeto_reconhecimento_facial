@@ -52,17 +52,27 @@ class CadastrarAluno:
         return matricula_limpa, nome_limpo
 
     def executar(self, matricula: str, nome: str, imagem: Any) -> Aluno:
-        """Valida o rosto, grava a imagem e persiste o aluno.
+        """Extrai o rosto, calcula o embedding e persiste tudo de uma vez.
+
+        O embedding e calculado UMA vez, aqui. Era o recalculo dele a cada
+        comparacao que tornava o reconhecimento inviavel (problema A5).
 
         Levanta NenhumRostoDetectado, MultiplosRostosDetectados,
         ModeloIndisponivel ou AlunoJaCadastrado.
         """
         matricula_limpa, nome_limpo = self.validar_identificacao(matricula, nome)
 
-        self._reconhecimento.validar_rosto_unico(imagem)
+        # Guarda-se o recorte alinhado, nao o frame inteiro (problema A14):
+        # menos dado biometrico armazenado, sem fundo nem terceiros no
+        # enquadramento.
+        face = self._reconhecimento.extrair_face_unica(imagem)
+        embedding = self._reconhecimento.gerar_embedding(face)
 
-        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", imagem)
+        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", face)
 
         return self._alunos.cadastrar(
-            matricula=matricula_limpa, nome=nome_limpo, foto_arquivo=nome_arquivo
+            matricula=matricula_limpa,
+            nome=nome_limpo,
+            foto_arquivo=nome_arquivo,
+            embedding=embedding,
         )
