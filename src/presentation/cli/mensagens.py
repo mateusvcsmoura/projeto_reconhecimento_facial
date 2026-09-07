@@ -36,7 +36,11 @@ _ORIENTACOES: dict[type[Exception], Orientacao] = {
     ),
     errors.PossivelFraude: Orientacao(
         problema="Apresentacao de foto ou tela detectada.",
-        acao="O cadastro exige a pessoa presente, ao vivo.",
+        acao=(
+            "Se voce esta ao vivo, o modelo errou: melhore a iluminacao "
+            "(evite janela ou luz forte atras de voce), aproxime o rosto e "
+            "tente de novo. Persistindo, use FACE_ANTI_SPOOFING=false."
+        ),
     ),
     errors.ModeloIndisponivel: Orientacao(
         problema="Modelo de reconhecimento indisponivel.",
@@ -77,7 +81,17 @@ def orientacao_para(erro: Exception) -> Orientacao | None:
 
 def para_operador(erro: Exception) -> str:
     orientacao = orientacao_para(erro)
-    if orientacao is not None:
-        return str(orientacao)
-    # DadosInvalidos ja nasce com texto especifico ("Informe a matricula.").
-    return str(erro)
+    if orientacao is None:
+        # DadosInvalidos ja nasce com texto especifico ("Informe a matricula.").
+        return str(erro)
+
+    mensagem = str(orientacao)
+
+    # ModeloIndisponivel embrulha qualquer falha da biblioteca de ML, entao a
+    # orientacao sozinha e generica demais para diagnosticar. Anexar a causa
+    # original e o que separa "verifique a instalacao" de "instale o torch".
+    detalhe = str(erro).strip()
+    if isinstance(erro, errors.ModeloIndisponivel) and detalhe:
+        mensagem = f"{mensagem}\n  Causa: {detalhe}"
+
+    return mensagem

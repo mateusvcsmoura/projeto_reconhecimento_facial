@@ -97,8 +97,14 @@ class DeepFaceAdapter:
 
         if self._anti_spoofing and not face.get("is_real", True):
             pontuacao = face.get("antispoof_score")
+            # A pontuacao e a confianca NA CLASSIFICACAO ESCOLHIDA, e nao
+            # a probabilidade de ser real. Aqui a escolhida foi "fraude",
+            # entao 0.96 significa "96% confiante de que e uma foto" -- o
+            # oposto do que o numero sugere a quem le o log.
             logger.warning(
-                "Frame recusado por anti-spoofing (score=%s)", pontuacao
+                "Frame recusado por anti-spoofing: modelo %.0f%% confiante "
+                "de que NAO e uma pessoa ao vivo",
+                (pontuacao or 0.0) * 100,
             )
             raise PossivelFraude(pontuacao)
 
