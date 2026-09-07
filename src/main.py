@@ -72,7 +72,12 @@ def montar_menu(settings: Settings) -> MenuCLI:
         listar_alunos=ListarAlunos(alunos, settings.face_model),
         listar_presencas=ListarPresencasDoDia(presencas, settings.timezone),
         limiar=settings.face_threshold,
-        abrir_camera=lambda: OpenCVCamera(settings.camera_index),
+        abrir_camera=lambda: OpenCVCamera(
+            settings.camera_index,
+            largura=settings.camera_largura,
+            altura=settings.camera_altura,
+            backend=settings.camera_backend,
+        ),
         abrir_janela=JanelaDeVideo,
     )
 

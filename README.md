@@ -277,6 +277,85 @@ python -m scripts.backfill_embeddings --apply    # efetiva
 O mesmo script preenche os embeddings de alunos cadastrados antes desta
 fase, a partir das imagens já armazenadas.
 
+## Problemas conhecidos na instalação
+
+### `ImportError: Keras cannot be imported`
+
+O DeepFace 0.0.92 liga `TF_USE_LEGACY_KERAS=1`. A partir do TensorFlow 2.16 o
+Keras 3 virou o padrão, e o `tf.keras` legado passou a viver num pacote
+separado. O `requirements.txt` já fixa `tf-keras==2.21.0` por causa disso.
+
+Se você instalou antes dessa correção:
+
+```powershell
+pip install tf-keras==2.21.0
+```
+
+### Mensagens do TensorFlow no start
+
+```text
+oneDNN custom operations are on. You may see slightly different numerical results...
+All log messages before absl::InitializeLog() is called are written to STDERR
+```
+
+São informativas, não erros. Para silenciá-las:
+
+```powershell
+$env:TF_ENABLE_ONEDNN_OPTS = "0"
+$env:TF_CPP_MIN_LOG_LEVEL = "2"
+```
+
+### Cadastro recusado com "apresentação de foto ou tela" — mas você está ao vivo
+
+Falso positivo do modelo de anti-spoofing (MiniFASNet), não erro de
+configuração. Na ordem de eficácia:
+
+1. **Iluminação.** Luz forte atrás de você — janela, luminária — é a causa
+   mais comum. Vire-se de modo que a luz venha de frente.
+2. **Resolução.** O padrão do OpenCV costuma ser 640x480, que produz um
+   recorte de rosto pequeno. Aumente `CAMERA_LARGURA` e `CAMERA_ALTURA` no
+   `.env` (padrão já é 1280x720). A aplicação avisa em log se a câmera não
+   atender ao pedido.
+3. **Aproxime o rosto** da câmera.
+4. **Trocar o detector**: `FACE_DETECTOR=retinaface` recorta o rosto melhor
+   que o `opencv` (Haar), o que costuma ajudar o anti-spoofing. É mais
+   lento.
+5. **Último recurso**: `FACE_ANTI_SPOOFING=false`. Isso **remove** a
+   proteção contra foto impressa — use só em desenvolvimento.
+
+Sobre o número no log: ele é a confiança da classificação escolhida, não a
+probabilidade de ser real. "96%" com o frame recusado significa *96% de
+confiança de que é uma fraude*.
+
+### A câmera demora muito para abrir
+
+Era o backend. No Windows o OpenCV usa Media Foundation por padrão, que é
+lento para abrir dispositivo e ainda mais lento para aceitar mudança de
+resolução. Medido nesta máquina:
+
+| Backend | Abrir | Ajustar resolução | Total |
+|---|---:|---:|---:|
+| Media Foundation (padrão do OpenCV) | 9,9 s | 17,8 s | **27,0 s** |
+| DirectShow | 0,3 s | 0,5 s | **0,8 s** |
+
+`CAMERA_BACKEND=auto` (o padrão) já escolhe DirectShow no Windows. Se por
+algum motivo a sua câmera não funcionar com ele, `CAMERA_BACKEND=msmf`
+volta ao comportamento anterior — ao custo desses 27 segundos.
+
+### A janela da câmera não acompanha o redimensionamento
+
+Corrigido: a janela usa `WINDOW_NORMAL` e o vídeo escala junto. Com o padrão
+do OpenCV (`WINDOW_AUTOSIZE`), maximizar só aumentava a moldura.
+
+O tamanho da janela **não** afeta o reconhecimento nem o anti-spoofing — a
+análise roda sobre o frame da câmera, não sobre o que aparece na tela.
+
+### A primeira execução parece travada
+
+Não está: o DeepFace baixa os pesos do Facenet512 (~90 MB) na primeira vez.
+A aplicação avisa antes de começar, e por isso o modelo é carregado **antes**
+de qualquer câmera abrir.
+
 ## Segurança e dados pessoais (Fase 6)
 
 Política completa em [`docs/lgpd.md`](docs/lgpd.md).

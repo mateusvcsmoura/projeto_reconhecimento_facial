@@ -13,6 +13,7 @@ import sys
 import types
 from collections.abc import Iterator
 from typing import Any
+from unittest import mock
 
 import pytest
 
@@ -28,6 +29,19 @@ class CapturaDuble:
         self.liberada = False
         self.frames: list[Any] = []
         self.falhar_leitura = False
+        # A camera aceita o que for pedido, por padrao.
+        self.propriedades: dict[int, float] = {}
+        self.resolucao_forcada: tuple[int, int] | None = None
+
+    def set(self, prop: int, valor: float) -> bool:
+        self.propriedades[prop] = valor
+        return True
+
+    def get(self, prop: int) -> float:
+        if self.resolucao_forcada is not None:
+            largura, altura = self.resolucao_forcada
+            return float(largura if prop == Cv2Duble.CAP_PROP_FRAME_WIDTH else altura)
+        return self.propriedades.get(prop, 0.0)
 
     def isOpened(self) -> bool:
         return self.aberta
@@ -43,15 +57,27 @@ class CapturaDuble:
 
 
 class Cv2Duble:
+    CAP_PROP_FRAME_WIDTH = 3
+    CAP_PROP_FRAME_HEIGHT = 4
+    CAP_ANY = 0
+    CAP_DSHOW = 700
+    CAP_MSMF = 1400
+
     def __init__(self) -> None:
         self.ultima_captura: CapturaDuble | None = None
         self.abrir_com_sucesso = True
         self.frames: list[Any] = []
+        self.resolucao_forcada: tuple[int, int] | None = None
+        self.backends_usados: list[int] = []
 
-    def VideoCapture(self, indice: int) -> CapturaDuble:
+    def VideoCapture(
+        self, indice: int, backend: int = 0
+    ) -> CapturaDuble:
+        self.backends_usados.append(backend)
         captura = CapturaDuble(indice)
         captura.aberta = self.abrir_com_sucesso
         captura.frames = list(self.frames)
+        captura.resolucao_forcada = self.resolucao_forcada
         self.ultima_captura = captura
         return captura
 
@@ -60,9 +86,11 @@ class Cv2Duble:
 def cv2_duble() -> Iterator[Cv2Duble]:
     falso = Cv2Duble()
     modulo = types.ModuleType("cv2")
-    for nome in dir(falso):
-        if not nome.startswith("_"):
-            setattr(modulo, nome, getattr(falso, nome))
+    modulo.CAP_PROP_FRAME_WIDTH = Cv2Duble.CAP_PROP_FRAME_WIDTH  # type: ignore[attr-defined]
+    modulo.CAP_PROP_FRAME_HEIGHT = Cv2Duble.CAP_PROP_FRAME_HEIGHT  # type: ignore[attr-defined]
+    for constante in ("CAP_ANY", "CAP_DSHOW", "CAP_MSMF"):
+        setattr(modulo, constante, getattr(Cv2Duble, constante))
+    modulo.VideoCapture = falso.VideoCapture  # type: ignore[attr-defined]
 
     original = sys.modules.get("cv2")
     sys.modules["cv2"] = modulo
@@ -77,8 +105,15 @@ def cv2_duble() -> Iterator[Cv2Duble]:
             sys.modules["cv2"] = original
 
 
-def montar(indice: int = 0) -> Any:
-    return importlib.import_module(CAMINHO).OpenCVCamera(indice)
+def montar(
+    indice: int = 0,
+    largura: int = 1280,
+    altura: int = 720,
+    backend: str = "auto",
+) -> Any:
+    return importlib.import_module(CAMINHO).OpenCVCamera(
+        indice, largura=largura, altura=altura, backend=backend
+    )
 
 
 def test_camera_indisponivel_falha_com_erro_de_dominio(cv2_duble: Cv2Duble) -> None:
@@ -157,3 +192,68 @@ def test_ler_depois_de_sair_do_contexto_e_recusado(cv2_duble: Cv2Duble) -> None:
 
     with pytest.raises(FalhaNaLeituraDaCamera):
         camera.ler_frame()
+
+
+def test_resolucao_pedida_e_aplicada_na_camera(cv2_duble: Cv2Duble) -> None:
+    """O padrao do OpenCV costuma ser 640x480, pequeno demais para o rosto."""
+    cv2_duble.frames = ["f"]
+
+    with montar(largura=1280, altura=720):
+        pass
+
+    captura = cv2_duble.ultima_captura
+    assert captura is not None
+    assert captura.propriedades[Cv2Duble.CAP_PROP_FRAME_WIDTH] == 1280
+    assert captura.propriedades[Cv2Duble.CAP_PROP_FRAME_HEIGHT] == 720
+
+
+def test_camera_que_entrega_resolucao_menor_gera_aviso(
+    cv2_duble: Cv2Duble, caplog: Any
+) -> None:
+    """Nem toda camera aceita o pedido; o operador precisa saber."""
+    import logging
+
+    cv2_duble.resolucao_forcada = (640, 480)
+    cv2_duble.frames = ["f"]
+
+    with caplog.at_level(logging.WARNING), montar(largura=1280, altura=720):
+        pass
+
+    assert "640" in caplog.text
+    assert "1280" in caplog.text
+
+
+# -- backend de captura ----------------------------------------------------
+
+
+def test_auto_escolhe_directshow_no_windows(cv2_duble: Cv2Duble) -> None:
+    """Medido: MSMF leva ~10 s para abrir; DirectShow, menos de 1 s."""
+    modulo = importlib.import_module(CAMINHO)
+    with mock.patch.object(modulo.sys, "platform", "win32"):
+        cv2_duble.frames = ["f"]
+        with montar(backend="auto"):
+            pass
+
+    assert cv2_duble.backends_usados == [Cv2Duble.CAP_DSHOW]
+
+
+def test_auto_deixa_o_opencv_escolher_fora_do_windows(
+    cv2_duble: Cv2Duble,
+) -> None:
+    """DirectShow so existe no Windows."""
+    modulo = importlib.import_module(CAMINHO)
+    with mock.patch.object(modulo.sys, "platform", "linux"):
+        cv2_duble.frames = ["f"]
+        with montar(backend="auto"):
+            pass
+
+    assert cv2_duble.backends_usados == [Cv2Duble.CAP_ANY]
+
+
+def test_backend_explicito_e_respeitado(cv2_duble: Cv2Duble) -> None:
+    cv2_duble.frames = ["f"]
+
+    with montar(backend="msmf"):
+        pass
+
+    assert cv2_duble.backends_usados == [Cv2Duble.CAP_MSMF]

@@ -4,7 +4,9 @@
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-exclude = [".venv", "migrations/versions"]
+# Qualquer ambiente virtual, e nao apenas ".venv": o projeto usa um
+# segundo (.venv-app) com o DeepFace, que a suite nao precisa.
+exclude = [".venv*", "migrations/versions"]
 
 [tool.ruff.lint]
 select = [
@@ -33,7 +35,7 @@ ignore = [
 # e o ruff, via `target-version = "py312"` -- ele acusa sintaxe nova demais
 # para o interpretador que o DeepFace exige. Ao mypy cabe checar tipos.
 files = ["src", "scripts"]
-exclude = "migrations/versions"
+exclude = "(migrations/versions|[.]venv)"
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = false

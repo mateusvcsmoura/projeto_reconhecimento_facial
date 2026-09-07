@@ -38,6 +38,23 @@ class Settings(BaseSettings):
 
     # Camera e reconhecimento -- eram constantes no topo do cadastro.py.
     camera_index: int = 0
+
+    # Resolucao pedida a camera. O padrao do OpenCV costuma ser 640x480, o
+    # que produz um recorte de rosto pequeno -- e o modelo de anti-spoofing
+    # e sensivel ao tamanho e a nitidez desse recorte.
+    # A camera pode recusar e entregar a resolucao mais proxima que suporta.
+    camera_largura: int = 1280
+    camera_altura: int = 720
+
+    # Backend de captura do OpenCV.
+    #   auto   -- DirectShow no Windows, padrao do sistema nos demais
+    #   dshow  -- DirectShow (Windows)
+    #   msmf   -- Media Foundation (Windows)
+    #   any    -- deixa o OpenCV escolher
+    #
+    # Medido nesta maquina: MSMF leva ~10 s para abrir e ~18 s para aceitar
+    # a resolucao; DirectShow faz as duas coisas em menos de 1 s.
+    camera_backend: str = "auto"
     face_model: str = "Facenet512"
     face_detector: str = "opencv"
 
@@ -112,6 +129,27 @@ class Settings(BaseSettings):
     def _exigir_indice_de_camera_valido(cls, valor: int) -> int:
         if valor < 0:
             raise ValueError("CAMERA_INDEX nao pode ser negativo.")
+        return valor
+
+    @field_validator("camera_backend")
+    @classmethod
+    def _exigir_backend_conhecido(cls, valor: str) -> str:
+        backend = valor.strip().lower()
+        validos = {"auto", "dshow", "msmf", "any"}
+        if backend not in validos:
+            raise ValueError(
+                f"CAMERA_BACKEND invalido: {valor!r}. Use um de {sorted(validos)}."
+            )
+        return backend
+
+    @field_validator("camera_largura", "camera_altura")
+    @classmethod
+    def _exigir_resolucao_valida(cls, valor: int) -> int:
+        if valor < 160:
+            raise ValueError(
+                "Resolucao de camera abaixo de 160 px nao serve para "
+                "reconhecimento facial."
+            )
         return valor
 
     @property

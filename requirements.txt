@@ -1,10 +1,41 @@
-# Aplicacao (protótipo atual: cadastro.py)
+# Dependencias da aplicacao (python -m src.main).
+# Para desenvolvimento e CI, use requirements-dev.txt: ele dispensa
+# OpenCV e TensorFlow, porque a suite roda com dubles de modulo.
 # Requer Python 3.12 ou 3.13.
 #   piso 3.12: numpy 2.5.3 nao publica wheel para versoes anteriores;
 #   teto 3.13: o TensorFlow (via DeepFace) nao publica wheel para 3.14.
 # Verificado por resolucao de dependencias, nao por suposicao.
 opencv-python==4.13.0.92
 deepface==0.0.92
+
+# Backend de ML, fixado explicitamente.
+#
+# O deepface 0.0.92 declara apenas `tensorflow>=1.9.0`, o que deixava a
+# instalacao nao determinista -- cada maquina resolvia uma versao diferente.
+#
+# tf-keras e OBRIGATORIO, e nao opcional: o deepface liga
+# TF_USE_LEGACY_KERAS=1, e a partir do TensorFlow 2.16 o Keras 3 virou o
+# padrao, movendo o `tf.keras` legado para este pacote separado. Sem ele o
+# import falha com "ImportError: Keras cannot be imported".
+#
+# As duas versoes andam juntas: tf-keras 2.21.x pareia com tensorflow 2.21.x.
+tensorflow==2.21.0
+tf-keras==2.21.0
+
+# Anti-spoofing (FACE_ANTI_SPOOFING=true, o padrao).
+#
+# O modulo de prova de vida do deepface roda em PyTorch, e nao em
+# TensorFlow -- ele usa os pesos MiniFASNet do projeto Silent-Face. Sem
+# torch, `extract_faces(anti_spoofing=True)` levanta ValueError e TODO
+# cadastro falha.
+#
+# O deepface nao declara essa dependencia: ela e opcional para a
+# biblioteca, mas obrigatoria para este projeto, que liga o anti-spoofing
+# por padrao (problema A7).
+#
+# Wheel de CPU, ~118 MB. Para desligar o anti-spoofing e dispensar o torch,
+# use FACE_ANTI_SPOOFING=false -- apenas em desenvolvimento.
+torch==2.14.0
 
 # Comparacao de embeddings — Fase 5
 # Declarada explicitamente: o dominio depende dela (matcher vetorizado),

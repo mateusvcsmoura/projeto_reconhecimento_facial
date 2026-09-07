@@ -17,8 +17,11 @@ CAMINHO = "src.presentation.cli.viewer"
 
 class Cv2Duble:
     FONT_HERSHEY_SIMPLEX = 0
+    WINDOW_NORMAL = 16
 
     def __init__(self) -> None:
+        self.janelas_criadas: list[tuple[str, int]] = []
+        self.redimensionamentos: list[tuple[str, int, int]] = []
         self.textos: list[tuple[str, tuple[int, int], tuple[int, int, int]]] = []
         self.exibicoes: list[str] = []
         self.janelas_fechadas: list[str] = []
@@ -42,6 +45,14 @@ class Cv2Duble:
     def waitKey(self, atraso: int) -> int:
         return self.teclas.pop(0) if self.teclas else -1
 
+    def namedWindow(self, titulo: str, flag: int) -> None:
+        self.janelas_criadas.append((titulo, flag))
+
+    def resizeWindow(
+        self, titulo: str, largura: int, altura: int
+    ) -> None:
+        self.redimensionamentos.append((titulo, largura, altura))
+
     def destroyWindow(self, titulo: str) -> None:
         self.janelas_fechadas.append(titulo)
 
@@ -51,7 +62,15 @@ def cv2_duble() -> Iterator[Cv2Duble]:
     falso = Cv2Duble()
     modulo = types.ModuleType("cv2")
     modulo.FONT_HERSHEY_SIMPLEX = Cv2Duble.FONT_HERSHEY_SIMPLEX  # type: ignore[attr-defined]
-    for nome in ("putText", "imshow", "waitKey", "destroyWindow"):
+    modulo.WINDOW_NORMAL = Cv2Duble.WINDOW_NORMAL  # type: ignore[attr-defined]
+    for nome in (
+        "putText",
+        "imshow",
+        "waitKey",
+        "destroyWindow",
+        "namedWindow",
+        "resizeWindow",
+    ):
         setattr(modulo, nome, getattr(falso, nome))
 
     original = sys.modules.get("cv2")
@@ -138,3 +157,22 @@ def test_sem_linhas_nada_e_desenhado(cv2_duble: Cv2Duble) -> None:
         janela.mostrar(object(), [])
 
     assert cv2_duble.textos == []
+
+
+def test_janela_e_criada_redimensionavel(cv2_duble: Cv2Duble) -> None:
+    """Com WINDOW_AUTOSIZE, maximizar so aumenta a moldura: o video fica
+    no tamanho nativo, encolhido num canto."""
+    with montar("Cadastro facial"):
+        pass
+
+    assert cv2_duble.janelas_criadas == [
+        ("Cadastro facial", Cv2Duble.WINDOW_NORMAL)
+    ]
+
+
+def test_janela_abre_no_tamanho_pedido(cv2_duble: Cv2Duble) -> None:
+    modulo = importlib.import_module(CAMINHO)
+    with modulo.JanelaDeVideo("Teste", largura=1024, altura=576):
+        pass
+
+    assert cv2_duble.redimensionamentos == [("Teste", 1024, 576)]
