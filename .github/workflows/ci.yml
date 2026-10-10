@@ -42,13 +42,15 @@ jobs:
           # Mesma faixa que a aplicacao exige (ver requirements.txt).
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements-ml.txt
 
-      - name: Instalar dependencias
-        # Sem opencv-python e sem deepface: a suite roda com dubles de
-        # modulo. Se um teste passar a exigi-los, este passo falha.
+      - name: Instalar dependencias de desenvolvimento e ML
+        # requirements-ml inclui requirements-dev, scikit-learn e matplotlib
+        # para que mypy e os testes dos experimentos possam importar os scripts.
+        # OpenCV e DeepFace continuam fora do CI; os testes os substituem.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -r requirements-ml.txt
 
       - name: Lint (ruff)
         run: ruff check .
@@ -68,8 +70,8 @@ jobs:
       - name: Testes com cobertura
         # O piso de 80% e o criterio do REFACTORING_PLAN para dominio e
         # aplicacao; medimos o pacote inteiro, que ja esta acima disso.
-        # scripts.graficos_calibracao fica de fora: exige matplotlib, que so
-        # existe no ambiente experimental (requirements-experimentos.txt).
+        # A medicao de cobertura continua focada nos pacotes definidos abaixo;
+        # scripts experimentais tambem sao executados, mas nao elevam esse piso.
         run: pytest --cov=src --cov=scripts.metricas --cov=scripts.divisao_por_identidade --cov=scripts.evaluate_model --cov=scripts.calibrar_limiar --cov-report=term-missing --cov-fail-under=80
 
       - name: Nenhum dado sensivel versionado

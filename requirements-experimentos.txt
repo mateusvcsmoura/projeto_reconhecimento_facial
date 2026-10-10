@@ -4,7 +4,8 @@
 #   pip install -r requirements-experimentos.txt
 #
 # matplotlib: graficos da Etapa 1 (histograma, ROC, matrizes de confusao).
-# Fica fora de requirements.txt porque a aplicacao nao desenha graficos; o
-# CI tambem nao instala -- os testes dos graficos sao pulados sem ele.
+# Fica fora de requirements.txt porque a aplicacao nao desenha graficos. O CI
+# usa requirements-ml.txt para exercitar os scripts experimentais; este arquivo
+# segue como opcao local para executar a Etapa 1 no ambiente .venv-app.
 -r requirements.txt
 matplotlib==3.11.2

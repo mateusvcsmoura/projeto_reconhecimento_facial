@@ -273,3 +273,7 @@ escola.db
 # Dumps de banco
 *.sql.gz
 *.dump
+
+# Artefatos locais de planejamento e coordenacao de agentes.
+/.superpowers/
+/docs/superpowers/
