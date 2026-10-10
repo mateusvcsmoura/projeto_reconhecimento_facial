@@ -31,6 +31,11 @@ Controle de presença de alunos. Nada além disso. Os dados não são usados
 para avaliação de desempenho, vigilância de comportamento, nem
 compartilhados com terceiros.
 
+Isso inclui **avaliar ou treinar o modelo**: os experimentos de Machine
+Learning usam dataset público ou voluntários com consentimento específico
+para pesquisa, nunca os alunos cadastrados. Regras de armazenamento,
+retenção e descarte desses dados: `docs/ML-EXPERIMENT-SETUP.md` §7.
+
 ## 3. Consentimento
 
 O cadastro **não ocorre** sem consentimento explícito. O fluxo é:

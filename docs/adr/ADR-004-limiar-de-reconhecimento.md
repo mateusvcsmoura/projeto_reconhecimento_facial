@@ -84,6 +84,14 @@ dataset/
 
 O conjunto de imagens **nunca** deve ser versionado.
 
+**Atualização 2026-10-10 (Etapa 0):** rodar o script como acima mede o erro
+sobre os mesmos pares em que o limiar é sugerido; a saída passou a se
+declarar exploratória. A calibração que este ADR pede deve escolher o limiar
+em treino/validação e medi-lo uma única vez no teste, com divisão por
+identidade — infraestrutura pronta (`--validar-divisao`,
+`scripts/divisao_por_identidade.py`), calibração pendente para a Etapa 1.
+Ver `docs/ML-EXPERIMENT-SETUP.md`.
+
 ## Trade-offs aceitos
 
 | Ganho | Custo |

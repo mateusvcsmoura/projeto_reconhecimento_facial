@@ -220,11 +220,18 @@ Teste de software verifica se o pipeline faz o que promete; avaliação de
 modelo mede se o modelo **acerta**.
 
 ```bash
-python -m scripts.evaluate_model --dataset ./avaliacao/dataset
+# estrutura + divisão treino/validação/teste por identidade (sem modelo)
+python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome> --validar-divisao
+
+# exploratório: FAR, FRR, EER, AUC sobre todos os pares (exige DeepFace)
+python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome>
 ```
 
-Reporta FAR, FRR, EER, AUC e sugere um limiar por teto de FAR. Espera um
-diretório por pessoa, com 2+ imagens cada. **Nunca versione o conjunto.**
+Espera um diretório por pessoa, com 2+ imagens cada, e conta toda imagem
+rejeitada por motivo. O modo exploratório sugere limiar e mede o erro sobre
+os **mesmos** pares — não serve para calibrar. Estrutura, fontes de dados
+permitidas e descarte: [`docs/ML-EXPERIMENT-SETUP.md`](docs/ML-EXPERIMENT-SETUP.md).
+`avaliacao/` é ignorado pelo Git; **nunca use imagens dos alunos cadastrados.**
 
 A matemática vive em `scripts/metricas.py` e é coberta por 16 testes que
 rodam sem o modelo — um erro de cálculo ali levaria a calibrar o
