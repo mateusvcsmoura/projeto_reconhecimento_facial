@@ -68,11 +68,13 @@ jobs:
       - name: Testes com cobertura
         # O piso de 80% e o criterio do REFACTORING_PLAN para dominio e
         # aplicacao; medimos o pacote inteiro, que ja esta acima disso.
-        run: pytest --cov=src --cov=scripts.metricas --cov-report=term-missing --cov-fail-under=80
+        run: pytest --cov=src --cov=scripts.metricas --cov=scripts.divisao_por_identidade --cov=scripts.evaluate_model --cov-report=term-missing --cov-fail-under=80
 
       - name: Nenhum dado sensivel versionado
+        # Espelha o .gitignore: o ignore evita o acidente; este passo o pega
+        # se alguem forcar (git add -f) ou se o ignore regredir.
         run: |
-          if git ls-files | grep -Ei '\.db$|^\.env$|\.jpg$|\.png$|\.npy$|^storage/|^fotos/'; then
+          if git ls-files | grep -Ei '\.db$|^\.env$|\.(jpe?g|png|bmp|webp|heic|tiff?)$|\.(mp4|avi|mov)$|\.(npy|npz|pkl|pickle)$|^storage/|^fotos/|^avaliacao/'; then
             echo "ERRO: arquivo sensivel versionado"
             exit 1
           fi
