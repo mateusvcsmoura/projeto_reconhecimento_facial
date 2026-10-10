@@ -43,7 +43,8 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 no_implicit_optional = true
 
-# cv2 e deepface nao publicam type stubs.
+# cv2 e deepface nao publicam type stubs. matplotlib publica, mas so existe
+# no ambiente experimental (requirements-experimentos.txt), nao no CI.
 [[tool.mypy.overrides]]
-module = ["cv2.*", "deepface.*"]
+module = ["cv2.*", "deepface.*", "matplotlib.*"]
 ignore_missing_imports = true

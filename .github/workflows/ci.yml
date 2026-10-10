@@ -68,7 +68,9 @@ jobs:
       - name: Testes com cobertura
         # O piso de 80% e o criterio do REFACTORING_PLAN para dominio e
         # aplicacao; medimos o pacote inteiro, que ja esta acima disso.
-        run: pytest --cov=src --cov=scripts.metricas --cov=scripts.divisao_por_identidade --cov=scripts.evaluate_model --cov-report=term-missing --cov-fail-under=80
+        # scripts.graficos_calibracao fica de fora: exige matplotlib, que so
+        # existe no ambiente experimental (requirements-experimentos.txt).
+        run: pytest --cov=src --cov=scripts.metricas --cov=scripts.divisao_por_identidade --cov=scripts.evaluate_model --cov=scripts.calibrar_limiar --cov-report=term-missing --cov-fail-under=80
 
       - name: Nenhum dado sensivel versionado
         # Espelha o .gitignore: o ignore evita o acidente; este passo o pega

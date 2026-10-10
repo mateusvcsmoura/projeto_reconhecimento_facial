@@ -38,7 +38,7 @@ import argparse
 import itertools
 import sys
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sized
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -177,6 +177,22 @@ def ler_imagem(caminho: Path) -> Any:
     return imagem
 
 
+def processar_imagem(
+    imagem: Path,
+    ler: Callable[[Path], Any],
+    gerar: Callable[[Any], FaceEmbedding],
+) -> FaceEmbedding | Falha:
+    """Embedding da imagem, ou a falha esperada que a recusou."""
+    try:
+        return gerar(ler(imagem))
+    except _ERROS_ESPERADOS as erro:
+        return Falha(imagem, _motivo(erro), str(erro))
+    except Exception as erro:
+        # Nao e falha de imagem, e defeito: aborta, dizendo onde.
+        erro.add_note(f"Imagem em processamento: {imagem}")
+        raise
+
+
 def extrair_embeddings(
     imagens_por_pessoa: dict[str, list[Path]],
     ler: Callable[[Path], Any],
@@ -194,14 +210,11 @@ def extrair_embeddings(
         vetores = []
         for imagem in imagens:
             resumo.recebidas += 1
-            try:
-                vetores.append(gerar(ler(imagem)))
-            except _ERROS_ESPERADOS as erro:
-                resumo.falhas.append(Falha(imagem, _motivo(erro), str(erro)))
-            except Exception as erro:
-                # Nao e falha de imagem, e defeito: aborta, dizendo onde.
-                erro.add_note(f"Imagem em processamento: {imagem}")
-                raise
+            resultado = processar_imagem(imagem, ler, gerar)
+            if isinstance(resultado, Falha):
+                resumo.falhas.append(resultado)
+            else:
+                vetores.append(resultado)
         resumo.processadas += len(vetores)
         if vetores:
             por_pessoa[pessoa] = vetores
@@ -244,7 +257,7 @@ def relatar_inventario(inventario: Inventario) -> None:
 
 
 def relatar_extracao(
-    resumo: ResumoDaExtracao, por_pessoa: dict[str, list[FaceEmbedding]]
+    resumo: ResumoDaExtracao, por_pessoa: Mapping[str, Sized]
 ) -> None:
     print("\n=== Extracao ===")
     print(f"Imagens recebidas : {resumo.recebidas}")

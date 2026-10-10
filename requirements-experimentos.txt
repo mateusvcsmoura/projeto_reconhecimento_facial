@@ -1,0 +1,10 @@
+# Experimentos de ML (scripts/calibrar_limiar.py) -- NAO faz parte da
+# aplicacao nem do CI. Instalar no ambiente com DeepFace (.venv-app):
+#
+#   pip install -r requirements-experimentos.txt
+#
+# matplotlib: graficos da Etapa 1 (histograma, ROC, matrizes de confusao).
+# Fica fora de requirements.txt porque a aplicacao nao desenha graficos; o
+# CI tambem nao instala -- os testes dos graficos sao pulados sem ele.
+-r requirements.txt
+matplotlib==3.11.2

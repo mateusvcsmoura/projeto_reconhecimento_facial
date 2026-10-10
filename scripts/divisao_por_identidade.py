@@ -8,7 +8,7 @@ simula o caso real: o sistema precisa acertar alunos que nem existiam
 quando o limiar foi escolhido.
 
 O teste vem lacrado. Treino e validacao sao livres; as identidades de teste
-so saem por `abrir_teste`, uma unica vez, e exigem o limiar ja congelado.
+so saem por `abrir_teste`, uma unica vez, e exigem os limiares ja congelados.
 E protecao de API, nao de criptografia: ela torna o uso indevido explicito
 em vez de acidental.
 
@@ -87,7 +87,7 @@ class Divisao:
         self._validacao = validacao
         self._teste = teste
         self._teste_aberto = False
-        self.limiar_congelado: float | None = None
+        self.limiares_congelados: dict[str, float] | None = None
 
     @property
     def seed(self) -> int:
@@ -105,21 +105,24 @@ class Divisao:
     def teste_utilizado(self) -> bool:
         return self._teste_aberto
 
-    def abrir_teste(self, limiar_congelado: float) -> tuple[str, ...]:
+    def abrir_teste(self, limiares_congelados: Mapping[str, float]) -> tuple[str, ...]:
         """Libera as identidades de teste, uma unica vez.
 
-        Pedir o limiar aqui e o ponto: o teste so existe para medir uma
-        decisao ja tomada no treino/validacao. Um segundo acesso
-        significaria escolher de novo olhando o teste.
+        Pedir os limiares aqui e o ponto: o teste so existe para medir
+        decisoes ja tomadas no treino/validacao -- todas as que serao
+        comparadas (o baseline e cada limiar calibrado), congeladas juntas.
+        Um segundo acesso significaria escolher de novo olhando o teste.
         """
         if self._teste_aberto:
             raise UsoIndevidoDoTeste(
-                "O conjunto de teste ja foi usado (limiar congelado em "
-                f"{self.limiar_congelado}). Repetir a medicao com outra "
+                "O conjunto de teste ja foi usado (limiares congelados: "
+                f"{self.limiares_congelados}). Repetir a medicao com outra "
                 "escolha transformaria o teste em validacao."
             )
+        if not limiares_congelados:
+            raise ValueError("Congele ao menos um limiar antes de abrir o teste.")
         self._teste_aberto = True
-        self.limiar_congelado = limiar_congelado
+        self.limiares_congelados = dict(limiares_congelados)
         return self._teste
 
     def assinatura(self) -> str:

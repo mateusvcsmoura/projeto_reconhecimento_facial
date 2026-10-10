@@ -28,7 +28,7 @@ PESSOAS = [f"pessoa-{i:02d}" for i in range(20)]
 
 
 def _todas(divisao: Divisao) -> list[tuple[str, ...]]:
-    return [divisao.treino, divisao.validacao, divisao.abrir_teste(0.30)]
+    return [divisao.treino, divisao.validacao, divisao.abrir_teste({"baseline": 0.30})]
 
 
 def test_mesma_seed_produz_a_mesma_divisao() -> None:
@@ -103,17 +103,25 @@ def test_identidade_repetida_na_entrada_e_recusada() -> None:
         dividir_por_identidade([*PESSOAS, PESSOAS[0]], seed=1)
 
 
-def test_teste_lacrado_so_abre_uma_vez_e_registra_o_limiar() -> None:
+def test_teste_lacrado_so_abre_uma_vez_e_registra_os_limiares() -> None:
     divisao = dividir_por_identidade(PESSOAS, seed=1)
     assert not divisao.teste_utilizado
 
-    teste = divisao.abrir_teste(limiar_congelado=0.27)
+    congelados = {"baseline": 0.30, "calibrado": 0.27}
+    teste = divisao.abrir_teste(congelados)
     assert len(teste) == 4
     assert divisao.teste_utilizado
-    assert divisao.limiar_congelado == 0.27
+    assert divisao.limiares_congelados == congelados
 
     with pytest.raises(UsoIndevidoDoTeste, match=r"0\.27"):
-        divisao.abrir_teste(limiar_congelado=0.25)
+        divisao.abrir_teste({"calibrado": 0.25})
+
+
+def test_abrir_teste_sem_limiar_congelado_e_recusado() -> None:
+    divisao = dividir_por_identidade(PESSOAS, seed=1)
+    with pytest.raises(ValueError, match="ao menos um limiar"):
+        divisao.abrir_teste({})
+    assert not divisao.teste_utilizado
 
 
 def test_resumir_nao_abre_o_teste() -> None:
