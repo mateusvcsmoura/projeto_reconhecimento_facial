@@ -239,6 +239,32 @@ escola.db
 /storage/
 *.npy
 
+# Experimentos de ML (docs/ML-EXPERIMENT-SETUP.md): datasets, caches de
+# embeddings e relatorios ficam TODOS sob /avaliacao/, fora do Git.
+/avaliacao/
+
+# Rede de seguranca para o que escapar dos diretorios acima. Num projeto
+# biometrico, uma imagem solta e, ate prova em contrario, um rosto. O CI
+# reprova os mesmos padroes se forem rastreados (inclusive via git add -f):
+# versionar uma imagem nao biometrica (diagrama) exige decisao explicita,
+# mudando este arquivo E o passo "Nenhum dado sensivel versionado".
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.webp
+*.heic
+*.tif
+*.tiff
+# Gravacoes de webcam
+*.mp4
+*.avi
+*.mov
+# Vetores e caches serializados (o DeepFace.find grava .pkl de embeddings)
+*.npz
+*.pkl
+*.pickle
+
 # Segredos
 .env
 .env.*
