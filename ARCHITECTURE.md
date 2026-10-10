@@ -7,7 +7,7 @@ Sistema de reconhecimento facial para controle de presença de alunos.
 | **Estado** | Fases 1–9 concluídas; 18 de 18 problemas do baseline fechados |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 281 (16 arquivos unitários, 4 de integração, 5 de BDD) |
+| **Testes** | 518 unitários aprovados em 10/10/2026; última suíte completa histórica: 597 (Etapa 4) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
@@ -53,8 +53,10 @@ graph TD
 ```
 
 `src/main.py` é o **único** módulo que conhece implementações concretas.
-Todo o resto conversa por `Protocol`s — e é por isso que 281 testes rodam
-sem webcam, sem OpenCV e sem TensorFlow instalados.
+Todo o resto conversa por `Protocol`s — e os testes unitários rodam sem
+webcam, sem OpenCV e sem TensorFlow instalados. A suíte completa inclui
+testes de integração/BDD dependentes do PostgreSQL; os totais atuais e o
+escopo verificado estão em `docs/ML-ETAPA-5-RESULTADO.md`.
 
 ### Invariantes, verificáveis por comando
 

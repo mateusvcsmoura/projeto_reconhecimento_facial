@@ -1,7 +1,9 @@
 # Sistema de Reconhecimento Facial para Controle de Presença
 
 Aplicação CLI que cadastra alunos pelo rosto e registra presença
-reconhecendo-os pela webcam. PostgreSQL, arquitetura em camadas, 281 testes.
+reconhecendo-os pela webcam. PostgreSQL e arquitetura em camadas. Em
+10/10/2026, 518 testes unitários passaram; a suíte completa mais recente
+registrada é histórica (597 testes na Etapa 4).
 
 | | |
 |---|---|
@@ -192,7 +194,8 @@ outro formato é **rejeitado e relatado** — nunca adivinhado.
 ```bash
 pip install -r requirements-dev.txt
 
-pytest                                   # 281 testes
+pytest tests/unit                       # unitários, sem PostgreSQL
+pytest                                   # suíte completa; integração usa PostgreSQL de teste
 pytest --cov=src --cov-report=term       # com cobertura
 ruff check .                             # lint
 mypy                                     # tipos
