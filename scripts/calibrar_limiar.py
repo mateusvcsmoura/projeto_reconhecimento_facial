@@ -237,6 +237,12 @@ class CacheDeEmbeddings:
     def __len__(self) -> int:
         return len(self._vetores)
 
+    def matriz(self) -> np.ndarray:
+        """Retorna cópia matricial dos embeddings, sem expor hashes de imagem."""
+        if not self._vetores:
+            return np.empty((0, 0), dtype=np.float64)
+        return np.vstack(list(self._vetores.values())).astype(np.float64, copy=True)
+
     def obter(self, chave: str) -> FaceEmbedding | None:
         vetor = self._vetores.get(chave)
         if vetor is None:
