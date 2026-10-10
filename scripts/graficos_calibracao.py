@@ -125,7 +125,7 @@ def histograma(
     ):
         eixo.hist(
             valores,
-            bins=bordas,
+            bins=bordas.tolist(),
             density=True,
             histtype="step",
             color=cor,

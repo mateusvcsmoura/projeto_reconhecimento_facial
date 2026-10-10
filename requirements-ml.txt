@@ -1,0 +1,5 @@
+# Dependencias de desenvolvimento + classificadores e graficos experimentais.
+# Instalar somente no ambiente isolado .venv-ml.
+-r requirements-dev.txt
+scikit-learn==1.9.1
+matplotlib==3.11.2
