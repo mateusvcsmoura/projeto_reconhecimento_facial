@@ -277,3 +277,6 @@ escola.db
 # Artefatos locais de planejamento e coordenacao de agentes.
 /.superpowers/
 /docs/superpowers/
+
+# Configurações locais do Visual Studio Code
+/.vscode/
