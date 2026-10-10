@@ -1068,3 +1068,22 @@ Detalhes: `docs/ML-ETAPA-0-RESULTADO.md`. Guia de uso:
 
 Continuam abertas: G1, G2, G3, G7, G8, G9, G12. Nenhuma métrica do modelo foi
 medida até esta data.
+
+### 2026-10-10 — Etapa 1 (S1: calibração supervisionada do limiar)
+
+Detalhes: `docs/ML-ETAPA-1-RESULTADO.md`. Primeiras métricas **medidas** do
+modelo: LFW, verificação 1:1, sem prova de vida.
+
+| Lacuna | Estado após a Etapa 1 | Onde |
+|---|---|---|
+| G1 — limiar herdado | **Calibrado como candidato, não adotado.** τ = 0,4282 para FAR ≤ 0,1%, escolhido na validação. No teste: FAR 0,063% e FRR 16,4%, contra FAR 0,0018% e FRR 38,0% do 0,30. O `FACE_THRESHOLD` não mudou | `scripts/calibrar_limiar.py`; ADR-004 |
+| G2 — nenhuma avaliação | **Resolvida para 1:1.** Matriz de confusão, FAR/FRR com IC por bootstrap de identidades, ROC/AUC (0,983) e EER | `docs/ML-ETAPA-1-RESULTADO.md` §10–§11 |
+| G4 — limiar e erro nos mesmos pares | **Resolvida.** Escolha na validação; teste aberto uma vez, com todos os limiares congelados | `scripts/divisao_por_identidade.py` (`abrir_teste`) |
+| G3 — 1:1 × 1:N | **Aberta.** A FPIR estimada é só ilustrativa | Etapa 3 |
+
+`scripts/metricas.py` também mudou: `limiar_para_far_maximo` agora é exato
+(antes devolvia o maior ponto de uma grade de 200 passos), e
+`area_sob_a_curva` passou a usar busca binária. O contrato e os testes
+originais foram mantidos.
+
+Continuam abertas: G3, G7, G8, G9, G12. G1 está pendente de adoção.

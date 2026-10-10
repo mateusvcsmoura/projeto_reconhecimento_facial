@@ -18,7 +18,7 @@ lacunas G4, G5, G6, G10 e G11 de `docs/ML-LEARNING-AUDIT.md`.
 |---|---|---|
 | Validação da estrutura e da divisão por identidade | `--validar-divisao` | **Disponível.** Não precisa de DeepFace nem de banco |
 | A — exploratória (todos os pares, sem divisão) | sem flag | **Disponível, com ressalva:** limiar e erro saem dos mesmos pares. Serve para olhar, **não** para calibrar |
-| A — calibração do limiar com treino/validação/teste | — | **Etapa 1.** A infraestrutura de divisão já existe; falta a calibração |
+| A — calibração do limiar com treino/validação/teste | `python -m scripts.calibrar_limiar` | **Disponível (Etapa 1).** Executada sobre o LFW: `docs/ML-ETAPA-1-RESULTADO.md` |
 | A — classificadores (regressão logística, etc.) | — | Etapa 2 (`ML-LEARNING-AUDIT.md` §11) |
 | A — identificação 1:N (FPIR/FNIR) | — | Etapa 3 |
 | B — anti-spoofing (APCER/BPCER) | — | **Sem data.** Depende de um dataset de ataques que o projeto não tem (§4) |
@@ -39,9 +39,17 @@ avaliacao/                        ← IGNORADO pelo Git, inteiro
 │       │   └── 0002.jpg
 │       └── <identidade-2>/
 │           └── ...
-├── cache/                        ← embeddings (.npy) — uso a partir da Etapa 1
-└── resultados/                   ← saídas de execução, se forem salvas
+├── downloads/                    ← arquivo original baixado (ex.: lfw.tgz)
+├── cache/                        ← embeddings-<chave>.npz (Etapa 1)
+└── resultados/
+    └── etapa1/                   ← resultado.json, pares.npz, gráficos .svg
 ```
+
+O cache guarda um vetor por **hash do conteúdo** da imagem, num arquivo
+cujo nome é a impressão digital da configuração (modelo, detector, versão
+do DeepFace, alinhamento, prova de vida, normalização). Trocar qualquer um
+desses muda o arquivo: vetores de configurações diferentes nunca são
+comparados. Falhas não são guardadas — são recontadas a cada execução.
 
 ### Formato esperado
 
@@ -67,9 +75,39 @@ python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome> --validar-d
 # 2) Avaliação A exploratória — Python 3.12/3.13 com DeepFace (.venv-app)
 python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome>
 
-# 3) Testes automatizados da infraestrutura (sem DeepFace, sem imagens reais)
-pytest tests/unit/test_divisao_por_identidade.py tests/unit/test_evaluate_model.py tests/unit/test_metricas.py
+# 3) Etapa 1 -- calibracao supervisionada do limiar (.venv-app + matplotlib)
+pip install -r requirements-experimentos.txt
+python -m scripts.calibrar_limiar --dataset avaliacao/datasets/lfw
+python -m scripts.calibrar_limiar --dataset avaliacao/datasets/lfw --seed 7 --far-alvo 0.01
+
+# 4) Testes automatizados da infraestrutura (sem DeepFace, sem imagens reais)
+pytest tests/unit/test_divisao_por_identidade.py tests/unit/test_evaluate_model.py \
+       tests/unit/test_metricas.py tests/unit/test_calibrar_limiar.py
 ```
+
+### Como disponibilizar o dataset (LFW)
+
+1. Termos: o LFW não tem licença formal; os autores o publicam para
+   **pesquisa em verificação facial** e pedem citação (Huang et al., 2007).
+   São fotos de pessoas reais: tratar como dado biométrico (§7).
+2. O site oficial (`vis-www.cs.umass.edu/lfw`) estava fora do ar em
+   2026-10-10; o espelho usado é o do scikit-learn, com checksum:
+
+   ```bash
+   mkdir -p avaliacao/downloads avaliacao/datasets
+   curl -L -o avaliacao/downloads/lfw.tgz https://ndownloader.figshare.com/files/5976018
+   sha256sum avaliacao/downloads/lfw.tgz
+   # esperado: 055f7d9c632d7370e6fb4afc7468d40f970c34a80d4c6f50ffec63f5a8d536c0
+   tar -xzf avaliacao/downloads/lfw.tgz -C avaliacao/datasets   # -> avaliacao/datasets/lfw/
+   git status --short    # nada de avaliacao/ deve aparecer
+   ```
+
+3. Rodar `--validar-divisao` e depois `scripts.calibrar_limiar`.
+
+Opções da calibração (padrões entre parênteses): `--seed` (42),
+`--far-alvo` teto principal (0,001), `--min-imagens` (2), `--max-imagens`
+por identidade (10), `--max-impostores` por conjunto (1.000.000),
+`--replicas` do bootstrap (1.000), `--saida`, `--cache`.
 
 Saída do modo 1 sobre um dataset **sintético** de 12 identidades com 3
 arquivos cada (execução real desta etapa):
@@ -158,21 +196,26 @@ Implementada em `scripts/divisao_por_identidade.py` (funções puras).
 4. Cada conjunto precisa de pares genuínos **e** impostores; senão,
    `DadosInsuficientes` — e nenhum número é reportado.
 5. **O teste vem lacrado.** Treino e validação são acessíveis; as identidades
-   de teste só saem por `abrir_teste(limiar_congelado)`, **uma vez**. Um
-   segundo acesso levanta `UsoIndevidoDoTeste`. É proteção de API: torna o
-   uso indevido explícito, não impossível.
+   de teste só saem por `abrir_teste(limiares_congelados)`, **uma vez**, com
+   **todos** os limiares que serão comparados (baseline e calibrados)
+   congelados juntos. Um segundo acesso levanta `UsoIndevidoDoTeste`. É
+   proteção de API: torna o uso indevido explícito, não impossível.
 6. `resumir()` conta identidades, imagens e pares de cada conjunto — inclusive
    do teste — **sem abri-lo**. Contar não é usar para decidir.
 7. **Reprodução:** mesma seed + mesmo dataset → mesma divisão e mesma
    `Assinatura da divisao`. A garantia vale na mesma versão do Python; se a
    assinatura divergir entre máquinas, a divisão divergiu.
 
-Uso previsto na Etapa 1:
+Uso na Etapa 1 (`scripts/calibrar_limiar.py`):
 
 ```text
-treino + validação  →  escolher o limiar (teto de FAR, ADR-004)  →  congelar
-abrir_teste(limiar)  →  medir FAR/FRR UMA vez  →  reportar
+validação  →  escolher tau por teto de FAR (ADR-004)  →  congelar todos
+abrir_teste({baseline, tau por teto})  →  medir UMA vez  →  reportar
 ```
+
+O treino não entra na escolha: com um único parâmetro e um critério fixo
+(teto de FAR), não há hiperparâmetro para separar "ajuste" de "seleção". O
+`tau` estimado no treino é reportado só como análise de estabilidade.
 
 A extração de embeddings roda sobre o dataset inteiro, antes da divisão:
 ela não tem parâmetro ajustável, então não é fonte de vazamento. O vazamento

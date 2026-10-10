@@ -1,6 +1,6 @@
 # ADR-004 — Critério de escolha do limiar de reconhecimento
 
-- **Status:** aceito; **valor ainda não calibrado**
+- **Status:** aceito; **valor em uso ainda herdado** — calibração 1:1 medida na Etapa 1 (candidato 0,4282 para FAR ≤ 0,1%), adoção pendente
 - **Data:** 2026-09-07
 - **Fase:** 7 (decisão) / pendente de medição
 
@@ -91,6 +91,36 @@ em treino/validação e medi-lo uma única vez no teste, com divisão por
 identidade — infraestrutura pronta (`--validar-divisao`,
 `scripts/divisao_por_identidade.py`), calibração pendente para a Etapa 1.
 Ver `docs/ML-EXPERIMENT-SETUP.md`.
+
+**Atualização 2026-10-10 (Etapa 1) — primeira calibração medida.**
+Detalhes em `docs/ML-ETAPA-1-RESULTADO.md`.
+
+- **Método.** `scripts/calibrar_limiar.py` divide o LFW por identidade
+  (seed 42, 60/20/20), escolhe `τ` na validação pelo critério deste ADR e
+  abre o teste uma única vez, com o baseline e os limiares calibrados
+  congelados juntos.
+- **Escopo.** Verificação 1:1, sem prova de vida.
+
+| Teto de FAR | τ (validação) | FAR no teste (IC95) | FRR no teste (IC95) |
+|---|---|---|---|
+| **0,30 herdado** | — | 0,0018% (0–0,005%) | 38,0% (32,6–43,9%) |
+| **0,1% — candidato** | **0,4282** | 0,063% (0,042–0,090%) | 16,4% (12,4–21,0%) |
+| 1% | 0,5653 | 0,92% (0,74–1,11%) | 7,9% (5,3–11,1%) |
+| 5% | 0,6860 | 4,8% (4,2–5,5%) | 4,8% (2,9–7,3%) |
+
+AUC no teste: 0,983 (a mesma para qualquer limiar).
+
+- **O 0,30 já não é desconhecido.** Nesta configuração, ele opera com um
+  teto implícito de ~0,005% (medido na validação), cerca de 18 vezes mais
+  rigoroso que 0,1%, e paga isso com o FRR.
+- **O valor em uso não mudou.** 0,4282 é um **candidato**. Adotá-lo depende
+  de três coisas:
+  1. a decisão de negócio sobre o teto;
+  2. a avaliação 1:N (FPIR/FNIR), da Etapa 3;
+  3. a validação na webcam da sala.
+
+  O dataset público difere da operação em domínio, não tem prova de vida e
+  não tem N.
 
 ## Trade-offs aceitos
 

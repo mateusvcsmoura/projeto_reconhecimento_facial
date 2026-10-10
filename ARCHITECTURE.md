@@ -354,7 +354,7 @@ Declarado por honestidade. Nada aqui é omissão silenciosa.
 
 | Item | Situação |
 |---|---|
-| **Calibração do `FACE_THRESHOLD`** | Script e métricas prontos e testados; falta rodar sobre um conjunto de imagens. Ver [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
+| **Calibração do `FACE_THRESHOLD`** | Calibração 1:1 medida no LFW (Etapa 1): candidato 0,4282 para FAR ≤ 0,1%. **Não adotado**: falta a avaliação 1:N e a validação na webcam da sala. O valor em uso continua 0,30. Ver [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) e [`docs/ML-ETAPA-1-RESULTADO.md`](docs/ML-ETAPA-1-RESULTADO.md) |
 | **Eficácia do anti-spoofing** | Recusou pessoa ao vivo em contraluz com 86–96% de confiança. Falta testar em iluminação frontal e contra foto impressa |
 | **Comparação com `DeepFace.verify()`** | A equivalência de decisão sobre imagens reais não foi medida |
 | **API HTTP** | Não há consumidor. As camadas permitem adicionar sem tocar nos casos de uso |
