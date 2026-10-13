@@ -11,10 +11,12 @@ from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import (
+    IdentificacaoAmbigua,
     ModeloIndisponivel,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
 )
+from src.domain.services.matcher import PoliticaAmbiguidade
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition
 
 MODELO = "Facenet512"
@@ -123,11 +125,57 @@ def test_falha_de_modelo_nao_se_disfarca_de_nao_reconhecido() -> None:
 def test_recarregar_enxerga_cadastros_novos() -> None:
     """Problema A15: o prototipo so via a lista materializada na entrada."""
     repo = FakeAlunoRepository([ANA], {1: emb([1.0, 0.0])})
-    caso = ReconhecerAluno(
-        repo, FakeFaceRecognition(), modelo=MODELO, limiar=LIMIAR
-    )
+    caso = ReconhecerAluno(repo, FakeFaceRecognition(), modelo=MODELO, limiar=LIMIAR)
     assert len(caso.carregar_referencias()) == 1
 
     repo.cadastrar("2", "Bruno", None, emb([0.0, 1.0]), dt.datetime.now(TZ))
 
     assert len(caso.carregar_referencias()) == 2
+
+
+def test_politica_de_ambiguidade_propaga_recusa_apos_uma_inferencia() -> None:
+    reconhecimento = FakeFaceRecognition(embedding=emb([1.0, 0.0]))
+    repo = FakeAlunoRepository([ANA, BRUNO], {1: emb([1.0, 0.0]), 2: emb([1.0, 0.0])})
+    caso = ReconhecerAluno(
+        repo,
+        reconhecimento,
+        modelo=MODELO,
+        limiar=LIMIAR,
+        ambiguidade=PoliticaAmbiguidade(0.0),
+    )
+
+    with pytest.raises(IdentificacaoAmbigua):
+        caso.identificar(FRAME, caso.carregar_referencias())
+
+    assert reconhecimento.inferencias == 1
+
+
+def test_politica_ativa_preserva_identidade_unica_e_distante() -> None:
+    reconhecimento = FakeFaceRecognition(embedding=emb([1.0, 0.0]))
+    repo = FakeAlunoRepository([ANA, BRUNO], {1: emb([1.0, 0.0]), 2: emb([0.0, 1.0])})
+    caso = ReconhecerAluno(
+        repo,
+        reconhecimento,
+        modelo=MODELO,
+        limiar=LIMIAR,
+        ambiguidade=PoliticaAmbiguidade(0.5),
+    )
+
+    resultado = caso.identificar(FRAME, caso.carregar_referencias())
+
+    assert resultado is not None and resultado.aluno == ANA
+    assert reconhecimento.inferencias == 1
+
+
+def test_politica_ativa_mantem_none_quando_ninguem_atende_ao_limiar() -> None:
+    reconhecimento = FakeFaceRecognition(embedding=emb([0.0, 1.0]))
+    caso = ReconhecerAluno(
+        FakeAlunoRepository([ANA], {1: emb([1.0, 0.0])}),
+        reconhecimento,
+        modelo=MODELO,
+        limiar=LIMIAR,
+        ambiguidade=PoliticaAmbiguidade(0.1),
+    )
+
+    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    assert reconhecimento.inferencias == 1

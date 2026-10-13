@@ -9,6 +9,7 @@ import pytest
 
 from src.config.settings import Settings
 from src.domain.services.consistencia_temporal import ParametrosTemporais
+from src.domain.services.matcher import PoliticaAmbiguidade
 from src.domain.services.qualidade_captura import ParametrosQualidade
 from tests.unit.test_main_qualidade import _carregar_main_com_deepface_falso
 
@@ -16,14 +17,20 @@ URL_VALIDA = "postgresql+psycopg://u:p@h:5432/d"
 
 
 @pytest.mark.parametrize(
-    ("qualidade_habilitada", "temporal_habilitada"),
-    [(False, False), (False, True), (True, False), (True, True)],
+    ("qualidade_habilitada", "temporal_habilitada", "ambiguidade_habilitada"),
+    [
+        (qualidade, temporal, ambiguidade)
+        for qualidade in (False, True)
+        for temporal in (False, True)
+        for ambiguidade in (False, True)
+    ],
 )
 def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     qualidade_habilitada: bool,
     temporal_habilitada: bool,
+    ambiguidade_habilitada: bool,
 ) -> None:
     main = _carregar_main_com_deepface_falso()
     recebido_adapter: dict[str, Any] = {}
@@ -72,6 +79,11 @@ def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
             face_temporal_window_seconds=8.0,
             face_temporal_max_age_seconds=1.5,
         )
+    if ambiguidade_habilitada:
+        valores.update(
+            face_ambiguity_enabled=True,
+            face_ambiguity_min_margin=0.04,
+        )
 
     main.montar_menu(Settings(**valores))
 
@@ -99,3 +111,6 @@ def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
     assert recebido_adapter["anti_spoofing"] is True
     assert recebido_menu["temporal"] == esperado_temporal
     assert recebido_reconhecedor["limiar"] == 0.30
+    assert recebido_reconhecedor["ambiguidade"] == (
+        PoliticaAmbiguidade(0.04) if ambiguidade_habilitada else None
+    )

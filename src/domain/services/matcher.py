@@ -2,22 +2,25 @@
 
 Regra pura, sem IO: recebe vetores, devolve o melhor candidato. E aqui que
 o problema A18 se resolve -- o prototipo aceitava o PRIMEIRO aluno que
-passasse no limiar, o que atribui a presenca ao aluno errado sempre que
-dois candidatos ficam proximos. Com a distancia em maos, escolhe-se o
-MENOR, e o empate deixa de ser decidido pela ordem alfabetica da consulta.
+passasse no limiar, o que podia atribuir a presenca ao aluno errado. A
+distancia minima escolhe o vencedor; sem a politica optativa de ambiguidade,
+um empate exato continua decidido pela primeira linha da referencia.
 
-Custo: um produto matriz-vetor de N x 512. Para dezenas ou centenas de
-alunos, microssegundos -- contra as ate 2N inferencias Facenet512 por ciclo
-que o desenho anterior exigia (problema A5).
+Custo: um produto matriz-vetor de N x 512. Com a politica ativa, uma reducao
+linear adicional encontra a menor distancia de outra identidade, sem outro
+produto ou ordenacao global.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
+from numbers import Real
 
 import numpy as np
 
 from src.domain.entities.face_embedding import DTYPE, FaceEmbedding
+from src.domain.errors import IdentificacaoAmbigua
 
 
 class ModeloIncompativel(ValueError):
@@ -28,6 +31,29 @@ class ModeloIncompativel(ValueError):
 class Identificacao:
     aluno_id: int
     distancia: float
+
+
+@dataclass(frozen=True, slots=True)
+class PoliticaAmbiguidade:
+    """Margem minima entre as duas melhores identidades distintas."""
+
+    margem_minima: float
+
+    def __post_init__(self) -> None:
+        margem = self.margem_minima
+        if isinstance(margem, bool) or not isinstance(margem, Real):
+            raise ValueError("A margem minima deve ser um numero real entre 0 e 2.")
+
+        try:
+            margem_float = float(margem)
+        except (OverflowError, ValueError) as exc:
+            raise ValueError(
+                "A margem minima deve ser finita e estar entre 0 e 2."
+            ) from exc
+        if not isfinite(margem_float) or not 0.0 <= margem_float <= 2.0:
+            raise ValueError("A margem minima deve ser finita e estar entre 0 e 2.")
+
+        object.__setattr__(self, "margem_minima", margem_float)
 
 
 class MatrizDeReferencia:
@@ -70,12 +96,21 @@ class MatrizDeReferencia:
         return cls(ids, matriz.astype(DTYPE), modelos.pop())
 
     def melhor_candidato(
-        self, consulta: FaceEmbedding, limiar: float
+        self,
+        consulta: FaceEmbedding,
+        limiar: float,
+        *,
+        ambiguidade: PoliticaAmbiguidade | None = None,
     ) -> Identificacao | None:
-        """Devolve o candidato de MENOR distancia abaixo do limiar.
+        """Devolve o candidato mais proximo no limiar, se a margem permitir.
 
-        None significa: ninguem ficou abaixo do limiar, ou nao ha referencia.
+        None significa que ninguem ficou abaixo do limiar ou nao ha referencia.
+        IdentificacaoAmbigua e propagada quando a politica optativa recusa
+        candidatas de identidades distintas sem separacao suficiente.
         """
+        if ambiguidade is not None and not isinstance(ambiguidade, PoliticaAmbiguidade):
+            raise ValueError("ambiguidade deve ser PoliticaAmbiguidade ou None.")
+
         if not self._ids:
             return None
 
@@ -101,4 +136,20 @@ class MatrizDeReferencia:
         if distancia > limiar:
             return None
 
-        return Identificacao(aluno_id=self._ids[indice], distancia=distancia)
+        aluno_id = self._ids[indice]
+        if ambiguidade is not None:
+            # Um embedding repetido da mesma pessoa nao cria um concorrente.
+            # A reducao encontra a menor distancia de uma identidade distinta
+            # sem ordenar toda a galeria nem calcular outro produto matricial.
+            concorrentes = np.fromiter(
+                (identidade != aluno_id for identidade in self._ids),
+                dtype=np.bool_,
+                count=len(self._ids),
+            )
+            if concorrentes.any():
+                segunda_distancia = float(np.min(distancias[concorrentes]))
+                gap = segunda_distancia - distancia
+                if gap <= 0.0 or gap < ambiguidade.margem_minima:
+                    raise IdentificacaoAmbigua()
+
+        return Identificacao(aluno_id=aluno_id, distancia=distancia)

@@ -19,6 +19,7 @@ from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import FalhaNaLeituraDaCamera, RostoSemNitidez
+from src.domain.services.matcher import PoliticaAmbiguidade
 from src.presentation.cli.menu import INTERVALO_DE_COMPARACAO, MenuCLI
 from src.presentation.cli.teclas import ENTER, ESC, ESPACO
 from tests.fakes import (
@@ -55,11 +56,13 @@ def montar(
     embeddings: dict[int, FaceEmbedding] | None = None,
     consulta: FaceEmbedding | None = None,
     erro_ao_ler: Exception | None = None,
+    reconhecimento_fake: FakeFaceRecognition | None = None,
+    ambiguidade: PoliticaAmbiguidade | None = None,
 ) -> tuple[MenuCLI, Contexto]:
     repo_alunos = FakeAlunoRepository(alunos or [], embeddings or {})
     repo_presencas = FakePresencaRepository()
     storage = FakeImageStorage()
-    reconhecimento = FakeFaceRecognition(embedding=consulta)
+    reconhecimento = reconhecimento_fake or FakeFaceRecognition(embedding=consulta)
 
     camera = FakeCamera([object() for _ in range(frames)], erro_ao_ler=erro_ao_ler)
     janela = FakeJanela(teclas)
@@ -69,7 +72,11 @@ def montar(
     menu = MenuCLI(
         cadastrar_aluno=CadastrarAluno(repo_alunos, reconhecimento, storage, TZ),
         reconhecer_aluno=ReconhecerAluno(
-            repo_alunos, reconhecimento, modelo=MODELO, limiar=0.30
+            repo_alunos,
+            reconhecimento,
+            modelo=MODELO,
+            limiar=0.30,
+            ambiguidade=ambiguidade,
         ),
         registrar_presenca=RegistrarPresenca(repo_presencas, TZ),
         excluir_aluno=ExcluirAluno(repo_alunos, storage),
@@ -295,6 +302,48 @@ def test_recusa_de_qualidade_limpa_candidato_e_recupera_no_proximo_ciclo() -> No
     )
     assert len(ctx.presencas.chamadas) == 1  # type: ignore[attr-defined]
     assert len(ctx.presencas.registros) == 1  # type: ignore[attr-defined]
+
+
+def test_recusa_ambigua_limpa_candidato_mantem_orientacao_e_recupera() -> None:
+    class EmbeddingsPorCiclo(FakeFaceRecognition):
+        def __init__(self) -> None:
+            super().__init__()
+            self._embeddings = [
+                emb([1.0, 0.0, 0.0]),
+                emb([1.0, 1.0, 0.0]),
+                emb([1.0, 0.0, 0.0]),
+            ]
+
+        def gerar_embedding(self, _imagem: object) -> FaceEmbedding:
+            self.inferencias += 1
+            return self._embeddings.pop(0)
+
+    teclas = [0] * 15 + [ENTER] + [0] * 7 + [ENTER, ESC]
+    bruna = Aluno(id=2, matricula="2", nome="Bruna")
+    menu, ctx = montar(
+        respostas=["2", "6"],
+        teclas=teclas,
+        frames=len(teclas),
+        alunos=[ANA, bruna],
+        embeddings={1: emb([1.0, 0.0, 0.0]), 2: emb([0.0, 1.0, 0.0])},
+        reconhecimento_fake=EmbeddingsPorCiclo(),
+        ambiguidade=PoliticaAmbiguidade(0.0),
+    )
+
+    menu.executar()
+
+    orientacao = (
+        "Identificacao ambigua. Olhe de frente para a camera, ajuste a posicao "
+        "e tente novamente."
+    )
+    exibicoes = ctx.janela.exibicoes  # type: ignore[attr-defined]
+    assert exibicoes[15][0] == (orientacao, (0, 255, 255))
+    assert exibicoes[16][0] == (orientacao, (0, 255, 255))
+    assert ctx.reconhecimento.inferencias == 3  # type: ignore[attr-defined]
+    assert len(ctx.presencas.chamadas) == 1  # type: ignore[attr-defined]
+    assert ctx.presencas.chamadas[0][0] == ANA.id  # type: ignore[attr-defined]
+    assert "Presenca registrada: Ana" in texto(ctx)
+    assert ctx.camera.liberada is True  # type: ignore[attr-defined]
 
 
 def test_esc_sai_do_reconhecimento() -> None:

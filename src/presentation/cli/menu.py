@@ -29,6 +29,7 @@ from src.domain.entities.aluno import Aluno
 from src.domain.errors import (
     ErroDeDominio,
     FalhaNaLeituraDaCamera,
+    IdentificacaoAmbigua,
     QualidadeCapturaInsuficiente,
 )
 from src.domain.services.camera_provider import CameraProvider
@@ -338,7 +339,7 @@ class MenuCLI:
                         reconhecido = self._reconhecer_aluno.identificar(
                             frame, referencias
                         )
-                    except QualidadeCapturaInsuficiente as erro:
+                    except (QualidadeCapturaInsuficiente, IdentificacaoAmbigua) as erro:
                         reconhecido = None
                         situacao = para_operador(erro)
                         cor_situacao = AMARELO
@@ -371,6 +372,7 @@ class MenuCLI:
         situacao = "Procurando..."
         cor_situacao = BRANCO
         contador = 0
+        recusa_recuperavel = False
 
         with (
             self._abrir_camera() as camera,
@@ -392,13 +394,18 @@ class MenuCLI:
                         reconhecido = self._reconhecer_aluno.identificar(
                             frame, referencias
                         )
-                    except QualidadeCapturaInsuficiente as erro:
+                    except (
+                        QualidadeCapturaInsuficiente,
+                        IdentificacaoAmbigua,
+                    ) as erro:
                         reconhecido = None
                         confirmador.observar(None, capturado_em)
                         estado = confirmador.consultar(self._relogio())
                         situacao = para_operador(erro)
                         cor_situacao = AMARELO
+                        recusa_recuperavel = True
                     else:
+                        recusa_recuperavel = False
                         if reconhecido is None:
                             confirmador.observar(None, capturado_em)
                             estado = confirmador.consultar(self._relogio())
@@ -466,8 +473,9 @@ class MenuCLI:
                 ):
                     if expirou:
                         continue
-                    situacao = "Aguarde a validacao da identidade."
-                    cor_situacao = AMARELO
+                    if not recusa_recuperavel:
+                        situacao = "Aguarde a validacao da identidade."
+                        cor_situacao = AMARELO
                     continue
 
                 identidade_confirmada = estado.aluno_id
@@ -483,12 +491,16 @@ class MenuCLI:
                     novo_reconhecimento = self._reconhecer_aluno.identificar(
                         frame_confirmacao, referencias
                     )
-                except QualidadeCapturaInsuficiente as erro:
+                except (
+                    QualidadeCapturaInsuficiente,
+                    IdentificacaoAmbigua,
+                ) as erro:
                     confirmador.observar(None, capturado_em)
                     estado = confirmador.consultar(self._relogio())
                     reconhecido = None
                     situacao = para_operador(erro)
                     cor_situacao = AMARELO
+                    recusa_recuperavel = True
                     continue
 
                 if novo_reconhecimento is None:
@@ -497,6 +509,7 @@ class MenuCLI:
                     reconhecido = None
                     situacao = "Procurando..."
                     cor_situacao = BRANCO
+                    recusa_recuperavel = False
                     continue
 
                 observado = confirmador.observar(
@@ -504,6 +517,7 @@ class MenuCLI:
                 )
                 estado = confirmador.consultar(self._relogio())
                 reconhecido = novo_reconhecimento
+                recusa_recuperavel = False
 
                 if observado.observacoes and not estado.observacoes:
                     reconhecido = None

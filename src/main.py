@@ -24,6 +24,7 @@ from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
 from src.domain.errors import ErroDeDominio
 from src.domain.services.consistencia_temporal import ParametrosTemporais
+from src.domain.services.matcher import PoliticaAmbiguidade
 from src.domain.services.qualidade_captura import ParametrosQualidade
 from src.infrastructure.camera.opencv_camera import OpenCVCamera
 from src.infrastructure.database.engine import criar_engine
@@ -42,6 +43,18 @@ logger = logging.getLogger(__name__)
 
 
 def montar_menu(settings: Settings) -> MenuCLI:
+    ambiguidade: PoliticaAmbiguidade | None = None
+    if settings.face_ambiguity_enabled:
+        margem = settings.face_ambiguity_min_margin
+        if margem is None:
+            # Settings valida isto antes da composicao; o guard protege
+            # construcoes artificiais sem introduzir um fallback silencioso.
+            raise ValueError(
+                "FACE_AMBIGUITY_MIN_MARGIN e obrigatoria quando "
+                "FACE_AMBIGUITY_ENABLED=true."
+            )
+        ambiguidade = PoliticaAmbiguidade(margem)
+
     engine = criar_engine(settings.database_url)
 
     alunos = PostgresAlunoRepository(engine)
@@ -88,6 +101,7 @@ def montar_menu(settings: Settings) -> MenuCLI:
             reconhecimento,
             modelo=settings.face_model,
             limiar=settings.face_threshold,
+            ambiguidade=ambiguidade,
         ),
         registrar_presenca=RegistrarPresenca(presencas, settings.timezone),
         excluir_aluno=ExcluirAluno(alunos, storage),

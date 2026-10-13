@@ -10,7 +10,7 @@ from src.domain.entities.aluno import Aluno
 from src.domain.errors import MultiplosRostosDetectados, NenhumRostoDetectado
 from src.domain.repositories.aluno_repository import AlunoRepository
 from src.domain.services.face_recognition import FaceRecognition
-from src.domain.services.matcher import MatrizDeReferencia
+from src.domain.services.matcher import MatrizDeReferencia, PoliticaAmbiguidade
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,14 @@ class ReconhecerAluno:
         reconhecimento: FaceRecognition,
         modelo: str,
         limiar: float,
+        *,
+        ambiguidade: PoliticaAmbiguidade | None = None,
     ) -> None:
         self._alunos = alunos
         self._reconhecimento = reconhecimento
         self._modelo = modelo
         self._limiar = limiar
+        self._ambiguidade = ambiguidade
         self._referencias: dict[int, Aluno] = {}
 
     def carregar_referencias(self) -> MatrizDeReferencia:
@@ -84,7 +87,9 @@ class ReconhecerAluno:
             logger.info("Frame ambiguo: %s rostos", erro.quantidade)
             return None
 
-        identificacao = referencias.melhor_candidato(consulta, self._limiar)
+        identificacao = referencias.melhor_candidato(
+            consulta, self._limiar, ambiguidade=self._ambiguidade
+        )
         if identificacao is None:
             return None
 

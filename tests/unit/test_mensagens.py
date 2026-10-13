@@ -14,6 +14,7 @@ from src.presentation.cli.mensagens import (
 TODOS_OS_ERROS = [
     errors.NenhumRostoDetectado(),
     errors.MultiplosRostosDetectados(2),
+    errors.IdentificacaoAmbigua(),
     errors.PossivelFraude(0.1),
     errors.ModeloIndisponivel("x"),
     errors.CameraIndisponivel(0),
@@ -101,6 +102,17 @@ def test_mensagem_de_fraude_nao_recomenda_desligar_antispoofing() -> None:
     assert "FACE_ANTI_SPOOFING=false" not in mensagem
     assert "iluminacao" in mensagem
     assert "tente de novo" in mensagem
+
+
+def test_ambiguidade_orienta_sem_expor_candidatos_ou_distancias() -> None:
+    mensagem = para_operador(errors.IdentificacaoAmbigua())
+
+    assert mensagem == (
+        "Identificacao ambigua. Olhe de frente para a camera, ajuste a posicao "
+        "e tente novamente."
+    )
+    assert "Ana" not in mensagem and "Bia" not in mensagem
+    assert "distancia" not in mensagem.lower()
 
 
 def test_dados_invalidos_usa_o_proprio_texto() -> None:

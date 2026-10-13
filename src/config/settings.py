@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     face_temporal_window_seconds: float = 5.0
     face_temporal_max_age_seconds: float = 2.0
 
+    # A politica de margem e optativa e nao foi calibrada com dados
+    # biometricos autorizados. Ao habilitar, a margem deve ser escolhida
+    # explicitamente pelo ambiente, inclusive 0.0 para recusar so empates.
+    face_ambiguity_enabled: bool = False
+    face_ambiguity_min_margin: float | None = None
+
     # Recusa frames que o detector classifique como apresentacao (foto
     # impressa, tela de celular). Sem isto, um controle de presenca por
     # rosto nao entrega a garantia que promete (problema A7).
@@ -239,6 +245,47 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FACE_TEMPORAL_MAX_AGE_SECONDS nao pode exceder "
                 "FACE_TEMPORAL_WINDOW_SECONDS."
+            )
+        return self
+
+    @field_validator("face_ambiguity_min_margin", mode="before")
+    @classmethod
+    def _validar_formato_da_margem_de_ambiguidade(cls, valor: object) -> object:
+        if valor is None:
+            return None
+        if isinstance(valor, bool):
+            raise ValueError(
+                "FACE_AMBIGUITY_MIN_MARGIN deve ser um numero finito entre 0 e 2."
+            )
+        if isinstance(valor, str):
+            if not valor.strip():
+                raise ValueError(
+                    "FACE_AMBIGUITY_MIN_MARGIN nao pode estar vazia; informe um "
+                    "numero entre 0 e 2."
+                )
+            try:
+                float(valor)
+            except ValueError as exc:
+                raise ValueError(
+                    "FACE_AMBIGUITY_MIN_MARGIN deve ser um numero entre 0 e 2."
+                ) from exc
+        return valor
+
+    @field_validator("face_ambiguity_min_margin")
+    @classmethod
+    def _exigir_margem_de_ambiguidade_valida(cls, valor: float | None) -> float | None:
+        if valor is not None and (not isfinite(valor) or not 0.0 <= valor <= 2.0):
+            raise ValueError(
+                "FACE_AMBIGUITY_MIN_MARGIN deve ser finita e estar entre 0 e 2."
+            )
+        return valor
+
+    @model_validator(mode="after")
+    def _exigir_margem_quando_ambiguidade_ativa(self) -> Settings:
+        if self.face_ambiguity_enabled and self.face_ambiguity_min_margin is None:
+            raise ValueError(
+                "FACE_AMBIGUITY_MIN_MARGIN e obrigatoria quando "
+                "FACE_AMBIGUITY_ENABLED=true; informe um valor explicito entre 0 e 2."
             )
         return self
 

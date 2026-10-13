@@ -21,6 +21,10 @@ class QualidadeCapturaInsuficiente(ErroDeDominio):
     """A captura nao atende a politica optativa de qualidade."""
 
 
+class IdentificacaoAmbigua(ErroDeDominio):
+    """Duas identidades candidatas nao estao separadas pela margem exigida."""
+
+
 class RostoMuitoPequeno(QualidadeCapturaInsuficiente):
     """O rosto ocupa poucos pixels para a avaliacao configurada."""
 

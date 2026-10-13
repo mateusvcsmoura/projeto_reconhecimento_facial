@@ -2,7 +2,7 @@
 
 Projeto acadêmico da disciplina de IA da Fatec. Aplicação CLI que cadastra
 alunos pelo rosto e registra presença reconhecendo-os pela webcam. PostgreSQL
-e arquitetura em camadas. Em 13/10/2026, 707 testes unitários passaram; a
+e arquitetura em camadas. Em 13/10/2026, 776 testes unitários passaram; a
 suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
 
 | | |
@@ -95,6 +95,19 @@ pessoa. Desconhecido, troca de identidade, qualidade insuficiente e expiração
 interrompem a sequência. Uma presença registrada ou já existente consome a
 confirmação. Isso pode adicionar uma inferência no ENTER elegível.
 
+Com `FACE_AMBIGUITY_ENABLED=true`, o matcher também compara as duas menores
+distâncias de **identidades distintas**, depois de verificar se a melhor está
+no limiar `FACE_THRESHOLD`. A segunda identidade conta mesmo se sua distância
+ficar acima do limiar. Margem zero recusa apenas empates exatos calculados;
+uma margem positiva recusa gaps menores que o valor configurado, e igualdade
+positiva com a margem é aceita. Não há margem calibrada ou recomendada. Uma
+recusa mostra orientação amarela e, no modo temporal, limpa a sequência.
+Desconhecido significa que ninguém passou pelo limiar; múltiplos rostos são
+uma falha de captura distinta; ambiguidade significa um rosto com identidades
+candidatas próximas. A política pode aumentar recusas, e um gap grande não
+garante que a identidade esteja correta. Com a flag desligada, inclusive o
+desempate pela primeira linha continua como antes.
+
 As observações de frames consecutivos são correlacionadas: consistência
 temporal verifica o fluxo de decisão, mas não comprova melhora biométrica e
 pode repetir uma identificação errada. O marco de tempo ocorre antes da
@@ -143,6 +156,8 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_TEMPORAL_MIN_OBSERVATIONS` | `3` | Identificações consecutivas (não frames exibidos) |
 | `FACE_TEMPORAL_WINDOW_SECONDS` | `5.0` | Janela máxima das observações |
 | `FACE_TEMPORAL_MAX_AGE_SECONDS` | `2.0` | Idade máxima da observação mais recente |
+| `FACE_AMBIGUITY_ENABLED` | `false` | Opt-in da rejeição entre identidades próximas |
+| `FACE_AMBIGUITY_MIN_MARGIN` | `None` | Obrigatória ao ativar; diferença mínima `d2 - d1`, finita entre 0 e 2 |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
 
@@ -153,7 +168,10 @@ sintéticas demonstram apenas comportamento funcional, não acurácia facial.
 Os limites temporais também são parâmetros iniciais de engenharia, sem
 calibração biométrica. A flag temporal não muda o limiar, a qualidade de
 captura ou o anti-spoofing; esses controles podem ser habilitados de forma
-independente.
+independente. A política de ambiguidade também é independente e não altera
+o limiar ou o anti-spoofing. Ao ativá-la, escolha a margem explicitamente;
+`0.0` significa rejeitar somente empates exatos, não uma margem recomendada.
+Nenhum teste sintético calibra valores nem mede desempenho biométrico.
 
 ---
 

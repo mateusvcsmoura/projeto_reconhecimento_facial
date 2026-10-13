@@ -34,6 +34,10 @@ _ORIENTACOES: dict[type[Exception], Orientacao] = {
         problema="Mais de um rosto na camera.",
         acao="Peca que as outras pessoas saiam do enquadramento.",
     ),
+    errors.IdentificacaoAmbigua: Orientacao(
+        problema="Identificacao ambigua.",
+        acao="Olhe de frente para a camera, ajuste a posicao e tente novamente.",
+    ),
     errors.RostoMuitoPequeno: Orientacao(
         problema="Rosto muito pequeno.",
         acao="Aproxime-se da camera e tente novamente.",

@@ -17,6 +17,7 @@ from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import (
     FalhaNaLeituraDaCamera,
+    IdentificacaoAmbigua,
     ModeloIndisponivel,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
@@ -24,7 +25,7 @@ from src.domain.errors import (
     RostoSemNitidez,
 )
 from src.domain.services.consistencia_temporal import ParametrosTemporais
-from src.domain.services.matcher import MatrizDeReferencia
+from src.domain.services.matcher import MatrizDeReferencia, PoliticaAmbiguidade
 from src.presentation.cli.menu import MenuCLI
 from src.presentation.cli.teclas import ENTER, ESC
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition
@@ -345,6 +346,133 @@ def test_qualidade_apos_duas_observacoes_impede_enter_no_terceiro_ciclo() -> Non
     assert camera.leituras == 25
     assert registro.ids == []
     assert any("Rosto sem nitidez." in t for t in _textos(janela))
+    assert camera.liberada and janela.fechada
+
+
+def test_ambiguidade_no_ciclo_temporal_reinicia_sequencia_e_mantem_orientacao() -> None:
+    relogio = RelogioManual()
+    camera = CameraRoteirizada(_quadros(33))
+    teclas = [0] * 23 + [ENTER, ENTER] + [0] * 6 + [ENTER, ESC]
+    janela = JanelaRoteirizada(teclas)
+    identificador = IdentificadorRoteirizado(
+        [reconhecido(), reconhecido(), IdentificacaoAmbigua(), reconhecido()]
+    )
+    menu, _mensagens, registro = _montar_menu(
+        identificador, [camera], [janela], relogio
+    )
+
+    menu.reconhecer()
+
+    orientacao = (
+        "Identificacao ambigua. Olhe de frente para a camera, ajuste a posicao "
+        "e tente novamente."
+    )
+    assert janela.linhas[23][0] == (orientacao, (0, 255, 255))
+    assert janela.linhas[24][0] == (orientacao, (0, 255, 255))
+    assert janela.linhas[15][0][0] == "Validando identidade: 2/3. Olhe para a camera."
+    assert janela.linhas[31][0][0] == "Validando identidade: 1/3. Olhe para a camera."
+    assert registro.ids == []
+    assert camera.aberta is False and camera.liberada
+
+
+def test_ambiguidade_no_frame_de_confirmacao_limpa_estado_e_nao_oculta_motivo() -> None:
+    relogio = RelogioManual()
+    camera = CameraRoteirizada(_quadros(27))
+    janela = JanelaRoteirizada([0] * 23 + [ENTER, ENTER, ESC])
+    identificador = IdentificadorRoteirizado(
+        [reconhecido(), reconhecido(), reconhecido(), IdentificacaoAmbigua()]
+    )
+    menu, _mensagens, registro = _montar_menu(
+        identificador, [camera], [janela], relogio
+    )
+
+    menu.reconhecer()
+
+    textos = _textos(janela)
+    orientacao = (
+        "Identificacao ambigua. Olhe de frente para a camera, ajuste a posicao "
+        "e tente novamente."
+    )
+    assert identificador.frames[-1] == Frame(24)
+    assert orientacao in textos
+    assert janela.linhas[24][0] == (orientacao, (0, 255, 255))
+    assert registro.ids == []
+    assert len(identificador.frames) == 4
+    assert camera.liberada and janela.fechada
+
+
+def test_ambiguidades_repetidas_nao_acumulam_observacoes() -> None:
+    relogio = RelogioManual()
+    camera = CameraRoteirizada(_quadros(33))
+    janela = JanelaRoteirizada(_teclas_ate(None, 33))
+    identificador = IdentificadorRoteirizado(
+        [
+            reconhecido(),
+            IdentificacaoAmbigua(),
+            IdentificacaoAmbigua(),
+            reconhecido(),
+        ]
+    )
+    menu, _mensagens, registro = _montar_menu(
+        identificador, [camera], [janela], relogio
+    )
+
+    menu.reconhecer()
+
+    textos = _textos(janela)
+    assert sum("Identificacao ambigua." in texto for texto in textos) >= 2
+    assert "Validando identidade: 1/3. Olhe para a camera." in textos
+    assert not any("Validando identidade: 2/3." in texto for texto in textos)
+    assert registro.ids == []
+
+
+def test_fluxo_real_reinicia_e_confirma_com_matcher_sintetico() -> None:
+    class EmbeddingsPorFrame(FakeFaceRecognition):
+        def __init__(self) -> None:
+            super().__init__()
+
+        def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+            self.inferencias += 1
+            vetor = [1.0, 1.0, 0.0] if imagem.numero == 23 else [1.0, 0.0, 0.0]
+            return FaceEmbedding.de_valores(vetor, MODELO)
+
+    repo = FakeAlunoRepository(
+        [ANA, BIA],
+        {
+            ANA.id: FaceEmbedding.de_valores([1.0, 0.0, 0.0], MODELO),
+            BIA.id: FaceEmbedding.de_valores([0.0, 1.0, 0.0], MODELO),
+        },
+    )
+    provider = EmbeddingsPorFrame()
+    reconhecedor = ReconhecerAluno(
+        repo,
+        provider,
+        MODELO,
+        0.30,
+        ambiguidade=PoliticaAmbiguidade(0.0),
+    )
+    camera = CameraRoteirizada(_quadros(50))
+    teclas = [0] * 23 + [ENTER, ENTER] + [0] * 22 + [ENTER, ESC]
+    janela = JanelaRoteirizada(teclas)
+    relogio = RelogioManual()
+    menu, mensagens, registro = _montar_menu(reconhecedor, [camera], [janela], relogio)
+
+    menu.reconhecer()
+
+    orientacao = (
+        "Identificacao ambigua. Olhe de frente para a camera, ajuste a posicao "
+        "e tente novamente."
+    )
+    assert janela.linhas[23][0] == (orientacao, (0, 255, 255))
+    assert janela.linhas[24][0] == (orientacao, (0, 255, 255))
+    assert janela.linhas[31][0][0] == "Validando identidade: 1/3. Olhe para a camera."
+    assert janela.linhas[47][0][0] == (
+        "Identidade consistente: Ana. ENTER para confirmar."
+    )
+    assert provider.inferencias == 7
+    assert registro.ids == [ANA.id]
+    assert "Presenca registrada: Ana" in mensagens
+    assert camera.leituras == 50
     assert camera.liberada and janela.fechada
 
 

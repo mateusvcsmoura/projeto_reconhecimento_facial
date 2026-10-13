@@ -155,8 +155,8 @@ sequenceDiagram
         UC->>DF: gerar_embedding(frame)
         Note over DF: 1 deteccao + anti-spoofing<br/>qualidade opcional antes de 1 representacao Facenet512
         DF-->>UC: vetor normalizado
-        UC->>Mat: melhor_candidato(vetor, limiar)
-        Note over Mat: produto matriz-vetor<br/>menor distância vence
+        UC->>Mat: melhor_candidato(vetor, limiar, política opcional)
+        Note over Mat: um produto matriz-vetor<br/>menor distância vence; top-2 opcional
         Mat-->>UC: aluno + distância
         UC-->>Menu: Reconhecimento
     end
@@ -173,6 +173,24 @@ recusa não persiste imagem ou embedding e permite outra captura sem repetir
 identificação e consentimento. No reconhecimento, a recusa limpa o candidato
 imediatamente; a câmera continua aberta e ENTER não registra presença nesse
 ciclo.
+
+Com `FACE_AMBIGUITY_ENABLED=true`, o matcher primeiro exige que `d1` satisfaça
+`FACE_THRESHOLD`; somente então compara `d2 - d1`, em que `d2` é a menor
+distância de outra identidade. A segunda distância conta mesmo acima do
+limiar. A operação reutiliza o único vetor de distâncias já calculado e não
+acrescenta inferência. Identidades empatadas são recusadas; gap positivo
+menor que `FACE_AMBIGUITY_MIN_MARGIN` também é recusado, e igualdade positiva
+com a margem é aceita. Referências duplicadas com o mesmo ID não concorrem
+entre si. Com a política desligada, o resultado anterior permanece, inclusive
+o desempate pela primeira linha.
+
+Ambiguidade é distinta de desconhecido (nenhum candidato passa pelo limiar) e
+de múltiplos rostos (a captura contém mais de uma face). A recusa limpa a
+identificação atual e, no modo temporal, interrompe a sequência usando uma
+observação ausente com timestamp. `FACE_AMBIGUITY_MIN_MARGIN` não tem valor
+positivo calibrado: a flag ligada exige escolha explícita entre 0 e 2. Margem
+zero recusa apenas empates exatos calculados; uma margem positiva pode aumentar
+as recusas, e um gap grande não garante identidade correta.
 
 Com `FACE_TEMPORAL_ENABLED=true`, `MenuCLI` injeta o instante de um relógio
 monotônico imediatamente antes de cada leitura da câmera. O serviço puro
@@ -311,6 +329,8 @@ boot** se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_TEMPORAL_MIN_OBSERVATIONS` | `3` | Observações analisadas consecutivas |
 | `FACE_TEMPORAL_WINDOW_SECONDS` | `5.0` | Janela máxima de observações |
 | `FACE_TEMPORAL_MAX_AGE_SECONDS` | `2.0` | Idade máxima da observação mais recente |
+| `FACE_AMBIGUITY_ENABLED` | `false` | Opt-in da recusa entre identidades próximas |
+| `FACE_AMBIGUITY_MIN_MARGIN` | `None` | Obrigatória quando habilitada; valor finito entre 0 e 2 |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga |
 
@@ -318,9 +338,11 @@ Os limites de qualidade são heurísticas iniciais sem calibração biométrica.
 A média de luminância não caracteriza toda contraluz, e ruído pode elevar a
 medida de nitidez. A validação usa somente imagens sintéticas e demonstra
 comportamento do software, sem medir acurácia em reconhecimento facial.
-Os limites temporais são de engenharia, não calibrados. As políticas de
-qualidade e consistência são optativas e independentes; nenhuma altera o
-limiar 0.30 ou o anti-spoofing.
+Os limites temporais são de engenharia, não calibrados. Qualidade,
+temporalidade e ambiguidade são controles independentes; nenhum altera o
+limiar 0.30 ou o anti-spoofing. Testes funcionais com embeddings sintéticos
+não calibram margem, não medem acurácia facial e não comprovam redução de FAR
+ou FPIR.
 
 ---
 
@@ -344,6 +366,7 @@ graph LR
 |---|---|
 | `NenhumRostoDetectado` | Aproxime-se, olhe para a lente, verifique a iluminação |
 | `MultiplosRostosDetectados` | Peça que as outras pessoas saiam do enquadramento |
+| `IdentificacaoAmbigua` | Olhe de frente para a câmera, ajuste a posição e tente novamente |
 | `RostoMuitoPequeno` | Aproxime-se da câmera e tente novamente |
 | `IluminacaoInsuficiente` | Melhore a iluminação frontal e tente novamente |
 | `IluminacaoExcessiva` | Reduza a luz direta e tente novamente |

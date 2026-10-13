@@ -223,3 +223,85 @@ def test_consistencia_temporal_rejeita_configuracao_invalida(
 ) -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, database_url=URL_VALIDA, **kwargs)  # type: ignore[arg-type]
+
+
+def test_ambiguidade_comeca_desabilitada_e_sem_margem(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FACE_AMBIGUITY_ENABLED", raising=False)
+    monkeypatch.delenv("FACE_AMBIGUITY_MIN_MARGIN", raising=False)
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_ambiguity_enabled is False
+    assert settings.face_ambiguity_min_margin is None
+
+
+def test_ambiguidade_habilitada_exige_margem_explicita() -> None:
+    with pytest.raises(ValidationError, match="FACE_AMBIGUITY_MIN_MARGIN"):
+        Settings(
+            _env_file=None,
+            database_url=URL_VALIDA,
+            face_ambiguity_enabled=True,
+        )
+
+
+@pytest.mark.parametrize("margem", [0, 2, 0.25])
+def test_ambiguidade_aceita_margens_validas(margem: int | float) -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url=URL_VALIDA,
+        face_ambiguity_enabled=True,
+        face_ambiguity_min_margin=margem,
+    )
+
+    assert settings.face_ambiguity_enabled is True
+    assert settings.face_ambiguity_min_margin == float(margem)
+
+
+def test_margem_numerica_vinda_do_ambiente_e_aceita(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FACE_AMBIGUITY_ENABLED", "true")
+    monkeypatch.setenv("FACE_AMBIGUITY_MIN_MARGIN", "0.125")
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_ambiguity_enabled is True
+    assert settings.face_ambiguity_min_margin == 0.125
+
+
+def test_margem_valida_nao_habilita_politica_sozinha() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url=URL_VALIDA,
+        face_ambiguity_min_margin=0.5,
+    )
+
+    assert settings.face_ambiguity_enabled is False
+    assert settings.face_ambiguity_min_margin == 0.5
+
+
+@pytest.mark.parametrize(
+    "margem",
+    [True, False, "", "invalido", -0.1, 2.1, float("nan"), float("inf")],
+)
+def test_settings_recusa_margem_invalida_mesmo_com_flag_desligada(
+    margem: object,
+) -> None:
+    with pytest.raises(ValidationError, match="FACE_AMBIGUITY_MIN_MARGIN"):
+        Settings(
+            _env_file=None,
+            database_url=URL_VALIDA,
+            face_ambiguity_enabled=False,
+            face_ambiguity_min_margin=margem,
+        )  # type: ignore[arg-type]
+
+
+def test_margem_vazia_no_ambiente_e_invalida(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FACE_AMBIGUITY_MIN_MARGIN", "")
+
+    with pytest.raises(ValidationError, match="FACE_AMBIGUITY_MIN_MARGIN"):
+        Settings(_env_file=None, database_url=URL_VALIDA)
