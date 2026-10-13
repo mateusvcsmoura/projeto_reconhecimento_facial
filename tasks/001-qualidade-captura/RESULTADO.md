@@ -60,7 +60,10 @@ software, não acurácia facial ou adequação dos limites para uso operacional.
 Não foram usados rostos reais, datasets externos, webcam, modelos carregados
 ou banco operacional.
 
-No momento da geração deste relatório, a revisão e as verificações estavam
-concluídas; commit e push autorizados pelo `PROMPT.md` ainda estavam
-pendentes. O estado de publicação será confirmado após a criação do commit e
-o push para `origin/main`.
+O commit de implementação `0ddf6e02ae947e87461c69ed7ca6f372adcf2b6d`
+(`feat: adiciona validacao de qualidade de captura`) foi enviado por
+`git push origin main`. A confirmação imediatamente posterior retornou o
+mesmo hash em `git rev-parse HEAD` e em
+`git ls-remote origin refs/heads/main`. O checkout estava na branch `main` e
+alinhado a `origin/main`. Os diretórios temporários preexistentes e o
+`AGENTS.md` fornecido pelo usuário ficaram fora do commit.
