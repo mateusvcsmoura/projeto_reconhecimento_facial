@@ -74,8 +74,8 @@ O ganho não é de tuning, é de desenho: o embedding de referência é
 imutável, e recalculá-lo a cada comparação era trabalho que nunca precisou
 existir.
 
-Medição real da comparação (`python -m scripts.benchmark_matcher`, vetores
-de 512 dimensões, 2000 repetições por tamanho):
+Medição histórica do script anterior (`python -m scripts.benchmark_matcher`,
+vetores de 512 dimensões, 2000 repetições por tamanho):
 
 | Alunos | Comparação | Ciclos/s |
 |---:|---:|---:|
@@ -84,14 +84,30 @@ de 512 dimensões, 2000 repetições por tamanho):
 | 200 | 0,0142 ms | 70.628 |
 | 1000 | 0,1378 ms | 7.259 |
 
-Para 200 alunos, a comparação custa 0,0142 ms. O desenho anterior gastava
-400 inferências por ciclo no mesmo cenário. O custo por ciclo hoje é **uma
-inferência mais essa fração de milissegundo**, e a fração só passa a
-importar em ordens de grandeza que este projeto não tem.
+Esses tempos são referências históricas de uma execução do matcher
+vetorizado; não vieram do protocolo atual e não incluem distribuição de
+latência ou gate de equivalência.
+
+Para 200 alunos, aquela execução reportou 0,0142 ms. O desenho anterior foi
+descrito como até 400 inferências por ciclo no mesmo cenário. O custo por
+ciclo hoje é **uma inferência mais o matching**, mas os tempos históricos
+acima não medem a inferência.
 
 Sobre o `pgvector`: dizer *por que não* adotá-lo, com o número na mão, vale
 academicamente mais do que adotá-lo sem necessidade. A varredura exata sobre
 centenas de vetores é mais rápida e mais simples que um índice aproximado.
+
+### Nota de evidência — tarefa 004
+
+O benchmark atual e seu protocolo estão registrados em
+[`tasks/004-benchmark-matching/RESULTADO.md`](../../tasks/004-benchmark-matching/RESULTADO.md).
+Ele compara a matriz vetorizada com um laço Python que executa `NumPy dot` por
+embedding, usando somente vetores sintéticos. Esse laço não reconstrói o
+protótipo de `DeepFace.verify()` nem mede inferência. A nova medição não
+compara `pgvector`, não avalia índices ANN e não confirma as afirmações
+históricas sobre a velocidade relativa de varredura exata e ANN. Os números
+históricos acima permanecem registrados como contexto, não como resultado
+reproduzido pela tarefa 004.
 
 ## Trade-offs aceitos
 

@@ -8,7 +8,7 @@ reconhecimento facial para controle de presença de alunos.
 | **Estado** | Fases 1–9 concluídas; 18 de 18 problemas do baseline fechados |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 707 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
+| **Testes** | 812 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
@@ -214,20 +214,44 @@ anterior à leitura inclui o tempo de espera da câmera, mas a leitura seguinte
 não garante frescor físico do sensor: dispositivos podem bufferizar frames.
 Não há rastreamento contínuo nem calibração biométrica desses limites.
 
-### Custo, medido
+### Evidência histórica e benchmark atual
 
-`python -m scripts.benchmark_matcher`, vetores de 512 dimensões:
+Os valores abaixo são **históricos**, produzidos pelo script anterior com
+uma consulta e 2000 repetições. Eles mediam somente o matcher vetorizado e
+incluíam uma estimativa separada de inferência que não era medição. Não são
+resultados das execuções atuais.
 
-| Alunos | Comparação | Ciclos/s |
+| Alunos | Comparação histórica | Ciclos/s históricos |
 |---:|---:|---:|
 | 10 | 0,0051 ms | 197.566 |
 | 50 | 0,0064 ms | 155.409 |
 | 200 | 0,0142 ms | 70.628 |
 | 1000 | 0,1378 ms | 7.259 |
 
-O desenho anterior fazia até `2N` comparações com inferência facial por
-ciclo. Com 200 alunos isso eram 400; hoje cada ciclo faz uma detecção e uma
-representação, seguidas da comparação vetorizada em frações de milissegundo.
+O protótipo anterior foi descrito como fazendo até `2N` inferências por
+ciclo; com 200 alunos, isso correspondia a até 400 inferências no desenho
+antigo. Essa comparação pertence ao histórico arquitetural e não é medida
+pelo benchmark novo.
+
+O protocolo atual preserva `python -m scripts.benchmark_matcher` e usa
+embeddings sintéticos 512D, seed por tamanho, limiar local 0.30 e cenários
+artificiais de referência, ortogonalidade e empate. Antes da medição, compara
+o matcher real com uma referência independente em laço Python e `NumPy dot`
+por embedding. Mede latência de cada chamada, montagem da matriz e memória em
+fases separadas. A referência não é o protótipo de `DeepFace.verify()` e não
+mede inferência facial.
+
+As execuções padrão repetidas e seus limites estão em
+[`tasks/004-benchmark-matching/RESULTADO.md`](tasks/004-benchmark-matching/RESULTADO.md):
+[execução 1](tasks/004-benchmark-matching/evidencias/execucao-1.json),
+[execução 2](tasks/004-benchmark-matching/evidencias/execucao-2.json) e
+[execução 3](tasks/004-benchmark-matching/evidencias/execucao-3.json). O JSON
+registra estatísticas por chamada, montagem e picos observados por
+`tracemalloc`. Esses picos não são RSS nem incluem necessariamente toda
+alocação nativa; `nbytes` é apenas o payload dos vetores. Os tempos medem
+matching isolado, não FPS, vazão da aplicação ou desempenho biométrico.
+O benchmark não compara `pgvector` e não verifica afirmações históricas sobre
+índices ANN.
 
 ---
 
@@ -438,7 +462,7 @@ Declarado por honestidade. Nada aqui é omissão silenciosa.
 | **Comparação com `DeepFace.verify()`** | A equivalência de decisão sobre imagens reais não foi medida |
 | **API HTTP** | Não há consumidor. As camadas permitem adicionar sem tocar nos casos de uso |
 | **`pgvector`** | Desnecessário nesta escala — ver [ADR-002](docs/adr/ADR-002-armazenamento-de-embeddings.md) |
-| **Threading da inferência** | A causa do travamento era `2N` inferências, não falta de paralelismo |
+| **Threading da inferência** | No protótipo, o travamento era atribuído às até `2N` inferências, não à falta de paralelismo |
 | **Criptografia, autenticação, auditoria** | Fora do escopo de um sistema local monousuário — ver `docs/lgpd.md` |
 
 ---

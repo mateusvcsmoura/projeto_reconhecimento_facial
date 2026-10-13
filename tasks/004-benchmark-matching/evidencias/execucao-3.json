@@ -1,0 +1,1419 @@
+{
+  "schema_version": 1,
+  "status": "ok",
+  "config": {
+    "tamanhos": [
+      10,
+      50,
+      200,
+      1000
+    ],
+    "consultas_por_cenario": 10,
+    "rodadas": 10,
+    "aquecimento": 3,
+    "seed": 1234,
+    "dimensao": 512,
+    "dtype": "<f4",
+    "modelo_rotulo": "Facenet512",
+    "limiar_local": 0.3,
+    "modos": [
+      {
+        "nome": "sem_politica",
+        "margem": null
+      },
+      {
+        "nome": "empate",
+        "margem": 0.0
+      }
+    ],
+    "distribuicao_artificial": "normal em 511 componentes, componente final zero; IDs 1 e 2 repetidos"
+  },
+  "ambiente": {
+    "python": "3.14.3",
+    "numpy": "2.5.3",
+    "sistema": "Windows",
+    "release": "11",
+    "arquitetura": "nao_disponivel",
+    "processador": "nao_disponivel",
+    "cpus_logicas": 12,
+    "relogio": {
+      "implementacao": "QueryPerformanceCounter()",
+      "resolucao_segundos": 1e-07,
+      "monotonico": true,
+      "ajustavel": false
+    }
+  },
+  "threads_configuradas": {
+    "OMP_NUM_THREADS": "nao_definido",
+    "OPENBLAS_NUM_THREADS": "nao_definido",
+    "MKL_NUM_THREADS": "nao_definido"
+  },
+  "validacao": {
+    "status": "ok",
+    "comparacoes": 240,
+    "divergencias_status_id": 0,
+    "divergencias_numericas": 0,
+    "distancias_nao_finitas": 0,
+    "erro_maximo_absoluto": 1.1920928955078125e-07,
+    "tolerancia_absoluta": 1e-05,
+    "contagens_status": {
+      "sequencial": {
+        "aceito": 120,
+        "desconhecido": 80,
+        "ambiguo": 40
+      },
+      "vetorizado": {
+        "aceito": 120,
+        "desconhecido": 80,
+        "ambiguo": 40
+      }
+    },
+    "diagnosticos": []
+  },
+  "limitacoes": [
+    "matching isolado; nao inclui captura nem inferencia",
+    "dados sinteticos nao representam pessoas nem populacao biometrica",
+    "tracemalloc nao mede RSS nem toda memoria nativa",
+    "nbytes e payload dos vetores, nao memoria total do processo",
+    "tempos locais sujeitos a ruido, cache, ordem e configuracao do BLAS",
+    "sem avaliacao biometrica, alegacao de acuracia ou recomendacao de margem"
+  ],
+  "montagem": [
+    {
+      "n": 10,
+      "tempos": {
+        "quantidade": 10,
+        "minimo_us": 15.6,
+        "media_us": 16.74,
+        "mediana_us": 15.8,
+        "p95_us": 20.409999999999997,
+        "maximo_us": 22.3,
+        "chamadas_por_segundo": 59737.15651135006
+      },
+      "payload_embeddings_bytes": 20480,
+      "payload_matriz_teorico_bytes": 20480,
+      "montagem_pico_rastreado_bytes": 42096
+    },
+    {
+      "n": 50,
+      "tempos": {
+        "quantidade": 10,
+        "minimo_us": 43.4,
+        "media_us": 47.55,
+        "mediana_us": 45.7,
+        "p95_us": 56.24999999999999,
+        "maximo_us": 59.4,
+        "chamadas_por_segundo": 21030.49421661409
+      },
+      "payload_embeddings_bytes": 102400,
+      "payload_matriz_teorico_bytes": 102400,
+      "montagem_pico_rastreado_bytes": 206192
+    },
+    {
+      "n": 200,
+      "tempos": {
+        "quantidade": 10,
+        "minimo_us": 252.1,
+        "media_us": 266.91,
+        "mediana_us": 264.9,
+        "p95_us": 288.425,
+        "maximo_us": 299.9,
+        "chamadas_por_segundo": 3746.5812446142895
+      },
+      "payload_embeddings_bytes": 409600,
+      "payload_matriz_teorico_bytes": 409600,
+      "montagem_pico_rastreado_bytes": 821776
+    },
+    {
+      "n": 1000,
+      "tempos": {
+        "quantidade": 10,
+        "minimo_us": 1401.7,
+        "media_us": 1639.25,
+        "mediana_us": 1492.85,
+        "p95_us": 2109.34,
+        "maximo_us": 2123.2,
+        "chamadas_por_segundo": 610.0350770169284
+      },
+      "payload_embeddings_bytes": 2048000,
+      "payload_matriz_teorico_bytes": 2048000,
+      "montagem_pico_rastreado_bytes": 4105776
+    }
+  ],
+  "matching": [
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 11.6,
+        "media_us": 12.264,
+        "mediana_us": 11.8,
+        "p95_us": 13.329999999999998,
+        "maximo_us": 27.3,
+        "chamadas_por_segundo": 81539.46510110893
+      },
+      "matching_pico_rastreado_bytes": 292,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 5.6,
+        "media_us": 6.119,
+        "mediana_us": 5.9,
+        "p95_us": 6.829999999999998,
+        "maximo_us": 12.7,
+        "chamadas_por_segundo": 163425.39630658604
+      },
+      "matching_pico_rastreado_bytes": 960,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 12.7,
+        "media_us": 13.531,
+        "mediana_us": 13.0,
+        "p95_us": 15.819999999999999,
+        "maximo_us": 23.9,
+        "chamadas_por_segundo": 73904.36774813391
+      },
+      "matching_pico_rastreado_bytes": 560,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 11.6,
+        "media_us": 12.255,
+        "mediana_us": 12.0,
+        "p95_us": 13.915,
+        "maximo_us": 18.2,
+        "chamadas_por_segundo": 81599.34720522235
+      },
+      "matching_pico_rastreado_bytes": 1006,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 11.1,
+        "media_us": 16.549,
+        "mediana_us": 18.55,
+        "p95_us": 22.034999999999997,
+        "maximo_us": 27.6,
+        "chamadas_por_segundo": 60426.611879871896
+      },
+      "matching_pico_rastreado_bytes": 292,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 5.2,
+        "media_us": 8.225,
+        "mediana_us": 8.5,
+        "p95_us": 11.509999999999987,
+        "maximo_us": 21.2,
+        "chamadas_por_segundo": 121580.54711246201
+      },
+      "matching_pico_rastreado_bytes": 896,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 17.5,
+        "media_us": 19.201,
+        "mediana_us": 19.1,
+        "p95_us": 20.8,
+        "maximo_us": 29.3,
+        "chamadas_por_segundo": 52080.62080099995
+      },
+      "matching_pico_rastreado_bytes": 292,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 8.0,
+        "media_us": 8.926,
+        "mediana_us": 8.6,
+        "p95_us": 11.644999999999998,
+        "maximo_us": 17.7,
+        "chamadas_por_segundo": 112032.26529240422
+      },
+      "matching_pico_rastreado_bytes": 896,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 18.8,
+        "media_us": 20.059,
+        "mediana_us": 19.9,
+        "p95_us": 21.21,
+        "maximo_us": 28.8,
+        "chamadas_por_segundo": 49852.93384515679
+      },
+      "matching_pico_rastreado_bytes": 292,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 8.8,
+        "media_us": 9.708,
+        "mediana_us": 9.5,
+        "p95_us": 12.444999999999999,
+        "maximo_us": 17.2,
+        "chamadas_por_segundo": 103007.82859497322
+      },
+      "matching_pico_rastreado_bytes": 896,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 12.4,
+        "media_us": 13.837,
+        "mediana_us": 12.7,
+        "p95_us": 22.405,
+        "maximo_us": 24.9,
+        "chamadas_por_segundo": 72270.0007227
+      },
+      "matching_pico_rastreado_bytes": 1280,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 11.6,
+        "media_us": 13.062,
+        "mediana_us": 12.0,
+        "p95_us": 20.505,
+        "maximo_us": 23.9,
+        "chamadas_por_segundo": 76557.9543714592
+      },
+      "matching_pico_rastreado_bytes": 1466,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 50.7,
+        "media_us": 52.633,
+        "mediana_us": 52.4,
+        "p95_us": 57.905,
+        "maximo_us": 70.0,
+        "chamadas_por_segundo": 18999.487013850627
+      },
+      "matching_pico_rastreado_bytes": 868,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 6.7,
+        "media_us": 8.937,
+        "mediana_us": 7.0,
+        "p95_us": 20.62,
+        "maximo_us": 44.5,
+        "chamadas_por_segundo": 111894.37171310282
+      },
+      "matching_pico_rastreado_bytes": 1056,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 54.3,
+        "media_us": 56.279,
+        "mediana_us": 55.4,
+        "p95_us": 62.425,
+        "maximo_us": 77.9,
+        "chamadas_por_segundo": 17768.617068533556
+      },
+      "matching_pico_rastreado_bytes": 1136,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 14.9,
+        "media_us": 16.409,
+        "mediana_us": 15.5,
+        "p95_us": 21.01,
+        "maximo_us": 38.6,
+        "chamadas_por_segundo": 60942.16588457554
+      },
+      "matching_pico_rastreado_bytes": 1366,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 50.6,
+        "media_us": 56.371,
+        "mediana_us": 51.2,
+        "p95_us": 93.555,
+        "maximo_us": 99.2,
+        "chamadas_por_segundo": 17739.61788863068
+      },
+      "matching_pico_rastreado_bytes": 868,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 6.0,
+        "media_us": 8.368,
+        "mediana_us": 6.6,
+        "p95_us": 13.124999999999988,
+        "maximo_us": 24.0,
+        "chamadas_por_segundo": 119502.86806883365
+      },
+      "matching_pico_rastreado_bytes": 1056,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 51.2,
+        "media_us": 54.04,
+        "mediana_us": 51.6,
+        "p95_us": 63.10999999999997,
+        "maximo_us": 96.6,
+        "chamadas_por_segundo": 18504.811250925242
+      },
+      "matching_pico_rastreado_bytes": 868,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 6.3,
+        "media_us": 6.727,
+        "mediana_us": 6.4,
+        "p95_us": 9.005,
+        "maximo_us": 12.6,
+        "chamadas_por_segundo": 148654.6751895347
+      },
+      "matching_pico_rastreado_bytes": 1056,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 51.1,
+        "media_us": 52.735,
+        "mediana_us": 51.7,
+        "p95_us": 58.25,
+        "maximo_us": 80.8,
+        "chamadas_por_segundo": 18962.73821939888
+      },
+      "matching_pico_rastreado_bytes": 868,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 6.6,
+        "media_us": 7.1,
+        "mediana_us": 6.9,
+        "p95_us": 8.069999999999997,
+        "maximo_us": 13.3,
+        "chamadas_por_segundo": 140845.0704225352
+      },
+      "matching_pico_rastreado_bytes": 1056,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 53.8,
+        "media_us": 55.378,
+        "mediana_us": 54.4,
+        "p95_us": 61.935,
+        "maximo_us": 77.7,
+        "chamadas_por_segundo": 18057.712448986964
+      },
+      "matching_pico_rastreado_bytes": 1616,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 14.5,
+        "media_us": 16.016,
+        "mediana_us": 15.3,
+        "p95_us": 20.615,
+        "maximo_us": 36.2,
+        "chamadas_por_segundo": 62437.56243756244
+      },
+      "matching_pico_rastreado_bytes": 1666,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 201.3,
+        "media_us": 206.734,
+        "mediana_us": 204.2,
+        "p95_us": 214.255,
+        "maximo_us": 264.7,
+        "chamadas_por_segundo": 4837.133708049958
+      },
+      "matching_pico_rastreado_bytes": 6540,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 10.7,
+        "media_us": 12.027,
+        "mediana_us": 11.1,
+        "p95_us": 15.829999999999998,
+        "maximo_us": 35.4,
+        "chamadas_por_segundo": 83146.25426124553
+      },
+      "matching_pico_rastreado_bytes": 2236,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 213.0,
+        "media_us": 227.175,
+        "mediana_us": 216.4,
+        "p95_us": 282.60999999999996,
+        "maximo_us": 408.1,
+        "chamadas_por_segundo": 4401.892813909982
+      },
+      "matching_pico_rastreado_bytes": 6832,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 26.7,
+        "media_us": 30.511,
+        "mediana_us": 27.95,
+        "p95_us": 42.22,
+        "maximo_us": 99.5,
+        "chamadas_por_segundo": 32775.06473075284
+      },
+      "matching_pico_rastreado_bytes": 2716,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 199.0,
+        "media_us": 213.336,
+        "mediana_us": 203.95,
+        "p95_us": 276.5599999999999,
+        "maximo_us": 399.2,
+        "chamadas_por_segundo": 4687.441406982412
+      },
+      "matching_pico_rastreado_bytes": 6540,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 10.0,
+        "media_us": 11.687,
+        "mediana_us": 10.6,
+        "p95_us": 15.574999999999996,
+        "maximo_us": 34.6,
+        "chamadas_por_segundo": 85565.15786771626
+      },
+      "matching_pico_rastreado_bytes": 2236,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 198.8,
+        "media_us": 205.136,
+        "mediana_us": 203.6,
+        "p95_us": 213.34,
+        "maximo_us": 243.3,
+        "chamadas_por_segundo": 4874.814757039232
+      },
+      "matching_pico_rastreado_bytes": 6540,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 10.1,
+        "media_us": 12.164,
+        "mediana_us": 10.8,
+        "p95_us": 17.034999999999997,
+        "maximo_us": 55.3,
+        "chamadas_por_segundo": 82209.79940808944
+      },
+      "matching_pico_rastreado_bytes": 2236,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 202.0,
+        "media_us": 213.523,
+        "mediana_us": 205.3,
+        "p95_us": 241.56,
+        "maximo_us": 387.7,
+        "chamadas_por_segundo": 4683.33622139067
+      },
+      "matching_pico_rastreado_bytes": 6540,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 10.7,
+        "media_us": 12.188,
+        "mediana_us": 11.15,
+        "p95_us": 15.505,
+        "maximo_us": 54.5,
+        "chamadas_por_segundo": 82047.91598293404
+      },
+      "matching_pico_rastreado_bytes": 2236,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 209.6,
+        "media_us": 217.801,
+        "mediana_us": 215.35,
+        "p95_us": 224.16499999999996,
+        "maximo_us": 308.9,
+        "chamadas_por_segundo": 4591.34714716645
+      },
+      "matching_pico_rastreado_bytes": 7336,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 26.7,
+        "media_us": 29.255,
+        "mediana_us": 27.5,
+        "p95_us": 35.915,
+        "maximo_us": 57.5,
+        "chamadas_por_segundo": 34182.19107844813
+      },
+      "matching_pico_rastreado_bytes": 2716,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 1057.4,
+        "media_us": 1693.297,
+        "mediana_us": 1625.5,
+        "p95_us": 2552.245,
+        "maximo_us": 3229.4,
+        "chamadas_por_segundo": 590.5638526495943
+      },
+      "matching_pico_rastreado_bytes": 32940,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 84.9,
+        "media_us": 146.329,
+        "mediana_us": 138.55,
+        "p95_us": 241.68499999999995,
+        "maximo_us": 306.6,
+        "chamadas_por_segundo": 6833.915355124412
+      },
+      "matching_pico_rastreado_bytes": 8636,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 1047.1,
+        "media_us": 1297.247,
+        "mediana_us": 1197.85,
+        "p95_us": 1844.75,
+        "maximo_us": 2634.4,
+        "chamadas_por_segundo": 770.863220342772
+      },
+      "matching_pico_rastreado_bytes": 33232,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 143.3,
+        "media_us": 192.968,
+        "mediana_us": 181.65,
+        "p95_us": 321.63,
+        "maximo_us": 365.7,
+        "chamadas_por_segundo": 5182.206376186725
+      },
+      "matching_pico_rastreado_bytes": 9916,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 997.8,
+        "media_us": 1210.843,
+        "mediana_us": 1125.25,
+        "p95_us": 1754.44,
+        "maximo_us": 1971.7,
+        "chamadas_por_segundo": 825.8709015124174
+      },
+      "matching_pico_rastreado_bytes": 32940,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 86.6,
+        "media_us": 130.733,
+        "mediana_us": 118.6,
+        "p95_us": 219.765,
+        "maximo_us": 298.3,
+        "chamadas_por_segundo": 7649.178095813605
+      },
+      "matching_pico_rastreado_bytes": 8636,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 994.8,
+        "media_us": 1156.165,
+        "mediana_us": 1083.65,
+        "p95_us": 1553.0549999999998,
+        "maximo_us": 2105.0,
+        "chamadas_por_segundo": 864.9284487940735
+      },
+      "matching_pico_rastreado_bytes": 32940,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 76.0,
+        "media_us": 105.388,
+        "mediana_us": 96.65,
+        "p95_us": 146.04499999999982,
+        "maximo_us": 228.3,
+        "chamadas_por_segundo": 9488.746346832657
+      },
+      "matching_pico_rastreado_bytes": 8636,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 10,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 986.2,
+        "media_us": 1106.287,
+        "mediana_us": 1023.6,
+        "p95_us": 1498.7,
+        "maximo_us": 1774.8,
+        "chamadas_por_segundo": 903.9245693025408
+      },
+      "matching_pico_rastreado_bytes": 32940,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 77.2,
+        "media_us": 102.463,
+        "mediana_us": 91.0,
+        "p95_us": 172.27999999999992,
+        "maximo_us": 234.3,
+        "chamadas_por_segundo": 9759.620545953174
+      },
+      "matching_pico_rastreado_bytes": 8636,
+      "contagens_status_validacao": {
+        "aceito": 10,
+        "desconhecido": 0,
+        "ambiguo": 0
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "sequencial",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 1041.2,
+        "media_us": 1116.65,
+        "mediana_us": 1066.65,
+        "p95_us": 1273.68,
+        "maximo_us": 2052.3,
+        "chamadas_por_segundo": 895.535754264989
+      },
+      "matching_pico_rastreado_bytes": 33736,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "metodo": "vetorizado",
+      "tempos": {
+        "quantidade": 100,
+        "minimo_us": 139.2,
+        "media_us": 172.981,
+        "mediana_us": 161.1,
+        "p95_us": 236.50999999999996,
+        "maximo_us": 458.7,
+        "chamadas_por_segundo": 5780.981726316763
+      },
+      "matching_pico_rastreado_bytes": 9916,
+      "contagens_status_validacao": {
+        "aceito": 0,
+        "desconhecido": 0,
+        "ambiguo": 10
+      }
+    }
+  ],
+  "comparacoes": [
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 11.8,
+      "mediana_vetorizado_us": 5.9,
+      "razao_mediana_sequencial_sobre_vetorizado": 2.0
+    },
+    {
+      "n": 10,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 13.0,
+      "mediana_vetorizado_us": 12.0,
+      "razao_mediana_sequencial_sobre_vetorizado": 1.0833333333333333
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 18.55,
+      "mediana_vetorizado_us": 8.5,
+      "razao_mediana_sequencial_sobre_vetorizado": 2.182352941176471
+    },
+    {
+      "n": 10,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 19.1,
+      "mediana_vetorizado_us": 8.6,
+      "razao_mediana_sequencial_sobre_vetorizado": 2.22093023255814
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 19.9,
+      "mediana_vetorizado_us": 9.5,
+      "razao_mediana_sequencial_sobre_vetorizado": 2.094736842105263
+    },
+    {
+      "n": 10,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 12.7,
+      "mediana_vetorizado_us": 12.0,
+      "razao_mediana_sequencial_sobre_vetorizado": 1.0583333333333333
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 52.4,
+      "mediana_vetorizado_us": 7.0,
+      "razao_mediana_sequencial_sobre_vetorizado": 7.485714285714286
+    },
+    {
+      "n": 50,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 55.4,
+      "mediana_vetorizado_us": 15.5,
+      "razao_mediana_sequencial_sobre_vetorizado": 3.574193548387097
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 51.2,
+      "mediana_vetorizado_us": 6.6,
+      "razao_mediana_sequencial_sobre_vetorizado": 7.757575757575759
+    },
+    {
+      "n": 50,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 51.6,
+      "mediana_vetorizado_us": 6.4,
+      "razao_mediana_sequencial_sobre_vetorizado": 8.0625
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 51.7,
+      "mediana_vetorizado_us": 6.9,
+      "razao_mediana_sequencial_sobre_vetorizado": 7.492753623188406
+    },
+    {
+      "n": 50,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 54.4,
+      "mediana_vetorizado_us": 15.3,
+      "razao_mediana_sequencial_sobre_vetorizado": 3.5555555555555554
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 204.2,
+      "mediana_vetorizado_us": 11.1,
+      "razao_mediana_sequencial_sobre_vetorizado": 18.396396396396398
+    },
+    {
+      "n": 200,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 216.4,
+      "mediana_vetorizado_us": 27.95,
+      "razao_mediana_sequencial_sobre_vetorizado": 7.742397137745975
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 203.95,
+      "mediana_vetorizado_us": 10.6,
+      "razao_mediana_sequencial_sobre_vetorizado": 19.24056603773585
+    },
+    {
+      "n": 200,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 203.6,
+      "mediana_vetorizado_us": 10.8,
+      "razao_mediana_sequencial_sobre_vetorizado": 18.85185185185185
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 205.3,
+      "mediana_vetorizado_us": 11.15,
+      "razao_mediana_sequencial_sobre_vetorizado": 18.41255605381166
+    },
+    {
+      "n": 200,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 215.35,
+      "mediana_vetorizado_us": 27.5,
+      "razao_mediana_sequencial_sobre_vetorizado": 7.830909090909091
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 1625.5,
+      "mediana_vetorizado_us": 138.55,
+      "razao_mediana_sequencial_sobre_vetorizado": 11.732226632984482
+    },
+    {
+      "n": 1000,
+      "cenario": "referencia",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 1197.85,
+      "mediana_vetorizado_us": 181.65,
+      "razao_mediana_sequencial_sobre_vetorizado": 6.594274704101293
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 1125.25,
+      "mediana_vetorizado_us": 118.6,
+      "razao_mediana_sequencial_sobre_vetorizado": 9.487774030354132
+    },
+    {
+      "n": 1000,
+      "cenario": "ortogonal",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 1083.65,
+      "mediana_vetorizado_us": 96.65,
+      "razao_mediana_sequencial_sobre_vetorizado": 11.212105535437145
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "sem_politica",
+      "margem": null,
+      "mediana_sequencial_us": 1023.6,
+      "mediana_vetorizado_us": 91.0,
+      "razao_mediana_sequencial_sobre_vetorizado": 11.24835164835165
+    },
+    {
+      "n": 1000,
+      "cenario": "empate",
+      "modo": "empate",
+      "margem": 0.0,
+      "mediana_sequencial_us": 1066.65,
+      "mediana_vetorizado_us": 161.1,
+      "razao_mediana_sequencial_sobre_vetorizado": 6.621042830540038
+    }
+  ]
+}

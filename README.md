@@ -2,7 +2,7 @@
 
 Projeto acadêmico da disciplina de IA da Fatec. Aplicação CLI que cadastra
 alunos pelo rosto e registra presença reconhecendo-os pela webcam. PostgreSQL
-e arquitetura em camadas. Em 13/10/2026, 776 testes unitários passaram; a
+e arquitetura em camadas. Em 13/10/2026, 812 testes unitários passaram; a
 suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
 
 | | |
@@ -172,6 +172,32 @@ independente. A política de ambiguidade também é independente e não altera
 o limiar ou o anti-spoofing. Ao ativá-la, escolha a margem explicitamente;
 `0.0` significa rejeitar somente empates exatos, não uma margem recomendada.
 Nenhum teste sintético calibra valores nem mede desempenho biométrico.
+
+---
+
+## Benchmark de matching
+
+O benchmark de engenharia usa apenas embeddings sintéticos de 512 dimensões.
+Compara o matcher vetorizado com um laço Python que chama `NumPy dot` por
+embedding e valida as decisões antes de cronometrar. O protocolo padrão usa
+galerias de 10, 50, 200 e 1000 IDs, seed 1234 e limiar local 0.30; os cenários
+de referência, ortogonalidade e empate são artificiais.
+
+```powershell
+python -m scripts.benchmark_matcher
+python -m scripts.benchmark_matcher --saida-json resultado.json
+```
+
+O primeiro comando mostra latência por chamada, montagem da matriz e picos
+observados por `tracemalloc`; o segundo também grava um JSON agregado em um
+arquivo novo. `tracemalloc` não mede RSS ou toda alocação nativa, e o payload
+dos arrays não é a memória total do processo. O laço de referência não
+representa `DeepFace.verify()` nem inferência facial. Nenhuma dessas medições
+avalia acurácia biométrica, calibra margens ou compara com `pgvector`.
+
+Os resultados atuais e os três artefatos reproduzíveis estão em
+[`tasks/004-benchmark-matching/RESULTADO.md`](tasks/004-benchmark-matching/RESULTADO.md)
+e [`tasks/004-benchmark-matching/evidencias/`](tasks/004-benchmark-matching/evidencias/).
 
 ---
 
