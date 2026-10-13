@@ -165,7 +165,7 @@ flowchart LR
     C --> F[PCA apenas para inspeção visual]
 ```
 
-## 11. Resultados consolidados e evidências
+## 11. Resultados consolidados e evidências da Etapa 5 histórica
 
 | Etapa | Implementação documentada | Evidência de software | Métrica biométrica real |
 |---|---|---|---|
@@ -176,7 +176,7 @@ flowchart LR
 | 4 | DBSCAN, K-Means, seleção interna e métricas | 22 focais; 597 suíte completa no registro histórico | Nenhuma |
 | 5 | Consolidação documental | 518 unitários, Ruff e mypy executados nesta etapa | Não aplicável; nenhum experimento executado |
 
-Os totais históricos são snapshots dos relatórios, em momentos e escopos diferentes; não devem ser somados. O número atual confirmado nesta etapa refere-se somente a `tests/unit`, não à suíte completa.
+Os totais são snapshots dos relatórios, em momentos e escopos diferentes; não devem ser somados. Os 518 unitários correspondem à execução da Etapa 5 em 10/10/2026, não a uma suíte atual ou completa. Atualizações posteriores estão identificadas na seção 14.
 
 ## 12. Limitações
 
@@ -196,6 +196,30 @@ Os totais históricos são snapshots dos relatórios, em momentos e escopos dife
 3. Avaliar em domínio de webcam Fatec: iluminação, pose, distância, oclusão, diversidade de câmeras e condições demográficas, com participação voluntária aprovada.
 4. Planejar protocolo separado de anti-spoofing, incluindo ataques e condições de captura, antes de afirmar eficácia.
 5. Se os resultados sustentarem a hipótese, desenhar a Etapa 3 operacional de forma separada, com critério FPIR/FNIR aprovado, análise de riscos e autorização explícita para integração.
+
+## 14. Atualização posterior — melhorias do sistema, 13/10/2026
+
+Esta atualização complementa a consolidação histórica acima. A numeração
+001–004 designa tarefas posteriores de melhoria do sistema operacional; não
+renomeia nem substitui as Etapas de ML.
+
+| Tarefa | Implementação atual | Evidência e limite |
+|---|---|---|
+| 001 — qualidade | Política optativa de tamanho, luminância e nitidez antes do embedding. `FACE_QUALITY_ENABLED` permanece `false`; orientação facial explícita não é verificada. | Testes com recortes sintéticos; limites heurísticos sem calibração. [Resultado 001](../tasks/001-qualidade-captura/RESULTADO.md). |
+| 002 — temporal | Confirmação optativa de IDs consecutivos e revalidação em novo frame antes do registro. `FACE_TEMPORAL_ENABLED` permanece `false`. | Relógio controlado e testes de fluxo; frames consecutivos são correlacionados e não provam ganho de acurácia. [Resultado 002](../tasks/002-consistencia-temporal/RESULTADO.md). |
+| 003 — ambiguidade | Política optativa que compara o gap entre identidades distintas após o melhor candidato passar por `FACE_THRESHOLD`. | Embeddings sintéticos; margem positiva não calibrada. [Resultado 003](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). |
+| 004 — benchmark | Matching vetorizado comparado com referência independente de laço Python e `NumPy dot`, usando embeddings artificiais 512D. | Três execuções padrão de 240 consultas, sem divergências; não mede DeepFace, biometria ou latência ponta a ponta. `tracemalloc` não é RSS. [Resultado 004](../tasks/004-benchmark-matching/RESULTADO.md). |
+
+Os relatórios registram snapshots unitários de 611 (001), 707 (002), 776
+(003) e 812 (004), em execuções e datas diferentes. A última suíte completa
+registrada continua sendo histórica: 597 testes na Etapa 4. Nenhuma dessas
+contagens é métrica de acurácia. O limiar operacional permaneceu em `0.30` e
+o anti-spoofing não foi desabilitado.
+
+O estado atual, defaults confirmados, pendências e mapa das três séries de
+numeração estão em [`ESTADO-ATUAL-E-EVIDENCIAS.md`](ESTADO-ATUAL-E-EVIDENCIAS.md).
+O [roteiro offline](apresentacao.md) mostra como verificar os contratos sem
+câmera, banco, modelo ou dados reais.
 
 ## Referências e documentos relacionados
 

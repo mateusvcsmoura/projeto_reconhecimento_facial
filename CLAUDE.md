@@ -4,9 +4,7 @@
 
 ## 1. Objetivo do projeto
 
-Este projeto é um sistema acadêmico de Inteligência Artificial para controle de presença de alunos utilizando reconhecimento facial.
-
-O projeto será utilizado como trabalho acadêmico, portanto o objetivo não é apenas fazer o sistema funcionar.
+Este projeto é uma aplicação acadêmica da disciplina de Inteligência Artificial da Fatec para apoiar o controle de presença com reconhecimento facial. **Não é um TCC.** O objetivo é demonstrar conceitos de IA e engenharia de software, sem confundir funcionamento do código com desempenho biométrico comprovado.
 
 O código deve demonstrar:
 
@@ -22,13 +20,16 @@ O código deve demonstrar:
 - documentação técnica;
 - capacidade de evolução.
 
-A implementação atual é um protótipo funcional, porém imaturo.
-
-A missão deste processo é transformar gradualmente o protótipo em um sistema organizado, testável, sustentável e apresentável academicamente.
+O sistema atual tem arquitetura em camadas, persistência PostgreSQL, embeddings FaceNet512, anti-spoofing e decisões de matching testáveis. Qualidade de captura, consistência temporal e rejeição por ambiguidade são optativas e desligadas por padrão. O limiar operacional continua em `0.30`. O registro verificável do estado, das evidências e das pendências está em [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ---
 
-# 2. Estado inicial conhecido
+# 2. Baseline histórico do protótipo
+
+O retrato abaixo descreve o estado inicial auditado em 2026-09-07; **não é
+uma descrição da implementação atual**. A auditoria completa foi preservada
+em [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md), e o plano
+histórico de execução está em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md).
 
 O projeto originalmente possui:
 
@@ -42,11 +43,11 @@ O projeto originalmente possui:
 - webcam local;
 - arquivo monolítico `cadastro.py`.
 
-Atualmente, responsabilidades de apresentação, câmera, reconhecimento facial e persistência estão fortemente acopladas.
+Naquele baseline, responsabilidades de apresentação, câmera, reconhecimento facial e persistência estavam fortemente acopladas.
 
-O banco original utiliza SQLite e contém as entidades `alunos` e `presencas`.
+O banco original utilizava SQLite e continha as entidades `alunos` e `presencas`; a aplicação atual usa PostgreSQL.
 
-A implementação atual não possui:
+Naquele baseline, a implementação não possuía:
 
 - arquitetura em camadas formal;
 - ORM;
@@ -65,9 +66,9 @@ Essas informações devem ser consideradas o baseline arquitetural do projeto.
 
 ---
 
-# 3. Arquitetura alvo
+# 3. Arquitetura atual
 
-A arquitetura deverá evoluir para uma arquitetura modular em camadas, com clara separação entre:
+A aplicação segue uma arquitetura modular em camadas, com clara separação entre:
 
 ```text
 Presentation
@@ -79,7 +80,7 @@ Domain
 Infrastructure
 ```
 
-Uma possível estrutura inicial:
+Estrutura representativa:
 
 ```text
 src/
@@ -105,8 +106,6 @@ src/
 └── config/
 ```
 
-A estrutura final poderá ser ajustada pelo arquiteto após análise do projeto.
-
 Não aplicar arquitetura complexa sem justificativa.
 
 ---
@@ -117,7 +116,7 @@ O banco oficial do projeto será:
 
 **PostgreSQL**
 
-SQLite não deverá permanecer como banco principal após a migração.
+A migração para PostgreSQL foi executada. SQLite aparece somente no histórico do protótipo e em fixtures sintéticas de compatibilidade.
 
 A persistência deverá utilizar uma camada de acesso apropriada e migrations versionadas.
 
@@ -175,9 +174,9 @@ O uso direto de bibliotecas de infraestrutura dentro das regras de negócio deve
 
 # 6. Embeddings
 
-O sistema deve evoluir para evitar o recálculo desnecessário dos embeddings das faces cadastradas.
+Os embeddings de referência são calculados no cadastro e persistidos; o fluxo de reconhecimento reutiliza as referências carregadas para comparar cada embedding de consulta.
 
-O fluxo alvo é conceitualmente:
+O fluxo atual no cadastro e no reconhecimento é:
 
 ```text
 Cadastro
@@ -318,7 +317,14 @@ Não começar uma grande implementação antes de compreender as dependências e
 
 ---
 
-# 10. Fases oficiais
+# 10. Fases do plano original (histórico)
+
+As fases abaixo registram a sequência planejada para a refatoração inicial; não
+devem ser lidas como uma lista de tarefas ainda não executadas. As fases 1–9
+foram entregues conforme o histórico em `REFACTORING_PLAN.md`, com pendências
+de validação ali identificadas. As melhorias posteriores 001–004 e suas
+limitações estão no registro atual indicado na seção 1. Avaliação biométrica
+representativa e calibração 1:N continuam pendentes.
 
 ## Fase 0 — Baseline
 

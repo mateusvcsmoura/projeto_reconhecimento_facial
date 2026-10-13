@@ -1,0 +1,94 @@
+# Estado atual e evidências
+
+**Snapshot analisado:** 13/10/2026, código na revisão `e5cc961` (`main`).
+**Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
+para estudar identificação facial aberta 1:N como apoio ao registro de
+presença. Não é um TCC. Este registro separa o que o código implementa, o que
+foi verificado com dados sintéticos e o que ainda depende de avaliação
+biométrica autorizada.
+
+## Pipeline e política operacional
+
+A CLI usa OpenCV para captura/detecção e DeepFace com FaceNet512 pré-treinado
+para gerar embeddings de 512 dimensões. O adaptador exige uma face e aplica
+anti-spoofing; embeddings normalizados são comparados por distância cosseno
+com a galeria carregada para a sessão. O limiar operacional permanece
+`FACE_THRESHOLD=0.30`. A presença só é persistida após confirmação do
+operador; PostgreSQL guarda os registros.
+
+O overlay mostra uma porcentagem derivada linearmente da distância em relação
+ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
+
+| Tarefa | Comportamento e configuração | Fontes e testes | Limite da evidência |
+|---|---|---|---|
+| 001 — qualidade de captura | Opt-in (`FACE_QUALITY_ENABLED=false`). Quando ativa, verifica menor dimensão da face (80 px), luminância média (40–215) e variância do Laplaciano (mínimo 100); exige a área original do detector. O adaptador já recusa zero ou múltiplas faces. | `src/domain/services/qualidade_captura.py`, `src/infrastructure/face_recognition/deepface_adapter.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/menu.py`; `tests/unit/test_qualidade_captura.py`; [resultado 001](../tasks/001-qualidade-captura/RESULTADO.md). | Limites são heurísticas; não há checagem explícita de orientação facial nem calibração com rostos. Testes usam recortes sintéticos. Qualidade não substitui anti-spoofing. |
+| 002 — consistência temporal | Opt-in (`FACE_TEMPORAL_ENABLED=false`). Padrão de 3 identificações iguais, nos ciclos a cada 8 frames, dentro de 5 s; a mais recente precisa ter até 2 s. ENTER lê outro frame, identifica de novo e só registra o mesmo ID; tentativa concluída consome a sequência. | `src/domain/services/consistencia_temporal.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_consistencia_temporal.py` e testes de menu; [resultado 002](../tasks/002-consistencia-temporal/RESULTADO.md). | Observações correlacionadas não demonstram melhora de acurácia. Timestamp antes da leitura não garante frescor físico do sensor; câmeras podem bufferizar frames. |
+| 003 — ambiguidade | Opt-in (`FACE_AMBIGUITY_ENABLED=false`; margem padrão `None`, obrigatória ao ativar). Primeiro o melhor candidato deve passar por `FACE_THRESHOLD`; depois calcula-se o gap para a menor distância de outra identidade, mesmo se ela estiver acima do limiar. Empate exato ou gap menor que a margem recusa; igualdade positiva aceita. Duplicatas do mesmo ID não concorrem. | `src/domain/services/matcher.py`, `src/application/use_cases/reconhecer_aluno.py`, `src/main.py`, `src/presentation/cli/menu.py`; `tests/unit/test_matcher_ambiguidade.py`; [resultado 003](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). | Margem positiva não calibrada. Empate, desconhecido e múltiplas faces são decisões distintas. Recusar candidatos próximos não prova identidade correta. |
+| 004 — benchmark de matching | Script compara a matriz NumPy vetorizada com referência independente de laço Python e um `NumPy dot` por embedding. Gera vetores sintéticos 512D; valida decisões e distâncias antes de cronometrar. | `scripts/benchmark_matcher.py`, `tests/unit/test_benchmark_matcher.py`; [resultado 004](../tasks/004-benchmark-matching/RESULTADO.md); [execuções agregadas](../tasks/004-benchmark-matching/evidencias/). | Não executa DeepFace, não usa dados faciais, não mede acurácia nem latência ponta a ponta, e não compara `pgvector`/ANN. `tracemalloc` não é RSS nem toda a memória nativa. |
+
+Anti-spoofing continua habilitado por padrão (`FACE_ANTI_SPOOFING=true`). Sua
+eficácia contra ataques não foi medida. Qualidade, confirmação temporal e
+ambiguidade ficam desligadas por padrão e não alteram o limiar.
+
+## Registro de evidências
+
+As contagens unitárias seguintes são snapshots de execuções diferentes; não
+se somam e não representam avaliação biométrica. Os relatórios individuais
+contêm ambiente, comandos e limites.
+
+| Fonte e data registrada | Resultado | Escopo |
+|---|---|---|
+| Tarefa 001, 13/10/2026 | 611 testes unitários; Ruff e mypy aprovados | Comportamento de software com doubles e arrays sintéticos; sem webcam, modelo ou banco. [Relatório](../tasks/001-qualidade-captura/RESULTADO.md). |
+| Tarefa 002 | 707 testes unitários; Ruff e mypy aprovados | Serviço temporal e integração unitária com relógio/dados sintéticos. Frames consecutivos não são amostras independentes. [Relatório](../tasks/002-consistencia-temporal/RESULTADO.md). |
+| Tarefa 003 | 776 testes unitários; Ruff e mypy aprovados | Decisão de margem com embeddings sintéticos; sem integração/BDD ou dados faciais. [Relatório](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). |
+| Tarefa 004, 13/10/2026 | 812 testes unitários; Ruff, mypy e formatação aprovados | Verificações de software registradas no [relatório](../tasks/004-benchmark-matching/RESULTADO.md); benchmark sintético em três execuções sequenciais. |
+
+Cada JSON da tarefa 004 registra `status=ok`, 240 consultas comparadas, zero
+divergências de status/ID, zero divergências numéricas, zero distâncias não
+finitas e erro absoluto máximo `1.1920928955078125e-7` (tolerância `1e-5`).
+As configurações são iguais nos três arquivos: galerias de 10, 50, 200 e 1000
+vetores; 10 consultas por cenário; 10 rodadas; 3 aquecimentos; seed 1234;
+cenários artificiais de referência, ortogonalidade e empate. São evidências
+históricas consultadas nesta consolidação; as medições longas não foram
+repetidas.
+
+Na tarefa 005, a seleção dos quatro módulos de teste passou com 167 testes em
+13/10/2026. `--help` terminou com código 0; o smoke curto também terminou com
+código 0, validou 12 comparações, registrou zero divergências e erro absoluto
+máximo `1.1920928955078125e-7` ante tolerância `1e-5`, sem gravar JSON. Esses
+resultados e os comandos estão em
+[`tasks/005-consolidacao-demonstracao/RESULTADO.md`](../tasks/005-consolidacao-demonstracao/RESULTADO.md).
+Essa seleção não é a suíte unitária inteira nem a suíte completa.
+
+## Séries de numeração
+
+- **Fases 0–9 de refatoração:** sequência do plano original em
+  [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md), baseada no estado inicial
+  preservado em [`baseline-arquitetura.md`](baseline-arquitetura.md).
+- **Etapas 0–5 de ML:** experimentos e consolidação acadêmica em
+  [`ML-CONSOLIDACAO-ACADEMICA.md`](ML-CONSOLIDACAO-ACADEMICA.md). A Etapa 5
+  histórica não é esta tarefa 005.
+- **Tarefas 001–005:** melhorias de captura/decisão, benchmark e consolidação
+  da demonstração, indexadas em [`../tasks/README.md`](../tasks/README.md).
+  Tarefa 005 não é a prioridade 5 do AGENTS.md nem a Etapa 5 de ML.
+
+## Pendências confirmadas
+
+- Calibração biométrica 1:N e validação representativa do pipeline completo,
+  condicionadas a fonte, finalidade, autorização e revisão institucional.
+- Avaliação do anti-spoofing em protocolo apropriado; a integração atual não
+  comprova eficácia contra ataques.
+- Múltiplas referências operacionais por identidade; os testes de ML que
+  aceitam galerias não significam que o cadastro operacional já as oferece.
+- Checagem explícita de orientação facial, ausente nas heurísticas 001.
+- A mensagem de consentimento da CLI ainda aponta para a opção 3 ao falar
+  sobre exclusão; no menu atual, excluir aluno é a opção 5. A correção está
+  fora do escopo documental da tarefa 005.
+- Validação de instalação limpa por outra pessoa, pendente no plano original.
+- Neon e API autenticada continuam propostas; não presumir migração ou
+  distribuição de credenciais.
+
+Não foram usados novos datasets externos nem dados de alunos. Não há alegação
+de acurácia atual, melhoria biométrica, aprovação ética ou licença nova. Veja
+também [`ARCHITECTURE.md`](../ARCHITECTURE.md), o
+[`README.md`](../README.md) e os relatórios vinculados acima.

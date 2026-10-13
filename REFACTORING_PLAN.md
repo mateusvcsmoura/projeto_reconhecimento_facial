@@ -8,20 +8,20 @@ Sistema de Reconhecimento Facial para Controle de Presença
 | Papel emissor | Orquestrador Técnico |
 | Data | 2026-09-07 |
 | Commit base | `08116cf` — *feat: initial commit (before changes) \| raw project* |
-| Documento de baseline | [`ARCHITECTURE.md`](ARCHITECTURE.md) (auditoria do estado atual, problemas P1–P14) |
-| Status | **Plano para execução incremental — nenhuma alteração de código realizada** |
+| Documento de baseline | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) (auditoria histórica do protótipo, problemas P1–P14) |
+| Status | **Plano histórico — fases 1–9 executadas conforme as notas de resultado; pendências explícitas permanecem** |
 
-> Este documento é o plano. A auditoria detalhada do estado atual está em `ARCHITECTURE.md` e não é repetida aqui; as referências `P1`…`P14` apontam para a seção 18 daquele documento.
+> Este documento preserva o plano e o retrato do projeto em 2026-09-07; a auditoria desse baseline está em `docs/baseline-arquitetura.md`. As referências `P1`…`P14` apontam para a seção 18 daquele documento. Este não é o estado atual do código. Consulte [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) e [`ARCHITECTURE.md`](ARCHITECTURE.md) para o snapshot atual e as melhorias posteriores 001–004.
 
 ---
 
 ## 1. Objetivo
 
-### Onde o projeto está
+### Baseline histórico — onde o projeto estava em 2026-09-07
 
 Um único arquivo, `cadastro.py` (364 linhas), concentra apresentação (CLI + janelas OpenCV), captura de câmera, inferência de rede neural (DeepFace/Facenet512), SQL bruto e regra de negócio. O banco é um SQLite versionado no Git contendo o nome real de uma pessoa e 39 eventos de presença. Não existem testes, migrations, configuração externa, logging, nem qualquer abstração entre o domínio e as bibliotecas de infraestrutura.
 
-O sistema *funciona* como demonstração, mas hoje ele:
+Naquele snapshot, o sistema *funcionava* como demonstração, mas:
 
 - **não roda com os dados que possui** — o único aluno cadastrado aponta para um caminho absoluto em outra máquina (`P3`), e o programa conclui *"Nenhuma foto de aluno está disponível."*;
 - **tem a regra de negócio central quebrada** sobre os dados existentes — o dedup "uma presença por dia" não enxerga nenhum dos 39 registros legados, porque `date()` não interpreta o formato `dd/mm/aaaa` gravado por uma versão anterior (`P2`; verificado: 39/39 linhas retornam `NULL`);

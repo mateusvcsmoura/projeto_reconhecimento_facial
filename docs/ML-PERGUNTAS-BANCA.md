@@ -1,6 +1,8 @@
 # Perguntas e respostas para a banca
 
-As respostas refletem o código e os relatórios auditados em 10/10/2026. Onde não há medição, a resposta diz isso diretamente.
+As perguntas 1–22 preservam a auditoria dos documentos de ML em 10/10/2026;
+as perguntas 23–28 incorporam as tarefas 001–004 verificadas em 13/10/2026.
+Onde não há medição, a resposta diz isso diretamente.
 
 1. **O FaceNet512 foi treinado por vocês?**
    Não. O projeto utiliza o FaceNet512 pré-treinado para inferência e geração de embeddings de 512 dimensões. As etapas deste estudo não fizeram fine-tuning nem alteraram seus pesos.
@@ -66,4 +68,44 @@ As respostas refletem o código e os relatórios auditados em 10/10/2026. Onde n
     Não. MiniFASNet está integrado e habilitado por padrão, mas os documentos registram falso positivo em contraluz e ausência de um conjunto de ataques apropriado para medir APCER/BPCER. A eficácia contra ataques não foi medida.
 
 22. **Por que os 518 testes aprovados não provam a precisão do reconhecimento?**
-    Eles verificam regras e contratos do software com fixtures e dublês. Uma medida de precisão exige um conjunto biométrico apropriado, protocolo de avaliação, identificação de erros e amostra estatística, além de autorização. São evidências diferentes.
+    Os 518 foram o snapshot unitário da Etapa 5 em 10/10/2026; o relatório da tarefa 004 registra depois 812 unitários. As contagens pertencem a execuções e escopos diferentes, não se somam e verificam regras do software com fixtures sintéticas/doubles. Precisão exige conjunto biométrico apropriado, protocolo de avaliação, amostra estatística e autorização. São evidências diferentes.
+
+23. **As melhorias 001–003 estão ativas por padrão?**
+    Não. Qualidade (`FACE_QUALITY_ENABLED`), consistência temporal
+    (`FACE_TEMPORAL_ENABLED`) e rejeição por ambiguidade
+    (`FACE_AMBIGUITY_ENABLED`) são optativas e começam desligadas. O limiar
+    operacional segue em `0.30`; anti-spoofing continua habilitado. Os valores
+    iniciais de qualidade/tempo são de engenharia e não foram calibrados com
+    rostos.
+
+24. **Três observações temporais demonstram que a identidade está correta?**
+    Não. O modo optativo confirma observações consecutivas do mesmo ID e
+    revalida uma captura ao pressionar ENTER, mas os frames próximos são
+    correlacionados e podem repetir um erro. O timestamp de software também
+    não garante frescor físico do sensor.
+
+25. **Qual é a diferença entre limiar e margem de ambiguidade?**
+    O limiar `FACE_THRESHOLD` decide se o melhor candidato é próximo o
+    bastante para ser aceito. Se passou, a margem compara a diferença entre
+    esse candidato e a identidade distinta mais próxima. Empate exato é
+    recusado com margem zero; margem positiva não está calibrada. Um gap maior
+    não prova que a identidade seja correta.
+
+26. **O benchmark 004 prova que o sistema reconhece mais rápido?**
+    Não. Ele validou equivalência de decisões em embeddings artificiais e
+    mediu apenas o matching vetorizado contra um laço que executa um `NumPy
+    dot` por embedding. Não executa FaceNet512/DeepFace, captura ou o pipeline
+    ponta a ponta; portanto não demonstra FPS nem acurácia.
+
+27. **Como interpretar a latência e a memória desse benchmark?**
+    Os três JSONs contêm p50/p95 por tamanho, cenário e modo; compare cada
+    combinação no relatório 004. As faixas não são uma promessa de speedup nem
+    se generalizam automaticamente. `tracemalloc` mostra alocações rastreadas
+    pelo Python, não RSS ou toda memória nativa; payload dos arrays também não
+    é memória total.
+
+28. **Por que a demonstração não abre a câmera nem o banco?**
+    A tarefa 005 prepara uma reprodução offline segura com testes sintéticos,
+    CLI e smoke curto do benchmark. Isso permite verificar contratos de
+    software sem ingerir dados pessoais. A demonstração operacional real
+    exige autorização e análise institucional próprias.

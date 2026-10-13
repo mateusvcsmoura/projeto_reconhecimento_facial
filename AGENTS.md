@@ -17,6 +17,11 @@
 - Possível migração futura do PostgreSQL para Neon para compartilhar cadastros/presenças entre máquinas. **Não presumir que a migração foi implementada.** Para aplicações distribuídas, preferir API autenticada em vez de distribuir credenciais do banco nos clientes.
 - Arquivos mencionados anteriormente, sujeitos a verificação: `src/domain/services/matcher.py`, `src/infrastructure/face_recognition/deepface_adapter.py`, `src/config/settings.py`, `src/main.py`, `ARCHITECTURE.md`, `docs/lgpd.md`, `docs/adr/ADR-004-limiar-de-reconhecimento.md`.
 
+O estado confirmado das melhorias de captura, decisão e benchmark está em
+[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
+Esse registro distingue o código atual dos resultados históricos e das
+pendências biométricas.
+
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
@@ -61,12 +66,12 @@
 
 Implementar incrementalmente, com desenho, testes e medições adequadas:
 
-1. **Qualidade de captura**: checagens de nitidez, iluminação, dimensão da face, orientação e múltiplas faces; pedir nova captura quando inadequada.
-2. **Consistência temporal**: avaliar vários frames e confirmar somente identidades consistentes, preservando limiares e rejeição de desconhecidos. Frames consecutivos são correlacionados; votação não prova melhora de acurácia.
-3. **Ambiguidade entre candidatos**: comparar a distância do primeiro e segundo melhores resultados e rejeitar casos muito próximos. Não inventar margens supostamente calibradas.
-4. **Múltiplas referências por identidade**: somente quando existirem cadastros autorizados; considerar formas de agregação e impactos no desempenho.
-5. **Desempenho**: embeddings normalizados e operações vetorizadas NumPy para similaridade cosseno; medir latência, memória e equivalência numérica.
-6. **Calibração biométrica real**: deixar pendente até haver dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
+1. **Qualidade de captura — implementada na tarefa 001**: nitidez, iluminação e dimensão da face são checadas de forma optativa; múltiplas faces são recusadas pelo adaptador. **Orientação facial não é checada.** Os limites são heurísticas não calibradas.
+2. **Consistência temporal — implementada na tarefa 002**: confirmação optativa de observações da mesma identidade e revalidação antes do registro. Frames consecutivos são correlacionados; isso não prova melhora de acurácia.
+3. **Ambiguidade entre candidatos — implementada na tarefa 003**: recusa optativa por proximidade entre identidades. Margem positiva não calibrada; zero recusa empates exatos.
+4. **Múltiplas referências por identidade — pendente**: somente considerar quando houver cadastros autorizados; avaliar agregação e impacto no desempenho.
+5. **Desempenho — benchmark da tarefa 004**: comparação sintética de embeddings 512D, equivalência, latência e memória. Os resultados não são biométricos nem cobrem inferência.
+6. **Calibração biométrica real — pendente**: aguardar dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
 
 ### Evidências aceitáveis sem dataset externo
 - Testes unitários e de integração com embeddings **sintéticos** para lógica de matching, classificadores, clustering, rejeição, empates e bordas.
@@ -87,4 +92,4 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 
 ## 7. Próxima direção sugerida
 
-Fazer auditoria do pipeline atual e implementar, em pequenas etapas, **qualidade de captura**, **decisão temporal**, **rejeição por ambiguidade** e **benchmark de matching vetorizado**, mantendo o comportamento operacional existente como baseline. Registrar limites das evidências e atualizar documentação para refletir que se trata de **projeto de disciplina de IA**, não de TCC.
+Manter o registro atual e as limitações das tarefas 001–004 atualizados. As próximas decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

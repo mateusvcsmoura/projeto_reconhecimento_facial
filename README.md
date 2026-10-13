@@ -1,9 +1,13 @@
 # Sistema de Reconhecimento Facial para Controle de Presença
 
-Projeto acadêmico da disciplina de IA da Fatec. Aplicação CLI que cadastra
-alunos pelo rosto e registra presença reconhecendo-os pela webcam. PostgreSQL
-e arquitetura em camadas. Em 13/10/2026, 812 testes unitários passaram; a
-suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
+Projeto acadêmico da disciplina de IA da Fatec, não um TCC. Aplicação CLI que
+cadastra referências faciais e apoia o registro de presença após confirmação
+do operador. PostgreSQL e arquitetura em camadas. O registro do estado atual,
+das fontes, verificações e limitações das tarefas 001–004 está em
+[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Os
+812 testes unitários são o resultado registrado na tarefa 004 em 13/10/2026;
+a suíte completa mais recente registrada continua sendo histórica (597 testes
+na Etapa 4).
 
 | | |
 |---|---|
@@ -11,6 +15,7 @@ suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
 | **Decisões** | [`docs/adr/`](docs/adr/) — quatro ADRs com alternativas descartadas |
 | **Dados pessoais** | [`docs/lgpd.md`](docs/lgpd.md) — o que é tratado, por quê e por quanto tempo |
 | **Apresentação** | [`docs/apresentacao.md`](docs/apresentacao.md) — roteiro de demonstração |
+| **Estado e evidências** | [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) — implementação, fontes, testes e limites |
 | **Como chegou aqui** | [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md) e [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) |
 
 ---
@@ -80,11 +85,12 @@ checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
 e capture de novo; nome, matrícula e consentimento não são solicitados
 novamente. ESC cancela sem persistir a tentativa recusada.
 
-**Reconhecer (2), modo padrão** — o overlay mostra o nome e a **confiança em
-porcentagem**. Abaixo de 40% avisa "confiança baixa" — vale conferir antes
-de registrar. Uma recusa de qualidade mostra uma orientação amarela e
-remove o candidato anterior; ENTER nesse ciclo não registra presença. ENTER
-registra uma presença reconhecida, ESC sai.
+**Reconhecer (2), modo padrão** — o overlay mostra o nome e um indicador
+derivado da distância ao limiar, apresentado em porcentagem. Esse valor **não
+é probabilidade nem foi calibrado**. Abaixo de 40% avisa "confiança baixa"
+— vale conferir antes de registrar. Uma recusa de qualidade mostra uma
+orientação amarela e remove o candidato anterior; ENTER nesse ciclo não
+registra presença. ENTER registra uma presença reconhecida, ESC sai.
 
 Com `FACE_TEMPORAL_ENABLED=true`, ENTER só fica habilitado após três
 identificações consecutivas da mesma pessoa, feitas nos ciclos de comparação

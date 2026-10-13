@@ -5,14 +5,16 @@ reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
-| **Estado** | Fases 1–9 concluídas; 18 de 18 problemas do baseline fechados |
+| **Estado** | Fases 1–9 da refatoração registradas como executadas; melhorias 001–004 implementadas optativamente ou em benchmark |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 812 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
+| **Testes** | 812 unitários na tarefa 004; seleção focal de 167 testes na tarefa 005 (13/10/2026); última suíte completa histórica: 597 (Etapa 4) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
-refatoração em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md).
+refatoração em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md). O snapshot com
+fontes, verificações e limitações das tarefas 001–004 está em
+[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ---
 
@@ -56,8 +58,8 @@ graph TD
 `src/main.py` é o **único** módulo que conhece implementações concretas.
 Todo o resto conversa por `Protocol`s — e os testes unitários rodam sem
 webcam, sem OpenCV e sem TensorFlow instalados. A suíte completa inclui
-testes de integração/BDD dependentes do PostgreSQL; os totais atuais e o
-escopo verificado estão em `docs/ML-ETAPA-5-RESULTADO.md`.
+testes de integração/BDD dependentes do PostgreSQL; os totais por execução,
+datas e escopos estão no registro atual de evidências.
 
 ### Invariantes, verificáveis por comando
 

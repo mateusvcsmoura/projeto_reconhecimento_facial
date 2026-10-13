@@ -27,7 +27,7 @@ python -m pip install -r requirements-dev.txt
 
 Os arquivos de requisitos fixam versões das dependências. Não instalar as dependências ML no ambiente operacional `.venv-app` como parte desta consolidação.
 
-## Comandos de qualidade
+## Comandos de qualidade da Etapa 5 histórica — 10/10/2026
 
 Os comandos executados nesta Etapa 5 foram:
 
@@ -37,7 +37,39 @@ Os comandos executados nesta Etapa 5 foram:
 & '.\.venv-ml\Scripts\mypy.exe'
 ```
 
-Resultado atual: **518 testes unitários passaram**, Ruff não encontrou problemas e mypy verificou 67 arquivos sem apontamentos. A suíte completa documentada na Etapa 4 passou historicamente com 597 testes. Ela não foi repetida na Etapa 5, porque os testes de integração/BDD dependem de PostgreSQL e o escopo desta etapa proíbe acessar o banco. A configuração dos testes de integração alerta que eles usam um banco descartável e manipulam o schema; não executar `pytest` sem revisar essa pré-condição.
+Naquela execução, **518 testes unitários passaram**, Ruff não encontrou problemas e mypy verificou 67 arquivos sem apontamentos. A suíte completa documentada na Etapa 4 passou historicamente com 597 testes. Ela não foi repetida na Etapa 5, porque os testes de integração/BDD dependem de PostgreSQL e o escopo daquela etapa proibia acessar o banco. A configuração dos testes de integração alerta que eles usam um banco descartável e manipulam o schema; não executar `pytest` sem revisar essa pré-condição. Estes totais são snapshots históricos, não números atuais nem cumulativos.
+
+## Reprodução offline das melhorias 001–004 — 13/10/2026
+
+Com o ambiente existente `.venv-ml`, os comandos abaixo exercitam somente os
+quatro módulos focais e um smoke sintético. Execute-os separadamente na raiz;
+use uma pasta temporária exclusiva fora do repositório:
+
+```powershell
+$task005Temp = Join-Path ([System.IO.Path]::GetTempPath()) ("rf-task005-" + [guid]::NewGuid().ToString("N"))
+.\.venv-ml\Scripts\python.exe -m pytest tests/unit/test_qualidade_captura.py tests/unit/test_consistencia_temporal.py tests/unit/test_matcher_ambiguidade.py tests/unit/test_benchmark_matcher.py -q -p no:cacheprovider --basetemp $task005Temp
+```
+
+O comando verifica regras de qualidade com recortes sintéticos, consistência
+temporal com relógio controlado, ambiguidade com embeddings sintéticos e os
+contratos do benchmark. Embora `tests/conftest.py` defina fixtures de banco
+para testes que as pedem, os módulos selecionados não as usam nem abrem
+PostgreSQL. A saída e a quantidade aprovada observadas nesta reprodução estão
+no [resultado da tarefa 005](../tasks/005-consolidacao-demonstracao/RESULTADO.md).
+
+```powershell
+.\.venv-ml\Scripts\python.exe -m scripts.benchmark_matcher --help
+.\.venv-ml\Scripts\python.exe -m scripts.benchmark_matcher --tamanhos 10 --consultas-por-cenario 2 --rodadas 2 --aquecimento 1
+```
+
+O smoke compara 12 consultas artificiais e não grava JSON. Observe o código
+de saída, o estado da validação e as divergências; não use esses tempos para
+prever latência operacional. O último comando não repete as medições padrão da
+tarefa 004. Para apresentá-las, consulte os três JSONs agregados e o
+[relatório 004](../tasks/004-benchmark-matching/RESULTADO.md).
+
+Não executar o modo da aplicação, acessar `.env`, banco, câmera, modelos,
+`storage/` ou `avaliacao/` para esta demonstração.
 
 Para executar somente os testes focais de uma etapa, os caminhos existentes são:
 
