@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from time import monotonic
 from types import TracebackType
 from typing import Any, Protocol
 
@@ -31,6 +32,11 @@ from src.domain.errors import (
     QualidadeCapturaInsuficiente,
 )
 from src.domain.services.camera_provider import CameraProvider
+from src.domain.services.consistencia_temporal import (
+    ConfirmadorTemporal,
+    EstadoTemporal,
+    ParametrosTemporais,
+)
 from src.domain.services.matcher import MatrizDeReferencia
 from src.presentation.cli import prompts
 from src.presentation.cli.confianca import rotulo_de_estado
@@ -77,6 +83,8 @@ class MenuCLI:
         abrir_janela: Callable[[str], Janela],
         ler: prompts.Leitor = input,
         escrever: Callable[[str], None] = print,
+        temporal: ParametrosTemporais | None = None,
+        relogio: Callable[[], float] = monotonic,
     ) -> None:
         self._cadastrar_aluno = cadastrar_aluno
         self._reconhecer_aluno = reconhecer_aluno
@@ -89,6 +97,8 @@ class MenuCLI:
         self._abrir_janela = abrir_janela
         self._ler = ler
         self._escrever = escrever
+        self._temporal = temporal
+        self._relogio = relogio
 
     def preaquecer(self) -> None:
         """Repassa o pre-aquecimento ao provider de reconhecimento."""
@@ -292,11 +302,18 @@ class MenuCLI:
 
         self._escrever("\n=== RECONHECIMENTO FACIAL ===")
         self._escrever("Olhe para a camera.")
-        self._escrever("ENTER registra a presenca | ESC sai.")
+        if self._temporal is None:
+            self._escrever("ENTER registra a presenca | ESC sai.")
+        else:
+            self._escrever("ENTER confirma identidade e registra | ESC sai.")
 
         self._laco_de_reconhecimento(referencias)
 
     def _laco_de_reconhecimento(self, referencias: MatrizDeReferencia) -> None:
+        if self._temporal is not None:
+            self._laco_temporal_de_reconhecimento(referencias, self._temporal)
+            return
+
         rodape: Linha = ("ENTER = registrar | ESC = sair", BRANCO)
         reconhecido: Reconhecimento | None = None
         situacao = "Procurando..."
@@ -338,6 +355,211 @@ class MenuCLI:
                     return
                 if tecla == ENTER and reconhecido is not None:
                     self._registrar(reconhecido.aluno)
+
+    def _laco_temporal_de_reconhecimento(
+        self,
+        referencias: MatrizDeReferencia,
+        parametros: ParametrosTemporais,
+    ) -> None:
+        confirmador = ConfirmadorTemporal(parametros)
+        rodape: Linha = (
+            "ENTER = confirmar identidade e registrar | ESC = sair",
+            BRANCO,
+        )
+        reconhecido: Reconhecimento | None = None
+        estado = EstadoTemporal(aluno_id=None, observacoes=0, confirmado=False)
+        situacao = "Procurando..."
+        cor_situacao = BRANCO
+        contador = 0
+
+        with (
+            self._abrir_camera() as camera,
+            self._abrir_janela("Reconhecimento") as janela,
+        ):
+            while True:
+                capturado_em = self._relogio()
+                try:
+                    frame = camera.ler_frame()
+                except FalhaNaLeituraDaCamera as erro:
+                    logger.error("Leitura da camera falhou: %s", erro)
+                    self._escrever(f"ERRO: {para_operador(erro)}")
+                    return
+
+                contador += 1
+                comparacao = contador % INTERVALO_DE_COMPARACAO == 0
+                if comparacao:
+                    try:
+                        reconhecido = self._reconhecer_aluno.identificar(
+                            frame, referencias
+                        )
+                    except QualidadeCapturaInsuficiente as erro:
+                        reconhecido = None
+                        confirmador.observar(None, capturado_em)
+                        estado = confirmador.consultar(self._relogio())
+                        situacao = para_operador(erro)
+                        cor_situacao = AMARELO
+                    else:
+                        if reconhecido is None:
+                            confirmador.observar(None, capturado_em)
+                            estado = confirmador.consultar(self._relogio())
+                            reconhecido = None
+                            situacao = "Procurando..."
+                            cor_situacao = BRANCO
+                        else:
+                            observado = confirmador.observar(
+                                reconhecido.aluno.id, capturado_em
+                            )
+                            estado = confirmador.consultar(self._relogio())
+                            if (
+                                observado.observacoes and not estado.observacoes
+                            ) or estado.aluno_id != reconhecido.aluno.id:
+                                reconhecido = None
+                                situacao = (
+                                    "Reconhecimento expirado. "
+                                    "Olhe para a camera novamente."
+                                )
+                                cor_situacao = AMARELO
+                            else:
+                                situacao, cor_situacao = self._rotulo_temporal(
+                                    estado, reconhecido, parametros.min_observacoes
+                                )
+                else:
+                    estado_anterior = estado
+                    estado = confirmador.consultar(self._relogio())
+                    if estado_anterior.observacoes and not estado.observacoes:
+                        reconhecido = None
+                        situacao = (
+                            "Reconhecimento expirado. Olhe para a camera novamente."
+                        )
+                        cor_situacao = AMARELO
+                    elif (
+                        reconhecido is not None
+                        and estado.aluno_id == reconhecido.aluno.id
+                        and (
+                            estado.observacoes != estado_anterior.observacoes
+                            or estado.confirmado != estado_anterior.confirmado
+                        )
+                    ):
+                        situacao, cor_situacao = self._rotulo_temporal(
+                            estado, reconhecido, parametros.min_observacoes
+                        )
+
+                tecla = janela.mostrar(frame, [(situacao, cor_situacao), rodape])
+
+                if tecla == ESC:
+                    return
+                if tecla != ENTER:
+                    continue
+
+                estado_anterior = estado
+                estado = confirmador.consultar(self._relogio())
+                expirou = bool(estado_anterior.observacoes and not estado.observacoes)
+                if expirou:
+                    reconhecido = None
+                    situacao = "Reconhecimento expirado. Olhe para a camera novamente."
+                    cor_situacao = AMARELO
+
+                if (
+                    reconhecido is None
+                    or not estado.confirmado
+                    or estado.aluno_id != reconhecido.aluno.id
+                ):
+                    if expirou:
+                        continue
+                    situacao = "Aguarde a validacao da identidade."
+                    cor_situacao = AMARELO
+                    continue
+
+                identidade_confirmada = estado.aluno_id
+                capturado_em = self._relogio()
+                try:
+                    frame_confirmacao = camera.ler_frame()
+                except FalhaNaLeituraDaCamera as erro:
+                    logger.error("Leitura da camera falhou: %s", erro)
+                    self._escrever(f"ERRO: {para_operador(erro)}")
+                    return
+
+                try:
+                    novo_reconhecimento = self._reconhecer_aluno.identificar(
+                        frame_confirmacao, referencias
+                    )
+                except QualidadeCapturaInsuficiente as erro:
+                    confirmador.observar(None, capturado_em)
+                    estado = confirmador.consultar(self._relogio())
+                    reconhecido = None
+                    situacao = para_operador(erro)
+                    cor_situacao = AMARELO
+                    continue
+
+                if novo_reconhecimento is None:
+                    confirmador.observar(None, capturado_em)
+                    estado = confirmador.consultar(self._relogio())
+                    reconhecido = None
+                    situacao = "Procurando..."
+                    cor_situacao = BRANCO
+                    continue
+
+                observado = confirmador.observar(
+                    novo_reconhecimento.aluno.id, capturado_em
+                )
+                estado = confirmador.consultar(self._relogio())
+                reconhecido = novo_reconhecimento
+
+                if observado.observacoes and not estado.observacoes:
+                    reconhecido = None
+                    situacao = "Reconhecimento expirado. Olhe para a camera novamente."
+                    cor_situacao = AMARELO
+                    continue
+
+                if novo_reconhecimento.aluno.id != identidade_confirmada:
+                    situacao = "Identidade mudou. Aguarde nova validacao."
+                    cor_situacao = AMARELO
+                    continue
+
+                if (
+                    estado.confirmado
+                    and estado.aluno_id == identidade_confirmada
+                    and estado.aluno_id == novo_reconhecimento.aluno.id
+                ):
+                    self._registrar(novo_reconhecimento.aluno)
+                    confirmador.reiniciar()
+                    estado = EstadoTemporal(
+                        aluno_id=None, observacoes=0, confirmado=False
+                    )
+                    reconhecido = None
+                    situacao = "Procurando..."
+                    cor_situacao = BRANCO
+                    continue
+
+                if estado.aluno_id == identidade_confirmada:
+                    situacao, cor_situacao = self._rotulo_temporal(
+                        estado,
+                        novo_reconhecimento,
+                        parametros.min_observacoes,
+                    )
+                else:
+                    situacao = "Reconhecimento expirado. Olhe para a camera novamente."
+                    cor_situacao = AMARELO
+
+    @staticmethod
+    def _rotulo_temporal(
+        estado: EstadoTemporal,
+        reconhecido: Reconhecimento,
+        minimo: int,
+    ) -> tuple[str, tuple[int, int, int]]:
+        if estado.confirmado and estado.aluno_id == reconhecido.aluno.id:
+            return (
+                f"Identidade consistente: {reconhecido.aluno.nome}. "
+                "ENTER para confirmar.",
+                VERDE,
+            )
+        if estado.observacoes:
+            return (
+                f"Validando identidade: {estado.observacoes}/{minimo}. "
+                "Olhe para a camera.",
+                AMARELO,
+            )
+        return "Procurando...", BRANCO
 
     def _registrar(self, aluno: Aluno) -> None:
         if self._registrar_presenca.executar(aluno.id):

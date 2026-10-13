@@ -23,6 +23,7 @@ from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
 from src.domain.errors import ErroDeDominio
+from src.domain.services.consistencia_temporal import ParametrosTemporais
 from src.domain.services.qualidade_captura import ParametrosQualidade
 from src.infrastructure.camera.opencv_camera import OpenCVCamera
 from src.infrastructure.database.engine import criar_engine
@@ -54,6 +55,15 @@ def montar_menu(settings: Settings) -> MenuCLI:
             min_sharpness=settings.face_quality_min_sharpness,
         )
         if settings.face_quality_enabled
+        else None
+    )
+    temporal = (
+        ParametrosTemporais(
+            min_observacoes=settings.face_temporal_min_observations,
+            janela_segundos=settings.face_temporal_window_seconds,
+            validade_segundos=settings.face_temporal_max_age_seconds,
+        )
+        if settings.face_temporal_enabled
         else None
     )
     reconhecimento = DeepFaceAdapter(
@@ -91,6 +101,7 @@ def montar_menu(settings: Settings) -> MenuCLI:
             backend=settings.camera_backend,
         ),
         abrir_janela=JanelaDeVideo,
+        temporal=temporal,
     )
 
 

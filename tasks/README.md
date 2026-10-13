@@ -5,11 +5,14 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 | ID | Tarefa | Executor previsto | Estado |
 |---|---|---|---|
 | 001 | Qualidade de captura: nitidez, iluminação e tamanho da face | Luna 6, esforço High | Concluída; implementação publicada na main |
+| 002 | Consistência temporal e validade da identificação antes do registro | Luna 6, esforço High | Implementada e verificada; push pendente |
 
 ## Como executar
 
 1. Abra uma sessão no repositório com Luna 6 e esforço High.
-2. Envie o conteúdo de [001-qualidade-captura/PROMPT.md](001-qualidade-captura/PROMPT.md).
+2. Envie o prompt da tarefa escolhida: [001 — qualidade](001-qualidade-captura/PROMPT.md) ou [002 — consistência temporal](002-consistencia-temporal/PROMPT.md).
 3. O executor lê o desenho e o plano, implementa, testa, documenta e faz commit + push na `main`, conforme autorização explícita do usuário registrada no prompt.
 
 A tarefa 001 foi implementada, verificada e publicada conforme o resultado registrado em [001-qualidade-captura/RESULTADO.md](001-qualidade-captura/RESULTADO.md). Não há tarefas de datasets externos neste pacote.
+
+A tarefa 002 parte do código concluído da 001. A implementação optativa, os testes e os limites das evidências estão registrados em [002-consistencia-temporal/RESULTADO.md](002-consistencia-temporal/RESULTADO.md).

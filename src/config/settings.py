@@ -73,6 +73,13 @@ class Settings(BaseSettings):
     face_quality_max_brightness: float = 215.0
     face_quality_min_sharpness: float = 100.0
 
+    # Validacao temporal optativa para exigir observacoes consecutivas.
+    # Os limites iniciais sao de engenharia, sem calibracao biometrica.
+    face_temporal_enabled: bool = False
+    face_temporal_min_observations: int = 3
+    face_temporal_window_seconds: float = 5.0
+    face_temporal_max_age_seconds: float = 2.0
+
     # Recusa frames que o detector classifique como apresentacao (foto
     # impressa, tela de celular). Sem isto, um controle de presenca por
     # rosto nao entrega a garantia que promete (problema A7).
@@ -193,6 +200,45 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FACE_QUALITY_MAX_BRIGHTNESS deve ser maior que "
                 "FACE_QUALITY_MIN_BRIGHTNESS."
+            )
+        return self
+
+    @field_validator("face_temporal_min_observations", mode="before")
+    @classmethod
+    def _rejeitar_booleano_como_contagem_temporal(cls, valor: object) -> object:
+        if isinstance(valor, bool):
+            raise ValueError("FACE_TEMPORAL_MIN_OBSERVATIONS deve ser inteiro >= 2.")
+        return valor
+
+    @field_validator("face_temporal_min_observations")
+    @classmethod
+    def _exigir_contagem_temporal_minima(cls, valor: int) -> int:
+        if valor < 2:
+            raise ValueError("FACE_TEMPORAL_MIN_OBSERVATIONS deve ser inteiro >= 2.")
+        return valor
+
+    @field_validator(
+        "face_temporal_window_seconds", "face_temporal_max_age_seconds", mode="before"
+    )
+    @classmethod
+    def _rejeitar_booleano_como_tempo_temporal(cls, valor: object) -> object:
+        if isinstance(valor, bool):
+            raise ValueError("Os tempos temporais devem ser numeros positivos.")
+        return valor
+
+    @field_validator("face_temporal_window_seconds", "face_temporal_max_age_seconds")
+    @classmethod
+    def _exigir_tempo_temporal_finito_positivo(cls, valor: float) -> float:
+        if not isfinite(valor) or valor <= 0.0:
+            raise ValueError("Os tempos temporais devem ser finitos e positivos.")
+        return valor
+
+    @model_validator(mode="after")
+    def _exigir_validade_temporal_na_janela(self) -> Settings:
+        if self.face_temporal_max_age_seconds > self.face_temporal_window_seconds:
+            raise ValueError(
+                "FACE_TEMPORAL_MAX_AGE_SECONDS nao pode exceder "
+                "FACE_TEMPORAL_WINDOW_SECONDS."
             )
         return self
 

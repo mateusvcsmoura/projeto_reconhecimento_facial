@@ -2,7 +2,7 @@
 
 Projeto acadêmico da disciplina de IA da Fatec. Aplicação CLI que cadastra
 alunos pelo rosto e registra presença reconhecendo-os pela webcam. PostgreSQL
-e arquitetura em camadas. Em 13/10/2026, 611 testes unitários passaram; a
+e arquitetura em camadas. Em 13/10/2026, 707 testes unitários passaram; a
 suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
 
 | | |
@@ -80,11 +80,26 @@ checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
 e capture de novo; nome, matrícula e consentimento não são solicitados
 novamente. ESC cancela sem persistir a tentativa recusada.
 
-**Reconhecer (2)** — o overlay mostra o nome e a **confiança em
+**Reconhecer (2), modo padrão** — o overlay mostra o nome e a **confiança em
 porcentagem**. Abaixo de 40% avisa "confiança baixa" — vale conferir antes
 de registrar. Uma recusa de qualidade mostra uma orientação amarela e
 remove o candidato anterior; ENTER nesse ciclo não registra presença. ENTER
 registra uma presença reconhecida, ESC sai.
+
+Com `FACE_TEMPORAL_ENABLED=true`, ENTER só fica habilitado após três
+identificações consecutivas da mesma pessoa, feitas nos ciclos de comparação
+(um a cada oito frames), dentro de uma janela de 5 s. A observação mais
+recente precisa ter até 2 s. Ao pressionar ENTER, o sistema lê outro frame e
+faz uma identificação nova; só registra se ela ainda reconhecer a mesma
+pessoa. Desconhecido, troca de identidade, qualidade insuficiente e expiração
+interrompem a sequência. Uma presença registrada ou já existente consome a
+confirmação. Isso pode adicionar uma inferência no ENTER elegível.
+
+As observações de frames consecutivos são correlacionadas: consistência
+temporal verifica o fluxo de decisão, mas não comprova melhora biométrica e
+pode repetir uma identificação errada. O marco de tempo ocorre antes da
+leitura da câmera; buffers do dispositivo podem manter frames antigos. O modo
+não rastreia a pessoa continuamente nem elimina a latência da câmera.
 
 **Listar (3)** — matrícula, nome e situação. Alunos marcados como *sem
 embedding* existem no cadastro mas **não serão reconhecidos**; rode o
@@ -124,6 +139,10 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão informada pelo detector, em pixels |
 | `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da luminosidade média, de 0 a 255 |
 | `FACE_QUALITY_MIN_SHARPNESS` | `100` | Variância mínima do Laplaciano discreto |
+| `FACE_TEMPORAL_ENABLED` | `false` | Exige sequência consistente antes de ENTER; opt-in |
+| `FACE_TEMPORAL_MIN_OBSERVATIONS` | `3` | Identificações consecutivas (não frames exibidos) |
+| `FACE_TEMPORAL_WINDOW_SECONDS` | `5.0` | Janela máxima das observações |
+| `FACE_TEMPORAL_MAX_AGE_SECONDS` | `2.0` | Idade máxima da observação mais recente |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
 
@@ -131,6 +150,10 @@ Os limites de qualidade são heurísticas iniciais, não calibradas com rostos.
 Com a flag desligada, a aceitação anterior continua como baseline; a flag
 não altera `FACE_THRESHOLD` nem o anti-spoofing. Testes com imagens
 sintéticas demonstram apenas comportamento funcional, não acurácia facial.
+Os limites temporais também são parâmetros iniciais de engenharia, sem
+calibração biométrica. A flag temporal não muda o limiar, a qualidade de
+captura ou o anti-spoofing; esses controles podem ser habilitados de forma
+independente.
 
 ---
 

@@ -141,3 +141,85 @@ def test_qualidade_de_captura_rejeita_configuracao_invalida(
 ) -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, database_url=URL_VALIDA, **kwargs)  # type: ignore[arg-type]
+
+
+def test_consistencia_temporal_comeca_desabilitada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for nome in (
+        "FACE_TEMPORAL_ENABLED",
+        "FACE_TEMPORAL_MIN_OBSERVATIONS",
+        "FACE_TEMPORAL_WINDOW_SECONDS",
+        "FACE_TEMPORAL_MAX_AGE_SECONDS",
+    ):
+        monkeypatch.delenv(nome, raising=False)
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_temporal_enabled is False
+    assert settings.face_temporal_min_observations == 3
+    assert settings.face_temporal_window_seconds == 5.0
+    assert settings.face_temporal_max_age_seconds == 2.0
+
+
+def test_consistencia_temporal_aceita_overrides_de_ambiente(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FACE_TEMPORAL_ENABLED", "true")
+    monkeypatch.setenv("FACE_TEMPORAL_MIN_OBSERVATIONS", "4")
+    monkeypatch.setenv("FACE_TEMPORAL_WINDOW_SECONDS", "6.5")
+    monkeypatch.setenv("FACE_TEMPORAL_MAX_AGE_SECONDS", "2.5")
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_temporal_enabled is True
+    assert settings.face_temporal_min_observations == 4
+    assert settings.face_temporal_window_seconds == 6.5
+    assert settings.face_temporal_max_age_seconds == 2.5
+
+
+def test_consistencia_temporal_aceita_overrides_por_kwargs() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url=URL_VALIDA,
+        face_temporal_enabled=True,
+        face_temporal_min_observations=2,
+        face_temporal_window_seconds=1.0,
+        face_temporal_max_age_seconds=1.0,
+    )
+
+    assert settings.face_temporal_enabled is True
+    assert settings.face_temporal_min_observations == 2
+    assert settings.face_temporal_window_seconds == 1.0
+    assert settings.face_temporal_max_age_seconds == 1.0
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"face_temporal_min_observations": 1},
+        {"face_temporal_min_observations": 0},
+        {"face_temporal_min_observations": -1},
+        {"face_temporal_min_observations": 2.5},
+        {"face_temporal_min_observations": True},
+        {"face_temporal_window_seconds": 0.0},
+        {"face_temporal_window_seconds": -1.0},
+        {"face_temporal_window_seconds": float("nan")},
+        {"face_temporal_window_seconds": float("inf")},
+        {"face_temporal_window_seconds": True},
+        {"face_temporal_max_age_seconds": 0.0},
+        {"face_temporal_max_age_seconds": -1.0},
+        {"face_temporal_max_age_seconds": float("nan")},
+        {"face_temporal_max_age_seconds": float("inf")},
+        {"face_temporal_max_age_seconds": True},
+        {
+            "face_temporal_window_seconds": 1.0,
+            "face_temporal_max_age_seconds": 1.1,
+        },
+    ],
+)
+def test_consistencia_temporal_rejeita_configuracao_invalida(
+    kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, database_url=URL_VALIDA, **kwargs)  # type: ignore[arg-type]

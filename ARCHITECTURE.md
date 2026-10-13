@@ -8,7 +8,7 @@ reconhecimento facial para controle de presença de alunos.
 | **Estado** | Fases 1–9 concluídas; 18 de 18 problemas do baseline fechados |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 611 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
+| **Testes** | 707 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
@@ -94,6 +94,7 @@ src/
 │   ├── repositories/            contratos de persistência
 │   ├── services/
 │   │   ├── matcher.py           escolha do melhor candidato (regra pura)
+│   │   ├── consistencia_temporal.py IDs/timestamps para confirmação vigente
 │   │   ├── face_recognition.py  contrato do reconhecimento
 │   │   ├── camera_provider.py   contrato da fonte de imagem
 │   │   └── image_storage.py     contrato do armazenamento
@@ -172,6 +173,28 @@ recusa não persiste imagem ou embedding e permite outra captura sem repetir
 identificação e consentimento. No reconhecimento, a recusa limpa o candidato
 imediatamente; a câmera continua aberta e ENTER não registra presença nesse
 ciclo.
+
+Com `FACE_TEMPORAL_ENABLED=true`, `MenuCLI` injeta o instante de um relógio
+monotônico imediatamente antes de cada leitura da câmera. O serviço puro
+`ConfirmadorTemporal` recebe somente o ID reconhecido e esse timestamp; ele
+mantém no máximo N timestamps (3 por padrão), interrompe a sequência para
+outro ID ou ausência e aplica a janela de 5 s e a validade de 2 s. O menu
+observa apenas os ciclos de inferência já existentes (um a cada oito
+frames), consulta a validade em cada frame e ao receber ENTER, e mostra o
+progresso como contagem sem exibir o nome enquanto a identidade está parcial.
+
+ENTER elegível causa uma leitura e identificação adicionais, com a mesma
+qualidade, anti-spoofing e limiar atuais. O registro usa somente a identificação
+nova quando o ID permanece igual e a sequência segue confirmada. Após um
+registro normal, inclusive duplicado, a sequência é consumida; ao sair, o
+estado local da sessão é descartado. A flag desligada preserva o laço anterior.
+Essa política adiciona uma inferência apenas no ENTER elegível.
+
+Os três resultados usam frames correlacionados, então consistência temporal
+não demonstra ganho de acurácia e pode repetir uma decisão errada. O marco
+anterior à leitura inclui o tempo de espera da câmera, mas a leitura seguinte
+não garante frescor físico do sensor: dispositivos podem bufferizar frames.
+Não há rastreamento contínuo nem calibração biométrica desses limites.
 
 ### Custo, medido
 
@@ -284,6 +307,10 @@ boot** se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão da face informada pelo detector |
 | `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da média de luminância, escala 0–255 |
 | `FACE_QUALITY_MIN_SHARPNESS` | `100` | Variância mínima do Laplaciano discreto |
+| `FACE_TEMPORAL_ENABLED` | `false` | Opt-in da consistência temporal |
+| `FACE_TEMPORAL_MIN_OBSERVATIONS` | `3` | Observações analisadas consecutivas |
+| `FACE_TEMPORAL_WINDOW_SECONDS` | `5.0` | Janela máxima de observações |
+| `FACE_TEMPORAL_MAX_AGE_SECONDS` | `2.0` | Idade máxima da observação mais recente |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga |
 
@@ -291,6 +318,9 @@ Os limites de qualidade são heurísticas iniciais sem calibração biométrica.
 A média de luminância não caracteriza toda contraluz, e ruído pode elevar a
 medida de nitidez. A validação usa somente imagens sintéticas e demonstra
 comportamento do software, sem medir acurácia em reconhecimento facial.
+Os limites temporais são de engenharia, não calibrados. As políticas de
+qualidade e consistência são optativas e independentes; nenhuma altera o
+limiar 0.30 ou o anti-spoofing.
 
 ---
 
