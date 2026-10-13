@@ -1,0 +1,90 @@
+# AGENTS.md — Contexto do projeto de IA (reconhecimento facial)
+
+> Documento de contexto para o Codex CLI. Registra o que foi discutido; **não substitui a inspeção do repositório**. Confirme implementações, nomes de arquivos, dependências e estado do Git antes de alterar qualquer coisa.
+
+## 1. Objetivo e escopo
+
+- Projeto acadêmico de uma **disciplina de Inteligência Artificial da Fatec**, **não é TCC**.
+- Aplicação de reconhecimento facial para registro de presença. O problema operacional é **identificação aberta 1:N**: comparar uma face capturada com referências de pessoas cadastradas e rejeitar desconhecidos quando necessário.
+- Objetivo atual: aprimorar robustez, qualidade da decisão, eficiência e demonstração de conceitos de IA **sem depender de datasets externos de rostos**.
+- Não alegar ganhos de acurácia biométrica sem experimentos reais e metodologicamente adequados.
+
+## 2. Stack e arquitetura relatadas (verificar no código)
+
+- Python; OpenCV para captura e detecção facial (Haar Cascade); DeepFace com FaceNet512 pré-treinado para embeddings de 512 dimensões; NumPy; PostgreSQL; Pytest.
+- Mecanismo de comparação por distância cosseno e limiar operacional histórico `FACE_THRESHOLD=0.30`.
+- Antispoofing com MiniFASNet; não confundir resultados obtidos com antispoofing desligado com o desempenho completo do sistema.
+- Possível migração futura do PostgreSQL para Neon para compartilhar cadastros/presenças entre máquinas. **Não presumir que a migração foi implementada.** Para aplicações distribuídas, preferir API autenticada em vez de distribuir credenciais do banco nos clientes.
+- Arquivos mencionados anteriormente, sujeitos a verificação: `src/domain/services/matcher.py`, `src/infrastructure/face_recognition/deepface_adapter.py`, `src/config/settings.py`, `src/main.py`, `ARCHITECTURE.md`, `docs/lgpd.md`, `docs/adr/ADR-004-limiar-de-reconhecimento.md`.
+
+## 3. Histórico dos experimentos de ML
+
+### Etapa 0 — Infraestrutura experimental
+- Organização de experimentos reproduzíveis, separação por identidade, controles de cache e privacidade.
+
+### Etapa 1 — Calibração de verificação 1:1
+- Limiar histórico operacional: `0.30`.
+- Candidato de validação previamente obtido: `0.42817932706540435` para meta de FAR <= 0,1%; **não aprovado para adoção operacional**.
+- Resultados históricos com LFW, verificação **1:1**, sem antispoofing: 336 identidades; 1.099 imagens; 2.001 pares genuínos; 601.350 pares impostores; extração falhou em aproximadamente 11,8%.
+- Para limiar `0.30`: FAR ~0,0018%, FRR ~38,03%. Para candidato calibrado: FAR ~0,063%, FRR ~16,39%; AUC ~0,9830.
+- Esses resultados **não representam** desempenho em sala de aula ou identificação **1:N**. O teste histórico já foi consultado; não tratá-lo como holdout intocado. Origem/autorização de reutilização do LFW e possível sobreposição com o pré-treinamento do FaceNet512 não foram resolvidas.
+
+### Etapa 2 — Aprendizado supervisionado
+- Implementados experimentos para baseline M0 (`0.30`), M1 (limiar calibrado), M2 (regressão logística), M3 (Gaussian Naive Bayes), M4 (árvore de decisão).
+- Testes com vetores sintéticos; **não houve treinamento/avaliação biométrica real autorizada**.
+
+### Etapa 3 — Identificação aberta 1:N
+- Infraestrutura experimental para galerias conhecidas/desconhecidas, FPIR/FNIR, top-1, variantes de limiar e tamanhos de galeria, 1 ou 3 embeddings de referência, bootstrap agrupado.
+- **Sem avaliação real com imagens biométricas autorizadas**.
+
+### Etapa 4 — Aprendizado não supervisionado
+- Experimentos DBSCAN (distância cosseno), K-Means como baseline, Silhouette, ARI/NMI quando existem rótulos legítimos, ruído/cobertura, PCA.
+- Testes sintéticos; **sem avaliação real com rostos autorizados**.
+- Relato histórico: 597 testes da suíte completa passaram ao final desta etapa.
+
+### Etapa 5 — Consolidação acadêmica
+- Documentação, matriz de rastreabilidade, comparação de abordagens, guia de reprodutibilidade, roteiro de apresentação e perguntas para avaliação.
+- Relato histórico: 518 testes unitários, Ruff e mypy passaram; a suíte completa não foi reexecutada nessa etapa.
+- Conferir arquivos existentes em `docs/ML-ETAPA-*-RESULTADO.md`, `docs/ML-CONSOLIDACAO-ACADEMICA.md`, `docs/ML-MATRIZ-RASTREABILIDADE.md`, `docs/ML-COMPARACAO-ABORDAGENS.md`, `docs/ML-GUIA-REPRODUTIBILIDADE.md`, `docs/ML-ROTEIRO-APRESENTACAO.md`, `docs/ML-PERGUNTAS-BANCA.md`.
+- **Não converter métricas históricas de testes sintéticos em alegações de precisão de reconhecimento facial.**
+
+## 4. Datasets externos: decisão atual
+
+- Foram avaliados FEI, DFW, CelebA, LFW e Olivetti.
+- **FEI**: página informa permissão geral de uso por pesquisadores para pesquisa, mas proíbe distribuição e reprodução. Não há exigência explícita de solicitação individual nessa declaração. Ainda cabem cuidados com dados pessoais, finalidade e normas institucionais.
+- **DFW**: acesso condicionado a acordo institucional, assinado por representante autorizado; burocracia excessiva para a necessidade atual.
+- **CelebA**: uso em pesquisa não comercial; distribuição proibida; rótulos de identidade disponibilizados mediante solicitação, limitando avaliação supervisionada/1:N sem contato.
+- **LFW**: uso histórico na Etapa 1 não equivale a autorização para novas avaliações; questões de proveniência e consentimento permanecem.
+- **Decisão atual:** priorizar melhorias do sistema **sem importar novos datasets faciais externos**. Não fazer download, raspagem, extração de faces da internet ou uso de dados operacionais para pesquisa sem autorização adequada.
+
+## 5. Prioridades de melhoria
+
+Implementar incrementalmente, com desenho, testes e medições adequadas:
+
+1. **Qualidade de captura**: checagens de nitidez, iluminação, dimensão da face, orientação e múltiplas faces; pedir nova captura quando inadequada.
+2. **Consistência temporal**: avaliar vários frames e confirmar somente identidades consistentes, preservando limiares e rejeição de desconhecidos. Frames consecutivos são correlacionados; votação não prova melhora de acurácia.
+3. **Ambiguidade entre candidatos**: comparar a distância do primeiro e segundo melhores resultados e rejeitar casos muito próximos. Não inventar margens supostamente calibradas.
+4. **Múltiplas referências por identidade**: somente quando existirem cadastros autorizados; considerar formas de agregação e impactos no desempenho.
+5. **Desempenho**: embeddings normalizados e operações vetorizadas NumPy para similaridade cosseno; medir latência, memória e equivalência numérica.
+6. **Calibração biométrica real**: deixar pendente até haver dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
+
+### Evidências aceitáveis sem dataset externo
+- Testes unitários e de integração com embeddings **sintéticos** para lógica de matching, classificadores, clustering, rejeição, empates e bordas.
+- Benchmarks de engenharia para latência, memória e throughput.
+- Eventual piloto com voluntários **somente com autorização específica e avaliação dos requisitos institucionais e de privacidade**. Não presumir que o cadastro operacional de alunos autorize reutilização experimental.
+- Relatórios devem distinguir claramente **comportamento funcional**, **desempenho computacional** e **desempenho biométrico real**.
+
+## 6. Instruções para o Codex CLI
+
+- Antes de propor mudanças, ler `AGENTS.md`, instruções adicionais do repositório (por exemplo, `CLAUDE.md`, `instructions/`, `ARCHITECTURE.md`) e os módulos relevantes; confirmar o que realmente existe.
+- Verificar `git status`, branch e alterações existentes. **Preservar trabalho do usuário**; não sobrescrever alterações não relacionadas.
+- Para cada tarefa: explicar escopo, identificar riscos, propor mudanças pequenas, implementar testes e registrar evidências com comandos e resultados efetivamente executados.
+- Usar workflows Superpowers se estiverem disponíveis no ambiente. **Aprovar internamente os próprios planos/especificações rotineiros e continuar a execução**, sem interromper para confirmações desnecessárias; isso **não** autoriza ignorar permissões obrigatórias do ambiente, consentimento, revisão institucional ou pedir menos autorização para ações destrutivas/irreversíveis.
+- Não executar migrações de banco, alterar dados reais, publicar datasets, mudar o limiar de produção, desabilitar antispoofing ou criar commits automaticamente sem instrução explícita.
+- Não afirmar execução de testes, aprovação ética, licenças ou métricas que não tenham sido verificadas.
+- Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
+- Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
+
+## 7. Próxima direção sugerida
+
+Fazer auditoria do pipeline atual e implementar, em pequenas etapas, **qualidade de captura**, **decisão temporal**, **rejeição por ambiguidade** e **benchmark de matching vetorizado**, mantendo o comportamento operacional existente como baseline. Registrar limites das evidências e atualizar documentação para refletir que se trata de **projeto de disciplina de IA**, não de TCC.
