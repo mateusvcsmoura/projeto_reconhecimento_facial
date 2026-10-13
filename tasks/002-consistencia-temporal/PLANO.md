@@ -94,4 +94,4 @@ git diff --check
 - [x] Não executar migrations ou suíte de integração/BDD com PostgreSQL; esta tarefa não altera schema. Declarar esse limite, cobrindo o fluxo com fakes na suíte unitária.
 - [x] Revisar diff: mudança restrita à temporalidade, 001 preservada, sem novos imports de cv2/DeepFace no domínio, sem persistência de histórico, sem dados/secrets e sem alteração de threshold/antispoofing/matcher.
 - [x] Criar `tasks/002-consistencia-temporal/RESULTADO.md` com baseline, implementação, comandos/resultados reais, limitações, divergências justificadas e estado de publicação. Atualizar caixas executadas e índice. Não marcar push concluído antes de confirmá-lo.
-- [ ] Executar commit/push do PROMPT.md; responder com hash e evidência de publicação. Se houver impedimento, registrar estado parcial, não inventar resultado nem contornar proteção de branch.
+- [x] Executar commit/push do PROMPT.md; responder com hash e evidência de publicação. Se houver impedimento, registrar estado parcial, não inventar resultado nem contornar proteção de branch.

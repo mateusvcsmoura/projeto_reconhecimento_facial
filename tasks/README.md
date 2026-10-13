@@ -5,7 +5,7 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 | ID | Tarefa | Executor previsto | Estado |
 |---|---|---|---|
 | 001 | Qualidade de captura: nitidez, iluminação e tamanho da face | Luna 6, esforço High | Concluída; implementação publicada na main |
-| 002 | Consistência temporal e validade da identificação antes do registro | Luna 6, esforço High | Implementada e verificada; push pendente |
+| 002 | Consistência temporal e validade da identificação antes do registro | Luna 6, esforço High | Concluída; implementação publicada na main |
 
 ## Como executar
 
