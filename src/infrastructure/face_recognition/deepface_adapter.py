@@ -5,10 +5,13 @@ biblioteca em erros de dominio nomeados -- e aqui que morreu o
 `except Exception: continue` do prototipo (problema A6), que tornava
 indistinguiveis "nenhum rosto no frame" e "TensorFlow quebrado".
 
-Duas responsabilidades, ambas de UMA inferencia:
+As operacoes publicas compartilham a mesma validacao de face e prova de vida:
 
-  * `extrair_face_unica` -- usado no cadastro, devolve o recorte alinhado;
-  * `gerar_embedding`    -- usado no cadastro e a cada ciclo de video.
+  * `extrair_face_unica` -- devolve o recorte alinhado;
+  * `gerar_embedding`    -- devolve um embedding por ciclo de video;
+  * `preparar_cadastro`  -- retorna o recorte e o embedding dessa deteccao.
+
+Quando ativada, a politica de qualidade roda antes de `represent()`.
 
 A comparacao nao esta aqui: virou aritmetica de vetores no
 `domain/services/matcher.py`.
@@ -17,6 +20,7 @@ A comparacao nao esta aqui: virou aritmetica de vetores no
 from __future__ import annotations
 
 import logging
+from numbers import Integral
 from typing import Any
 
 import numpy as np
@@ -28,6 +32,11 @@ from src.domain.errors import (
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
     PossivelFraude,
+)
+from src.domain.services.face_recognition import FacePreparada
+from src.domain.services.qualidade_captura import (
+    ParametrosQualidade,
+    avaliar_qualidade,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,11 +69,16 @@ def _para_bgr_uint8(face: np.ndarray) -> np.ndarray:
 
 class DeepFaceAdapter:
     def __init__(
-        self, modelo: str, detector: str, anti_spoofing: bool = True
+        self,
+        modelo: str,
+        detector: str,
+        anti_spoofing: bool = True,
+        qualidade: ParametrosQualidade | None = None,
     ) -> None:
         self._modelo = modelo
         self._detector = detector
         self._anti_spoofing = anti_spoofing
+        self._qualidade = qualidade
 
     @property
     def modelo(self) -> str:
@@ -118,20 +132,47 @@ class DeepFaceAdapter:
             raise _traduzir(exc, "carregar o modelo") from exc
 
     def extrair_face_unica(self, imagem: Any) -> Any:
-        face = self._detectar_rosto_unico(imagem)
-        # O prototipo descartava este recorte e gravava o frame inteiro
-        # (problema A14): mais dado biometrico guardado do que o necessario,
-        # e uma redeteccao a cada comparacao.
-        return _para_bgr_uint8(np.asarray(face["face"]))
+        return self._preparar_recorte(imagem)
 
-    def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
-        # Detecta (com prova de vida) e so entao gera o vetor sobre o
-        # recorte ja validado. `detector_backend="skip"` evita redetectar o
-        # que acabou de ser detectado -- continua sendo UMA inferencia do
-        # modelo de embedding por ciclo.
+    def _preparar_recorte(self, imagem: Any) -> np.ndarray:
+        """Detecta uma vez, aplica a politica optativa e devolve o recorte."""
         face = self._detectar_rosto_unico(imagem)
         recorte = _para_bgr_uint8(np.asarray(face["face"]))
+        if self._qualidade is not None:
+            area = face.get("facial_area")
+            if not isinstance(area, dict):
+                raise ModeloIndisponivel(
+                    "O provider devolveu facial_area.w/h ausentes ou invalidos."
+                )
+            largura = area.get("w")
+            altura = area.get("h")
+            if (
+                isinstance(largura, bool)
+                or isinstance(altura, bool)
+                or not isinstance(largura, Integral)
+                or not isinstance(altura, Integral)
+                or largura <= 0
+                or altura <= 0
+            ):
+                raise ModeloIndisponivel(
+                    "O provider devolveu facial_area.w/h ausentes ou invalidos."
+                )
+            try:
+                avaliar_qualidade(
+                    recorte,
+                    int(largura),
+                    int(altura),
+                    self._qualidade,
+                )
+            except ValueError as exc:
+                raise ModeloIndisponivel(
+                    "O provider devolveu um recorte incompativel com a politica "
+                    "de qualidade."
+                ) from exc
+        return recorte
 
+    def _representar(self, recorte: np.ndarray) -> FaceEmbedding:
+        """Gera e normaliza o embedding de um recorte ja validado."""
         try:
             representacoes = DeepFace.represent(
                 img_path=recorte,
@@ -149,6 +190,15 @@ class DeepFaceAdapter:
         # `represent()` nao devolve vetor normalizado; FaceEmbedding
         # normaliza na construcao, para que a distancia cosseno seja um
         # simples 1 - produto escalar em qualquer ponto do sistema.
-        return FaceEmbedding.de_valores(
-            representacoes[0]["embedding"], self._modelo
-        )
+        return FaceEmbedding.de_valores(representacoes[0]["embedding"], self._modelo)
+
+    def preparar_cadastro(self, imagem: Any) -> FacePreparada:
+        """Detecta uma vez e usa o mesmo recorte no cadastro e no embedding."""
+        recorte = self._preparar_recorte(imagem)
+        return FacePreparada(imagem=recorte, embedding=self._representar(recorte))
+
+    def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+        # Detecta (com prova de vida), valida opcionalmente e gera o vetor
+        # sobre o recorte. `detector_backend="skip"` evita redetectar o que
+        # acabou de ser detectado.
+        return self._representar(self._preparar_recorte(imagem))

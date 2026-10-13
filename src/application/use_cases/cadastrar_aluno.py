@@ -55,9 +55,7 @@ class CadastrarAluno:
         if not nome_limpo:
             raise DadosInvalidos("Informe o nome do aluno.")
         if len(nome_limpo) > NOME_MAXIMO:
-            raise DadosInvalidos(
-                f"O nome pode ter no maximo {NOME_MAXIMO} caracteres."
-            )
+            raise DadosInvalidos(f"O nome pode ter no maximo {NOME_MAXIMO} caracteres.")
         if self._alunos.existe_matricula(matricula_limpa):
             raise AlunoJaCadastrado(matricula_limpa)
 
@@ -75,9 +73,8 @@ class CadastrarAluno:
         sem consentimento explicito do titular nao pode ser o caminho mais
         facil de escrever (LGPD art. 11, I).
 
-        Levanta ConsentimentoNaoRegistrado, NenhumRostoDetectado,
-        MultiplosRostosDetectados, PossivelFraude, ModeloIndisponivel ou
-        AlunoJaCadastrado.
+        Levanta ConsentimentoNaoRegistrado, erros de deteccao e qualidade,
+        PossivelFraude, ModeloIndisponivel ou AlunoJaCadastrado.
         """
         if not consentiu:
             raise ConsentimentoNaoRegistrado(
@@ -90,15 +87,14 @@ class CadastrarAluno:
         # Guarda-se o recorte alinhado, nao o frame inteiro (problema A14):
         # menos dado biometrico armazenado, sem fundo nem terceiros no
         # enquadramento.
-        face = self._reconhecimento.extrair_face_unica(imagem)
-        embedding = self._reconhecimento.gerar_embedding(face)
+        preparada = self._reconhecimento.preparar_cadastro(imagem)
 
-        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", face)
+        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", preparada.imagem)
 
         return self._alunos.cadastrar(
             matricula=matricula_limpa,
             nome=nome_limpo,
             foto_arquivo=nome_arquivo,
-            embedding=embedding,
+            embedding=preparada.embedding,
             consentimento_em=dt.datetime.now(self._tz),
         )

@@ -10,9 +10,11 @@ from src.application.use_cases.cadastrar_aluno import CadastrarAluno
 from src.domain.entities.aluno import Aluno
 from src.domain.errors import (
     AlunoJaCadastrado,
+    ConsentimentoNaoRegistrado,
     DadosInvalidos,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
+    RostoSemNitidez,
 )
 from tests.fakes import FakeAlunoRepository, FakeFaceRecognition, FakeImageStorage
 
@@ -27,9 +29,7 @@ def montar(
 ) -> tuple[CadastrarAluno, FakeAlunoRepository, FakeImageStorage]:
     alunos = alunos or FakeAlunoRepository()
     storage = FakeImageStorage()
-    caso = CadastrarAluno(
-        alunos, reconhecimento or FakeFaceRecognition(), storage, TZ
-    )
+    caso = CadastrarAluno(alunos, reconhecimento or FakeFaceRecognition(), storage, TZ)
     return caso, alunos, storage
 
 
@@ -112,3 +112,40 @@ def test_validacao_pode_rodar_antes_de_acender_a_camera() -> None:
 
     with pytest.raises(AlunoJaCadastrado):
         caso.validar_identificacao("42", "Outro")
+
+
+def test_cadastro_persiste_a_imagem_e_embedding_da_preparacao_unica() -> None:
+    embedding = FakeFaceRecognition().gerar_embedding(FRAME)
+    imagem_preparada = object()
+    reconhecimento = FakeFaceRecognition(face=imagem_preparada, embedding=embedding)
+    caso, alunos, storage = montar(reconhecimento=reconhecimento)
+
+    aluno = caso.executar("42", "Maria", FRAME, consentiu=True)
+
+    assert reconhecimento.preparacoes == 1
+    assert storage.imagens_salvas == [("42.jpg", imagem_preparada)]
+    assert alunos.embeddings[aluno.id] is embedding
+
+
+def test_recusa_de_qualidade_nao_grava_imagem_nem_cadastra_aluno() -> None:
+    reconhecimento = FakeFaceRecognition(erro_ao_preparar=RostoSemNitidez())
+    caso, alunos, storage = montar(reconhecimento=reconhecimento)
+
+    with pytest.raises(RostoSemNitidez):
+        caso.executar("42", "Maria", FRAME, consentiu=True)
+
+    assert reconhecimento.preparacoes == 1
+    assert alunos.alunos == []
+    assert storage.gravacoes == []
+
+
+def test_consentimento_negado_nao_prepara_face() -> None:
+    reconhecimento = FakeFaceRecognition(erro_ao_preparar=RostoSemNitidez())
+    caso, alunos, storage = montar(reconhecimento=reconhecimento)
+
+    with pytest.raises(ConsentimentoNaoRegistrado):
+        caso.executar("42", "Maria", FRAME, consentiu=False)
+
+    assert reconhecimento.preparacoes == 0
+    assert alunos.alunos == []
+    assert storage.gravacoes == []

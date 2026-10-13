@@ -1,9 +1,9 @@
 # Sistema de Reconhecimento Facial para Controle de Presença
 
-Aplicação CLI que cadastra alunos pelo rosto e registra presença
-reconhecendo-os pela webcam. PostgreSQL e arquitetura em camadas. Em
-10/10/2026, 518 testes unitários passaram; a suíte completa mais recente
-registrada é histórica (597 testes na Etapa 4).
+Projeto acadêmico da disciplina de IA da Fatec. Aplicação CLI que cadastra
+alunos pelo rosto e registra presença reconhecendo-os pela webcam. PostgreSQL
+e arquitetura em camadas. Em 13/10/2026, 611 testes unitários passaram; a
+suíte completa mais recente registrada é histórica (597 testes na Etapa 4).
 
 | | |
 |---|---|
@@ -75,9 +75,16 @@ python -m src.main
 e confirme. **Sem o aceite a câmera nem liga.** Posicione apenas um rosto e
 pressione ESPAÇO; ESC cancela.
 
+Com `FACE_QUALITY_ENABLED=true`, dimensão, iluminação e nitidez são
+checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
+e capture de novo; nome, matrícula e consentimento não são solicitados
+novamente. ESC cancela sem persistir a tentativa recusada.
+
 **Reconhecer (2)** — o overlay mostra o nome e a **confiança em
 porcentagem**. Abaixo de 40% avisa "confiança baixa" — vale conferir antes
-de registrar. ENTER registra a presença, ESC sai.
+de registrar. Uma recusa de qualidade mostra uma orientação amarela e
+remove o candidato anterior; ENTER nesse ciclo não registra presença. ENTER
+registra uma presença reconhecida, ESC sai.
 
 **Listar (3)** — matrícula, nome e situação. Alunos marcados como *sem
 embedding* existem no cadastro mas **não serão reconhecidos**; rode o
@@ -113,8 +120,17 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
 | `FACE_ANTI_SPOOFING` | `true` | Recusa foto impressa e tela |
+| `FACE_QUALITY_ENABLED` | `false` | Ativa checagens heurísticas de captura; opt-in |
+| `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão informada pelo detector, em pixels |
+| `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da luminosidade média, de 0 a 255 |
+| `FACE_QUALITY_MIN_SHARPNESS` | `100` | Variância mínima do Laplaciano discreto |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
+
+Os limites de qualidade são heurísticas iniciais, não calibradas com rostos.
+Com a flag desligada, a aceitação anterior continua como baseline; a flag
+não altera `FACE_THRESHOLD` nem o anti-spoofing. Testes com imagens
+sintéticas demonstram apenas comportamento funcional, não acurácia facial.
 
 ---
 
@@ -283,8 +299,8 @@ eficácia:
    avisa em log se a câmera não atender ao pedido.
 3. **Aproxime o rosto** da câmera.
 4. `FACE_DETECTOR=retinaface` recorta melhor que o Haar. É mais lento.
-5. **Último recurso:** `FACE_ANTI_SPOOFING=false`. Isso **remove** a
-   proteção contra foto impressa — use só em desenvolvimento.
+5. Mantenha `FACE_ANTI_SPOOFING=true`; desativá-lo remove a proteção contra
+   foto impressa e tela. A qualidade de captura é uma checagem separada.
 
 O número no log é a confiança da classificação escolhida, não a
 probabilidade de ser real: "96%" com o frame recusado significa *96% de

@@ -25,13 +25,17 @@ from src.application.use_cases.reconhecer_aluno import (
 )
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
-from src.domain.errors import ErroDeDominio, FalhaNaLeituraDaCamera
+from src.domain.errors import (
+    ErroDeDominio,
+    FalhaNaLeituraDaCamera,
+    QualidadeCapturaInsuficiente,
+)
 from src.domain.services.camera_provider import CameraProvider
 from src.domain.services.matcher import MatrizDeReferencia
 from src.presentation.cli import prompts
 from src.presentation.cli.confianca import rotulo_de_estado
 from src.presentation.cli.mensagens import para_operador
-from src.presentation.cli.teclas import BRANCO, ENTER, ESC, ESPACO, VERDE
+from src.presentation.cli.teclas import AMARELO, BRANCO, ENTER, ESC, ESPACO, VERDE
 
 logger = logging.getLogger(__name__)
 
@@ -103,9 +107,7 @@ class MenuCLI:
 
         while True:
             self._mostrar_menu()
-            opcao = prompts.perguntar_opcao(
-                {"1", "2", "3", "4", "5", "6"}, self._ler
-            )
+            opcao = prompts.perguntar_opcao({"1", "2", "3", "4", "5", "6"}, self._ler)
 
             if opcao == "6":
                 self._escrever("Encerrando...")
@@ -154,14 +156,20 @@ class MenuCLI:
         self._escrever("\nPosicione o rosto dentro da camera.")
         self._escrever("ESPACO captura | ESC cancela.")
 
-        imagem = self._capturar_rosto()
-        if imagem is None:
-            self._escrever("Cadastro cancelado.")
-            return
+        while True:
+            imagem = self._capturar_rosto()
+            if imagem is None:
+                self._escrever("Cadastro cancelado.")
+                return
 
-        aluno = self._cadastrar_aluno.executar(
-            matricula, nome, imagem, consentiu=True
-        )
+            try:
+                aluno = self._cadastrar_aluno.executar(
+                    matricula, nome, imagem, consentiu=True
+                )
+            except QualidadeCapturaInsuficiente as erro:
+                self._escrever(f"ERRO: {para_operador(erro)}")
+                continue
+            break
 
         self._escrever("\nCADASTRO REALIZADO COM SUCESSO!")
         self._escrever(f"Aluno: {aluno.nome}")
@@ -178,9 +186,7 @@ class MenuCLI:
         self._escrever(
             f"{nome}, o sistema vai registrar a sua imagem facial e um vetor"
         )
-        self._escrever(
-            "derivado dela, com a unica finalidade de controlar a presenca."
-        )
+        self._escrever("derivado dela, com a unica finalidade de controlar a presenca.")
         self._escrever(
             "Voce pode pedir a exclusao a qualquer momento (opcao 3 do menu)."
         )
@@ -224,8 +230,7 @@ class MenuCLI:
         self._escrever("-" * 60)
         for item in alunos:
             self._escrever(
-                f"{item.aluno.matricula:<12} {item.aluno.nome[:32]:<32} "
-                f"{item.situacao}"
+                f"{item.aluno.matricula:<12} {item.aluno.nome[:32]:<32} {item.situacao}"
             )
 
         pendentes = [a for a in alunos if not a.pronto_para_reconhecimento]
@@ -312,14 +317,20 @@ class MenuCLI:
 
                 contador += 1
                 if contador % INTERVALO_DE_COMPARACAO == 0:
-                    reconhecido = self._reconhecer_aluno.identificar(
-                        frame, referencias
-                    )
-                    situacao, cor_situacao = rotulo_de_estado(
-                        reconhecido.aluno.nome if reconhecido else None,
-                        reconhecido.distancia if reconhecido else None,
-                        self._limiar,
-                    )
+                    try:
+                        reconhecido = self._reconhecer_aluno.identificar(
+                            frame, referencias
+                        )
+                    except QualidadeCapturaInsuficiente as erro:
+                        reconhecido = None
+                        situacao = para_operador(erro)
+                        cor_situacao = AMARELO
+                    else:
+                        situacao, cor_situacao = rotulo_de_estado(
+                            reconhecido.aluno.nome if reconhecido else None,
+                            reconhecido.distancia if reconhecido else None,
+                            self._limiar,
+                        )
 
                 tecla = janela.mostrar(frame, [(situacao, cor_situacao), rodape])
 

@@ -8,6 +8,7 @@ import types
 from collections.abc import Iterator
 from typing import Any
 
+import numpy as np
 import pytest
 
 from src.presentation.cli.teclas import BRANCO, ESC, VERDE
@@ -24,6 +25,7 @@ class Cv2Duble:
         self.redimensionamentos: list[tuple[str, int, int]] = []
         self.textos: list[tuple[str, tuple[int, int], tuple[int, int, int]]] = []
         self.exibicoes: list[str] = []
+        self.frames_exibidos: list[Any] = []
         self.janelas_fechadas: list[str] = []
         self.teclas: list[int] = []
 
@@ -38,9 +40,11 @@ class Cv2Duble:
         espessura: int,
     ) -> None:
         self.textos.append((texto, origem, cor))
+        frame[0, 0] = (255, 1, 2)
 
     def imshow(self, titulo: str, frame: Any) -> None:
         self.exibicoes.append(titulo)
+        self.frames_exibidos.append(frame)
 
     def waitKey(self, atraso: int) -> int:
         return self.teclas.pop(0) if self.teclas else -1
@@ -48,9 +52,7 @@ class Cv2Duble:
     def namedWindow(self, titulo: str, flag: int) -> None:
         self.janelas_criadas.append((titulo, flag))
 
-    def resizeWindow(
-        self, titulo: str, largura: int, altura: int
-    ) -> None:
+    def resizeWindow(self, titulo: str, largura: int, altura: int) -> None:
         self.redimensionamentos.append((titulo, largura, altura))
 
     def destroyWindow(self, titulo: str) -> None:
@@ -90,11 +92,15 @@ def montar(titulo: str = "Teste") -> Any:
     return importlib.import_module(CAMINHO).JanelaDeVideo(titulo)
 
 
+def frame_sintetico() -> np.ndarray:
+    return np.zeros((8, 8, 3), dtype=np.uint8)
+
+
 def test_mostrar_devolve_a_tecla_pressionada(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [ESC]
 
     with montar() as janela:
-        assert janela.mostrar(object(), []) == ESC
+        assert janela.mostrar(frame_sintetico(), []) == ESC
 
 
 def test_tecla_e_mascarada_para_um_byte(cv2_duble: Cv2Duble) -> None:
@@ -102,14 +108,14 @@ def test_tecla_e_mascarada_para_um_byte(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [0xFF00 | ESC]
 
     with montar() as janela:
-        assert janela.mostrar(object(), []) == ESC
+        assert janela.mostrar(frame_sintetico(), []) == ESC
 
 
 def test_linhas_sao_desenhadas_em_ordem_e_espacadas(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [-1]
 
     with montar() as janela:
-        janela.mostrar(object(), [("primeira", VERDE), ("segunda", BRANCO)])
+        janela.mostrar(frame_sintetico(), [("primeira", VERDE), ("segunda", BRANCO)])
 
     textos = [t for t, _, _ in cv2_duble.textos]
     alturas = [origem[1] for _, origem, _ in cv2_duble.textos]
@@ -122,7 +128,7 @@ def test_cor_recebida_e_a_cor_usada(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [-1]
 
     with montar() as janela:
-        janela.mostrar(object(), [("verde", VERDE)])
+        janela.mostrar(frame_sintetico(), [("verde", VERDE)])
 
     assert cv2_duble.textos[0][2] == VERDE
 
@@ -131,7 +137,7 @@ def test_frame_e_exibido_com_o_titulo_da_janela(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [-1]
 
     with montar("Reconhecimento") as janela:
-        janela.mostrar(object(), [])
+        janela.mostrar(frame_sintetico(), [])
 
     assert cv2_duble.exibicoes == ["Reconhecimento"]
 
@@ -154,7 +160,7 @@ def test_sem_linhas_nada_e_desenhado(cv2_duble: Cv2Duble) -> None:
     cv2_duble.teclas = [-1]
 
     with montar() as janela:
-        janela.mostrar(object(), [])
+        janela.mostrar(frame_sintetico(), [])
 
     assert cv2_duble.textos == []
 
@@ -165,9 +171,7 @@ def test_janela_e_criada_redimensionavel(cv2_duble: Cv2Duble) -> None:
     with montar("Cadastro facial"):
         pass
 
-    assert cv2_duble.janelas_criadas == [
-        ("Cadastro facial", Cv2Duble.WINDOW_NORMAL)
-    ]
+    assert cv2_duble.janelas_criadas == [("Cadastro facial", Cv2Duble.WINDOW_NORMAL)]
 
 
 def test_janela_abre_no_tamanho_pedido(cv2_duble: Cv2Duble) -> None:
@@ -176,3 +180,16 @@ def test_janela_abre_no_tamanho_pedido(cv2_duble: Cv2Duble) -> None:
         pass
 
     assert cv2_duble.redimensionamentos == [("Teste", 1024, 576)]
+
+
+def test_overlay_e_desenhado_em_copia_do_frame(cv2_duble: Cv2Duble) -> None:
+    cv2_duble.teclas = [-1]
+    original = frame_sintetico()
+    pixels_originais = original.copy()
+
+    with montar() as janela:
+        janela.mostrar(original, [("orientacao", VERDE)])
+
+    np.testing.assert_array_equal(original, pixels_originais)
+    assert cv2_duble.frames_exibidos[0] is not original
+    assert tuple(cv2_duble.frames_exibidos[0][0, 0]) == (255, 1, 2)

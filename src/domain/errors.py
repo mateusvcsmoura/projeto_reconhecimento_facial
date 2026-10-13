@@ -17,6 +17,26 @@ class DadosInvalidos(ErroDeDominio):
     """Entrada do operador nao passou na validacao."""
 
 
+class QualidadeCapturaInsuficiente(ErroDeDominio):
+    """A captura nao atende a politica optativa de qualidade."""
+
+
+class RostoMuitoPequeno(QualidadeCapturaInsuficiente):
+    """O rosto ocupa poucos pixels para a avaliacao configurada."""
+
+
+class IluminacaoInsuficiente(QualidadeCapturaInsuficiente):
+    """A luminosidade media do recorte esta abaixo do limite."""
+
+
+class IluminacaoExcessiva(QualidadeCapturaInsuficiente):
+    """A luminosidade media do recorte esta acima do limite."""
+
+
+class RostoSemNitidez(QualidadeCapturaInsuficiente):
+    """A variancia do Laplaciano nao atingiu o limite configurado."""
+
+
 class AlunoJaCadastrado(ErroDeDominio):
     def __init__(self, matricula: str) -> None:
         super().__init__(f"Ja existe um aluno com a matricula {matricula}.")
@@ -57,9 +77,7 @@ class PossivelFraude(ErroDeDominio):
 
     def __init__(self, pontuacao: float | None = None) -> None:
         detalhe = f" (score {pontuacao:.2f})" if pontuacao is not None else ""
-        super().__init__(
-            f"Apresentacao de foto ou tela detectada{detalhe}."
-        )
+        super().__init__(f"Apresentacao de foto ou tela detectada{detalhe}.")
         self.pontuacao = pontuacao
 
 

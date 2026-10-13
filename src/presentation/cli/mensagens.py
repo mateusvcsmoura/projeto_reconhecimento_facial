@@ -34,12 +34,32 @@ _ORIENTACOES: dict[type[Exception], Orientacao] = {
         problema="Mais de um rosto na camera.",
         acao="Peca que as outras pessoas saiam do enquadramento.",
     ),
+    errors.RostoMuitoPequeno: Orientacao(
+        problema="Rosto muito pequeno.",
+        acao="Aproxime-se da camera e tente novamente.",
+    ),
+    errors.IluminacaoInsuficiente: Orientacao(
+        problema="Rosto escuro.",
+        acao="Melhore a iluminacao frontal e tente novamente.",
+    ),
+    errors.IluminacaoExcessiva: Orientacao(
+        problema="Rosto muito claro.",
+        acao="Reduza a luz direta e tente novamente.",
+    ),
+    errors.RostoSemNitidez: Orientacao(
+        problema="Rosto sem nitidez.",
+        acao="Fique parado, ajuste o foco e tente novamente.",
+    ),
+    errors.QualidadeCapturaInsuficiente: Orientacao(
+        problema="Captura inadequada.",
+        acao="Ajuste o enquadramento e tente novamente.",
+    ),
     errors.PossivelFraude: Orientacao(
         problema="Apresentacao de foto ou tela detectada.",
         acao=(
             "Se voce esta ao vivo, o modelo errou: melhore a iluminacao "
             "(evite janela ou luz forte atras de voce), aproxime o rosto e "
-            "tente de novo. Persistindo, use FACE_ANTI_SPOOFING=false."
+            "tente de novo."
         ),
     ),
     errors.ModeloIndisponivel: Orientacao(

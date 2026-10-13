@@ -46,10 +46,11 @@ class JanelaDeVideo:
         frame: Any,
         linhas: list[tuple[str, tuple[int, int, int]]],
     ) -> int:
-        """Desenha as linhas sobre o frame e devolve a tecla pressionada."""
+        """Desenha sobre uma copia e devolve a tecla pressionada."""
+        frame_com_overlay = frame.copy()
         for indice, (texto, cor) in enumerate(linhas):
             y = 40 + indice * 35
-            cv2.putText(frame, texto, (20, y), _FONTE, 0.7, cor, 2)
+            cv2.putText(frame_com_overlay, texto, (20, y), _FONTE, 0.7, cor, 2)
 
-        cv2.imshow(self._titulo, frame)
+        cv2.imshow(self._titulo, frame_com_overlay)
         return cv2.waitKey(1) & 0xFF

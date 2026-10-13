@@ -18,7 +18,7 @@ from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
-from src.domain.errors import FalhaNaLeituraDaCamera
+from src.domain.errors import FalhaNaLeituraDaCamera, RostoSemNitidez
 from src.presentation.cli.menu import INTERVALO_DE_COMPARACAO, MenuCLI
 from src.presentation.cli.teclas import ENTER, ESC, ESPACO
 from tests.fakes import (
@@ -87,6 +87,7 @@ def montar(
         storage=storage,
         camera=camera,
         janela=janela,
+        reconhecimento=reconhecimento,
         saida=saida,
     )
     return menu, contexto
@@ -113,9 +114,7 @@ def test_opcao_invalida_avisa_e_continua() -> None:
 
 def test_erro_de_dominio_vira_mensagem_e_o_menu_sobrevive() -> None:
     """Matricula duplicada nao pode derrubar a aplicacao."""
-    menu, ctx = montar(
-        respostas=["1", "Outro Nome", "1", "6"], teclas=[], alunos=[ANA]
-    )
+    menu, ctx = montar(respostas=["1", "Outro Nome", "1", "6"], teclas=[], alunos=[ANA])
     menu.executar()
 
     assert "ERRO:" in texto(ctx)
@@ -161,6 +160,43 @@ def test_camera_e_liberada_mesmo_com_falha_de_leitura() -> None:
 
     assert ctx.camera.liberada is True  # type: ignore[attr-defined]
     assert "A camera parou de responder." in texto(ctx)
+
+
+def test_cadastro_repete_captura_ruim_sem_repetir_identificacao_ou_consentimento() -> (
+    None
+):
+    menu, ctx = montar(
+        respostas=["1", "Maria", "42", "s", "6"],
+        teclas=[ESPACO, ESPACO],
+        frames=2,
+    )
+    ctx.reconhecimento.erros_ao_preparar = [RostoSemNitidez()]  # type: ignore[attr-defined]
+
+    menu.executar()
+
+    assert "Rosto sem nitidez." in texto(ctx)
+    assert texto(ctx).count("CONSENTIMENTO") == 1
+    assert ctx.reconhecimento.preparacoes == 2  # type: ignore[attr-defined]
+    assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
+    assert ctx.storage.gravacoes == ["42.jpg"]  # type: ignore[attr-defined]
+
+
+def test_esc_apos_recusa_de_qualidade_libera_camera_sem_persistir() -> None:
+    menu, ctx = montar(
+        respostas=["1", "Maria", "42", "s", "6"],
+        teclas=[ESPACO, ESC],
+        frames=2,
+    )
+    ctx.reconhecimento.erros_ao_preparar = [RostoSemNitidez()]  # type: ignore[attr-defined]
+
+    menu.executar()
+
+    assert "Cadastro cancelado." in texto(ctx)
+    assert ctx.reconhecimento.preparacoes == 1  # type: ignore[attr-defined]
+    assert ctx.alunos.alunos == []  # type: ignore[attr-defined]
+    assert ctx.storage.gravacoes == []  # type: ignore[attr-defined]
+    assert ctx.camera.liberada is True  # type: ignore[attr-defined]
+    assert ctx.janela.fechada is True  # type: ignore[attr-defined]
 
 
 # -- reconhecimento --------------------------------------------------------
@@ -216,6 +252,49 @@ def test_enter_sem_reconhecimento_nao_registra_nada() -> None:
     menu.executar()
 
     assert ctx.presencas.registros == set()  # type: ignore[attr-defined]
+
+
+def test_recusa_de_qualidade_limpa_candidato_e_recupera_no_proximo_ciclo() -> None:
+    teclas = (
+        [0] * INTERVALO_DE_COMPARACAO
+        + [0] * (INTERVALO_DE_COMPARACAO - 1)
+        + [ENTER]
+        + [0] * (INTERVALO_DE_COMPARACAO - 1)
+        + [ENTER, ESC]
+    )
+    menu, ctx = montar(
+        respostas=["2", "6"],
+        teclas=teclas,
+        frames=len(teclas),
+        alunos=[ANA],
+        embeddings={1: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
+    )
+    ctx.reconhecimento.erros_ao_gerar = [  # type: ignore[attr-defined]
+        None,
+        RostoSemNitidez(),
+        None,
+    ]
+
+    menu.executar()
+
+    orientacoes = [
+        (texto, cor)
+        for exibicao in ctx.janela.exibicoes  # type: ignore[attr-defined]
+        for texto, cor in exibicao
+        if "Rosto sem nitidez." in texto
+    ]
+    assert orientacoes
+    assert all(
+        orientacao
+        == (
+            "Rosto sem nitidez. Fique parado, ajuste o foco e tente novamente.",
+            (0, 255, 255),
+        )
+        for orientacao in orientacoes
+    )
+    assert len(ctx.presencas.chamadas) == 1  # type: ignore[attr-defined]
+    assert len(ctx.presencas.registros) == 1  # type: ignore[attr-defined]
 
 
 def test_esc_sai_do_reconhecimento() -> None:

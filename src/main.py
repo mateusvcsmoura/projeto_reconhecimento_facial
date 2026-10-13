@@ -23,6 +23,7 @@ from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
 from src.domain.errors import ErroDeDominio
+from src.domain.services.qualidade_captura import ParametrosQualidade
 from src.infrastructure.camera.opencv_camera import OpenCVCamera
 from src.infrastructure.database.engine import criar_engine
 from src.infrastructure.face_recognition.deepface_adapter import DeepFaceAdapter
@@ -45,10 +46,21 @@ def montar_menu(settings: Settings) -> MenuCLI:
     alunos = PostgresAlunoRepository(engine)
     presencas = PostgresPresencaRepository(engine)
     storage = LocalImageStorage(settings.storage_dir)
+    qualidade = (
+        ParametrosQualidade(
+            min_face_px=settings.face_quality_min_face_px,
+            min_brightness=settings.face_quality_min_brightness,
+            max_brightness=settings.face_quality_max_brightness,
+            min_sharpness=settings.face_quality_min_sharpness,
+        )
+        if settings.face_quality_enabled
+        else None
+    )
     reconhecimento = DeepFaceAdapter(
         modelo=settings.face_model,
         detector=settings.face_detector,
         anti_spoofing=settings.face_anti_spoofing,
+        qualidade=qualidade,
     )
 
     if not settings.face_anti_spoofing:

@@ -1,13 +1,14 @@
 # Arquitetura
 
-Sistema de reconhecimento facial para controle de presença de alunos.
+Projeto acadêmico da disciplina de Inteligência Artificial da Fatec:
+reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
 | **Estado** | Fases 1–9 concluídas; 18 de 18 problemas do baseline fechados |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 518 unitários aprovados em 10/10/2026; última suíte completa histórica: 597 (Etapa 4) |
+| **Testes** | 611 unitários aprovados em 13/10/2026; última suíte completa histórica: 597 (Etapa 4) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
@@ -25,7 +26,7 @@ O que ele faz, em uma frase por operação:
 
 | Operação | O que acontece |
 |---|---|
-| **Cadastrar** | Colhe consentimento, captura o rosto, calcula o embedding uma vez e persiste |
+| **Cadastrar** | Colhe consentimento, valida uma captura e persiste o mesmo recorte usado no embedding |
 | **Reconhecer** | Uma inferência por ciclo, comparada por distância cosseno contra todos os cadastrados |
 | **Registrar presença** | `INSERT ... ON CONFLICT DO NOTHING` — a regra "uma por dia" é do banco |
 | **Listar / consultar** | Alunos com situação de embedding; presenças do dia com horário de chegada |
@@ -151,7 +152,7 @@ sequenceDiagram
         Cam-->>Menu: frame
         Menu->>UC: identificar(frame, referências)
         UC->>DF: gerar_embedding(frame)
-        Note over DF: 1 inferência<br/>detecção + anti-spoofing + Facenet512
+        Note over DF: 1 deteccao + anti-spoofing<br/>qualidade opcional antes de 1 representacao Facenet512
         DF-->>UC: vetor normalizado
         UC->>Mat: melhor_candidato(vetor, limiar)
         Note over Mat: produto matriz-vetor<br/>menor distância vence
@@ -162,6 +163,15 @@ sequenceDiagram
     Op->>Menu: ENTER
     Menu->>DB: INSERT ... ON CONFLICT DO NOTHING
 ```
+
+Com `FACE_QUALITY_ENABLED=true`, as medidas de tamanho, iluminação e
+nitidez são avaliadas depois da face única e do anti-spoofing, antes da
+representação. No cadastro, `preparar_cadastro` usa o mesmo recorte para
+gravar a imagem e gerar o embedding, evitando uma segunda detecção. Uma
+recusa não persiste imagem ou embedding e permite outra captura sem repetir
+identificação e consentimento. No reconhecimento, a recusa limpa o candidato
+imediatamente; a câmera continua aberta e ENTER não registra presença nesse
+ciclo.
 
 ### Custo, medido
 
@@ -174,9 +184,9 @@ sequenceDiagram
 | 200 | 0,0142 ms | 70.628 |
 | 1000 | 0,1378 ms | 7.259 |
 
-O desenho anterior fazia até `2N` inferências Facenet512 por ciclo. Com 200
-alunos isso eram 400 inferências; hoje é **uma**, mais a fração de
-milissegundo acima.
+O desenho anterior fazia até `2N` comparações com inferência facial por
+ciclo. Com 200 alunos isso eram 400; hoje cada ciclo faz uma detecção e uma
+representação, seguidas da comparação vetorizada em frações de milissegundo.
 
 ---
 
@@ -270,8 +280,17 @@ boot** se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — ver ADR-004 |
 | `FACE_ANTI_SPOOFING` | `true` | |
+| `FACE_QUALITY_ENABLED` | `false` | Opt-in; mantém a política de aceitação anterior por padrão |
+| `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão da face informada pelo detector |
+| `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da média de luminância, escala 0–255 |
+| `FACE_QUALITY_MIN_SHARPNESS` | `100` | Variância mínima do Laplaciano discreto |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga |
+
+Os limites de qualidade são heurísticas iniciais sem calibração biométrica.
+A média de luminância não caracteriza toda contraluz, e ruído pode elevar a
+medida de nitidez. A validação usa somente imagens sintéticas e demonstra
+comportamento do software, sem medir acurácia em reconhecimento facial.
 
 ---
 
@@ -295,6 +314,11 @@ graph LR
 |---|---|
 | `NenhumRostoDetectado` | Aproxime-se, olhe para a lente, verifique a iluminação |
 | `MultiplosRostosDetectados` | Peça que as outras pessoas saiam do enquadramento |
+| `RostoMuitoPequeno` | Aproxime-se da câmera e tente novamente |
+| `IluminacaoInsuficiente` | Melhore a iluminação frontal e tente novamente |
+| `IluminacaoExcessiva` | Reduza a luz direta e tente novamente |
+| `RostoSemNitidez` | Fique parado, ajuste o foco e tente novamente |
+| `QualidadeCapturaInsuficiente` | Ajuste o enquadramento e tente novamente |
 | `PossivelFraude` | Se está ao vivo, o modelo errou: melhore a iluminação e a resolução |
 | `ModeloIndisponivel` | Verifique a instalação — **mais a causa original anexada** |
 | `CameraIndisponivel` | Feche outros programas e ajuste `CAMERA_INDEX` |

@@ -21,6 +21,11 @@ TODOS_OS_ERROS = [
     errors.ConsentimentoNaoRegistrado("x"),
     errors.AlunoNaoEncontrado("42"),
     errors.AlunoJaCadastrado("42"),
+    errors.QualidadeCapturaInsuficiente(),
+    errors.RostoMuitoPequeno(),
+    errors.IluminacaoInsuficiente(),
+    errors.IluminacaoExcessiva(),
+    errors.RostoSemNitidez(),
 ]
 
 
@@ -57,6 +62,45 @@ def test_fraude_e_ausencia_de_rosto_nao_se_confundem() -> None:
     assert fraude != sem_rosto
     assert "foto" in fraude.lower()
     assert "iluminacao" in sem_rosto.lower()
+
+
+@pytest.mark.parametrize(
+    ("erro", "mensagem"),
+    [
+        (
+            errors.RostoMuitoPequeno(),
+            "Rosto muito pequeno. Aproxime-se da camera e tente novamente.",
+        ),
+        (
+            errors.IluminacaoInsuficiente(),
+            "Rosto escuro. Melhore a iluminacao frontal e tente novamente.",
+        ),
+        (
+            errors.IluminacaoExcessiva(),
+            "Rosto muito claro. Reduza a luz direta e tente novamente.",
+        ),
+        (
+            errors.RostoSemNitidez(),
+            "Rosto sem nitidez. Fique parado, ajuste o foco e tente novamente.",
+        ),
+        (
+            errors.QualidadeCapturaInsuficiente(),
+            "Captura inadequada. Ajuste o enquadramento e tente novamente.",
+        ),
+    ],
+)
+def test_qualidade_de_captura_tem_orientacao_especifica(
+    erro: Exception, mensagem: str
+) -> None:
+    assert para_operador(erro) == mensagem
+
+
+def test_mensagem_de_fraude_nao_recomenda_desligar_antispoofing() -> None:
+    mensagem = para_operador(errors.PossivelFraude())
+
+    assert "FACE_ANTI_SPOOFING=false" not in mensagem
+    assert "iluminacao" in mensagem
+    assert "tente de novo" in mensagem
 
 
 def test_dados_invalidos_usa_o_proprio_texto() -> None:

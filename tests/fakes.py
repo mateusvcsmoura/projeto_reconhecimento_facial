@@ -17,6 +17,7 @@ from typing import Any
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import AlunoJaCadastrado
+from src.domain.services.face_recognition import FacePreparada
 
 
 class FakeAlunoRepository:
@@ -92,9 +93,7 @@ class FakePresencaRepository:
                 aluno_id=aluno_id,
                 matricula=str(aluno_id),
                 nome=f"Aluno {aluno_id}",
-                registrado_em=dt.datetime.combine(
-                    d, dt.time(8, 0), tzinfo=dt.UTC
-                ),
+                registrado_em=dt.datetime.combine(d, dt.time(8, 0), tzinfo=dt.UTC),
             )
             for aluno_id, d in sorted(self.registros)
             if d == dia
@@ -133,11 +132,17 @@ class FakeFaceRecognition:
         face: Any = None,
         erro_ao_extrair: Exception | None = None,
         erro_ao_gerar: Exception | None = None,
+        erro_ao_preparar: Exception | None = None,
     ) -> None:
         self.embedding = embedding
         self.face = face if face is not None else object()
         self.erro_ao_extrair = erro_ao_extrair
         self.erro_ao_gerar = erro_ao_gerar
+        self.erro_ao_preparar = erro_ao_preparar
+        self.preparacoes = 0
+        self.extracoes = 0
+        self.erros_ao_gerar: list[Exception | None] = []
+        self.erros_ao_preparar: list[Exception | None] = []
         self.inferencias = 0
         self.preaquecido = False
 
@@ -145,28 +150,47 @@ class FakeFaceRecognition:
         self.preaquecido = True
 
     def extrair_face_unica(self, imagem: Any) -> Any:
+        self.extracoes += 1
         if self.erro_ao_extrair is not None:
             raise self.erro_ao_extrair
         return self.face
 
     def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
         self.inferencias += 1
+        if self.erros_ao_gerar:
+            erro = self.erros_ao_gerar.pop(0)
+            if erro is not None:
+                raise erro
         if self.erro_ao_gerar is not None:
             raise self.erro_ao_gerar
         if self.embedding is None:
             return FaceEmbedding.de_valores([1.0, 0.0, 0.0], "Facenet512")
         return self.embedding
 
+    def preparar_cadastro(self, imagem: Any) -> FacePreparada:
+        self.preparacoes += 1
+        if self.erros_ao_preparar:
+            erro = self.erros_ao_preparar.pop(0)
+            if erro is not None:
+                raise erro
+        if self.erro_ao_preparar is not None:
+            raise self.erro_ao_preparar
+        face = self.extrair_face_unica(imagem)
+        embedding = self.gerar_embedding(face)
+        return FacePreparada(imagem=face, embedding=embedding)
+
 
 class FakeImageStorage:
     def __init__(self, existentes: set[str] | None = None) -> None:
         self.arquivos: set[str] = set(existentes or set())
         self.gravacoes: list[str] = []
+        self.imagens_salvas: list[tuple[str, Any]] = []
         self.remocoes: list[str] = []
 
     def salvar(self, nome_arquivo: str, imagem: Any) -> str:
         self.arquivos.add(nome_arquivo)
         self.gravacoes.append(nome_arquivo)
+        self.imagens_salvas.append((nome_arquivo, imagem))
         return nome_arquivo
 
     def existe(self, nome_arquivo: str) -> bool:

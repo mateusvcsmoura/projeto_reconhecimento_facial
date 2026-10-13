@@ -1,6 +1,6 @@
 """Contrato do mecanismo de reconhecimento facial.
 
-O dominio fala em "extrair um rosto" e "gerar um embedding". Nao fala em
+O dominio fala em preparar uma face e gerar um embedding. Nao fala em
 DeepFace, em Facenet512 nem em backend de deteccao -- trocar o modelo nao
 deve alcancar os casos de uso.
 
@@ -10,9 +10,18 @@ vive em `domain/services/matcher.py`, onde e testavel sem modelo de IA.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from src.domain.entities.face_embedding import FaceEmbedding
+
+
+@dataclass(frozen=True, slots=True)
+class FacePreparada:
+    """Recorte aceito para armazenamento e embedding calculado desse recorte."""
+
+    imagem: Any
+    embedding: FaceEmbedding
 
 
 class FaceRecognition(Protocol):
@@ -39,5 +48,12 @@ class FaceRecognition(Protocol):
 
         Levanta NenhumRostoDetectado, MultiplosRostosDetectados ou
         ModeloIndisponivel.
+        """
+        ...
+
+    def preparar_cadastro(self, imagem: Any) -> FacePreparada:
+        """Prepara a face alinhada e seu embedding em uma deteccao unica.
+
+        A mesma imagem que originou o embedding e devolvida para persistencia.
         """
         ...

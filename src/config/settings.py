@@ -11,10 +11,11 @@ configuracao morta.
 from __future__ import annotations
 
 from functools import lru_cache
+from math import isfinite
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +65,14 @@ class Settings(BaseSettings):
     # heranca da biblioteca -- agora ao menos explicita e ajustavel.
     face_threshold: float = 0.30
 
+    # Heuristicas optativas de qualidade. Os valores nao foram calibrados
+    # com rostos e a politica fica desabilitada para preservar o baseline.
+    face_quality_enabled: bool = False
+    face_quality_min_face_px: int = 80
+    face_quality_min_brightness: float = 40.0
+    face_quality_max_brightness: float = 215.0
+    face_quality_min_sharpness: float = 100.0
+
     # Recusa frames que o detector classifique como apresentacao (foto
     # impressa, tela de celular). Sem isto, um controle de presenca por
     # rosto nao entrega a garantia que promete (problema A7).
@@ -112,9 +121,7 @@ class Settings(BaseSettings):
     def _exigir_limiar_valido(cls, valor: float) -> float:
         # Distancia cosseno entre vetores normalizados vive em [0, 2].
         if not 0.0 < valor <= 2.0:
-            raise ValueError(
-                f"FACE_THRESHOLD deve estar em (0, 2]; recebido {valor}."
-            )
+            raise ValueError(f"FACE_THRESHOLD deve estar em (0, 2]; recebido {valor}.")
         return valor
 
     @field_validator("retencao_presencas_dias")
@@ -151,6 +158,43 @@ class Settings(BaseSettings):
                 "reconhecimento facial."
             )
         return valor
+
+    @field_validator("face_quality_min_face_px", mode="before")
+    @classmethod
+    def _rejeitar_booleano_como_tamanho_de_face(cls, valor: object) -> object:
+        if isinstance(valor, bool):
+            raise ValueError("FACE_QUALITY_MIN_FACE_PX deve ser um inteiro >= 3.")
+        return valor
+
+    @field_validator("face_quality_min_face_px")
+    @classmethod
+    def _exigir_tamanho_minimo_de_face(cls, valor: int) -> int:
+        if valor < 3:
+            raise ValueError("FACE_QUALITY_MIN_FACE_PX deve ser um inteiro >= 3.")
+        return valor
+
+    @field_validator("face_quality_min_brightness", "face_quality_max_brightness")
+    @classmethod
+    def _exigir_brilho_finito(cls, valor: float) -> float:
+        if not isfinite(valor) or not 0.0 <= valor <= 255.0:
+            raise ValueError("Os limites de brilho devem estar entre 0 e 255.")
+        return valor
+
+    @field_validator("face_quality_min_sharpness")
+    @classmethod
+    def _exigir_nitidez_finita(cls, valor: float) -> float:
+        if not isfinite(valor) or valor < 0.0:
+            raise ValueError("FACE_QUALITY_MIN_SHARPNESS deve ser finito e >= 0.")
+        return valor
+
+    @model_validator(mode="after")
+    def _exigir_intervalo_de_brilho_valido(self) -> Settings:
+        if self.face_quality_min_brightness >= self.face_quality_max_brightness:
+            raise ValueError(
+                "FACE_QUALITY_MAX_BRIGHTNESS deve ser maior que "
+                "FACE_QUALITY_MIN_BRIGHTNESS."
+            )
+        return self
 
     @property
     def timezone(self) -> ZoneInfo:
