@@ -96,4 +96,4 @@ git diff --check
 - [x] Não rodar migrations ou testes de integração/BDD ligados a PostgreSQL. Não há alteração de schema. Declarar esse limite e usar os testes de fluxo com fakes.
 - [x] Revisar diff e staged: nenhuma mudança em provider, schema, configuração real, threshold ou dados; assinaturas antigas compatíveis; sem exemplos matemáticos apresentados como calibração. Corrigir somente problemas relacionados à tarefa.
 - [x] Criar `tasks/003-rejeicao-ambiguidade/RESULTADO.md` com baseline, decisões, comandos/resultados reais, limitações e estado de publicação. Marcar caixas executadas e atualizar `tasks/README.md`, sem alegar push antecipadamente.
-- [ ] Executar commit e push pelo PROMPT.md. Relatar hash e confirmação do remoto ou impedimento concreto.
+- [x] Executar commit e push pelo PROMPT.md. Relatar hash e confirmação do remoto ou impedimento concreto.

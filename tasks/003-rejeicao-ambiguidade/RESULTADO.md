@@ -74,7 +74,7 @@ checkout foram preservados.
 
 ## Publicação
 
-O `PROMPT.md` autoriza commit e push de forma explícita. No momento da criação
-deste relatório, a validação está concluída e o conteúdo segue para revisão de
-staging e publicação em `main`; a confirmação do commit e do remoto será
-informada na resposta da execução.
+O `PROMPT.md` autorizou explicitamente o commit e o push. A implementação foi
+publicada em `origin/main` sem force push. Após o envio, `git rev-parse HEAD` e
+`git ls-remote origin refs/heads/main` retornaram a mesma referência. O hash
+publicado está informado na resposta desta execução.

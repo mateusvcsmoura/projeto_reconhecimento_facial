@@ -6,7 +6,7 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 |---|---|---|---|
 | 001 | Qualidade de captura: nitidez, iluminação e tamanho da face | Luna 6, esforço High | Concluída; implementação publicada na main |
 | 002 | Consistência temporal e validade da identificação antes do registro | Luna 6, esforço High | Concluída; implementação publicada na main |
-| 003 | Rejeição por ambiguidade entre identidades candidatas | Luna 6, esforço High | Implementação concluída e validada; ver resultado |
+| 003 | Rejeição por ambiguidade entre identidades candidatas | Luna 6, esforço High | Concluída; implementação publicada na main |
 
 ## Como executar
 
@@ -18,4 +18,4 @@ A tarefa 001 foi implementada, verificada e publicada conforme o resultado regis
 
 A tarefa 002 parte do código concluído da 001. A implementação optativa, os testes e os limites das evidências estão registrados em [002-consistencia-temporal/RESULTADO.md](002-consistencia-temporal/RESULTADO.md).
 
-A tarefa 003 parte das duas implementações anteriores. Seu [desenho](003-rejeicao-ambiguidade/DESENHO.md) define a comparação entre as duas melhores identidades; o [plano](003-rejeicao-ambiguidade/PLANO.md) cobre integração e testes. Implementação, validações e limites estão em [003-rejeicao-ambiguidade/RESULTADO.md](003-rejeicao-ambiguidade/RESULTADO.md); o prompt autoriza commit e push na `main`.
+A tarefa 003 parte das duas implementações anteriores. Seu [desenho](003-rejeicao-ambiguidade/DESENHO.md) define a comparação entre as duas melhores identidades; o [plano](003-rejeicao-ambiguidade/PLANO.md) cobre integração e testes. Implementação, validações, limites e publicação estão em [003-rejeicao-ambiguidade/RESULTADO.md](003-rejeicao-ambiguidade/RESULTADO.md).
