@@ -91,6 +91,14 @@ class Settings(BaseSettings):
     # rosto nao entrega a garantia que promete (problema A7).
     face_anti_spoofing: bool = True
 
+    # Overlay visual optativo, exclusivo da janela de cadastro. O modelo
+    # nunca e baixado pela aplicacao; o caminho relativo e resolvido na raiz.
+    face_landmarks_enabled: bool = False
+    face_landmarks_model_path: Path = PROJECT_ROOT / "models" / "face_landmarker.task"
+    face_landmarks_python_path: Path = (
+        PROJECT_ROOT / ".venv-landmarks" / "Scripts" / "python.exe"
+    )
+
     # Retencao de presencas, em dias. 0 desliga o expurgo.
     # Dado pessoal nao deve ser guardado por mais tempo do que a finalidade
     # exige (LGPD art. 15/16). 1825 dias = 5 anos, prazo tipico de guarda
@@ -143,6 +151,13 @@ class Settings(BaseSettings):
         if valor < 0:
             raise ValueError("RETENCAO_PRESENCAS_DIAS nao pode ser negativo.")
         return valor
+
+    @field_validator("face_landmarks_model_path", "face_landmarks_python_path")
+    @classmethod
+    def _resolver_caminho_de_landmarks(cls, valor: Path) -> Path:
+        if valor.is_absolute():
+            return valor
+        return PROJECT_ROOT / valor
 
     @field_validator("camera_index")
     @classmethod

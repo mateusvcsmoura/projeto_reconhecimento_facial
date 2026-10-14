@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
-from src.config.settings import Settings
+from src.config.settings import PROJECT_ROOT, Settings
 from src.presentation.cli import prompts
 
 URL_VALIDA = "postgresql+psycopg://u:p@h:5432/d"
@@ -305,3 +307,58 @@ def test_margem_vazia_no_ambiente_e_invalida(
 
     with pytest.raises(ValidationError, match="FACE_AMBIGUITY_MIN_MARGIN"):
         Settings(_env_file=None, database_url=URL_VALIDA)
+
+
+def test_landmarks_sao_optativos_e_caminho_padrao_fica_na_raiz_do_projeto(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FACE_LANDMARKS_ENABLED", raising=False)
+    monkeypatch.delenv("FACE_LANDMARKS_MODEL_PATH", raising=False)
+    monkeypatch.delenv("FACE_LANDMARKS_PYTHON_PATH", raising=False)
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_landmarks_enabled is False
+    assert (
+        settings.face_landmarks_model_path
+        == PROJECT_ROOT / "models" / "face_landmarker.task"
+    )
+    assert (
+        settings.face_landmarks_python_path
+        == PROJECT_ROOT / ".venv-landmarks" / "Scripts" / "python.exe"
+    )
+
+
+def test_caminho_relativo_dos_landmarks_resolve_a_partir_da_raiz_do_projeto() -> None:
+    settings = Settings(
+        _env_file=None,
+        database_url=URL_VALIDA,
+        face_landmarks_model_path="models/alternativo.task",
+        face_landmarks_python_path="tools/python-landmarks.exe",
+    )
+
+    assert (
+        settings.face_landmarks_model_path
+        == PROJECT_ROOT / "models" / "alternativo.task"
+    )
+    assert (
+        settings.face_landmarks_python_path
+        == PROJECT_ROOT / "tools" / "python-landmarks.exe"
+    )
+
+
+def test_landmarks_aceitam_override_de_ambiente(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    caminho = tmp_path / "landmarker.task"
+    python_path = tmp_path / "python-landmarks.exe"
+    monkeypatch.setenv("FACE_LANDMARKS_ENABLED", "true")
+    monkeypatch.setenv("FACE_LANDMARKS_MODEL_PATH", str(caminho))
+    monkeypatch.setenv("FACE_LANDMARKS_PYTHON_PATH", str(python_path))
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_landmarks_enabled is True
+    assert settings.face_landmarks_model_path == caminho
+    assert settings.face_landmarks_python_path == python_path

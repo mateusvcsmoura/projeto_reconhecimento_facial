@@ -237,6 +237,7 @@ escola.db
 # excluir o modulo de codigo src/infrastructure/storage/.
 /fotos/
 /storage/
+/models/*.task
 *.npy
 
 # Experimentos de ML (docs/ML-EXPERIMENT-SETUP.md): datasets, caches de

@@ -3,11 +3,11 @@
 Projeto acadêmico da disciplina de IA da Fatec, não um TCC. Aplicação CLI que
 cadastra referências faciais e apoia o registro de presença após confirmação
 do operador. PostgreSQL e arquitetura em camadas. O registro do estado atual,
-das fontes, verificações e limitações das tarefas 001–004 está em
-[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Os
-812 testes unitários são o resultado registrado na tarefa 004 em 13/10/2026;
-a suíte completa mais recente registrada continua sendo histórica (597 testes
-na Etapa 4).
+das fontes, verificações e limitações das tarefas 001–006 está em
+[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Na
+correção da tarefa 006, 841 testes unitários passaram; os ambientes principal
+e auxiliar passaram em `pip check`. Os landmarks usam um worker local isolado;
+o resultado detalha instalação, evidências e validação visual ainda pendente.
 
 | | |
 |---|---|
@@ -16,6 +16,7 @@ na Etapa 4).
 | **Dados pessoais** | [`docs/lgpd.md`](docs/lgpd.md) — o que é tratado, por quê e por quanto tempo |
 | **Apresentação** | [`docs/apresentacao.md`](docs/apresentacao.md) — roteiro de demonstração |
 | **Estado e evidências** | [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) — implementação, fontes, testes e limites |
+| **Landmarks visuais** | [`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md) — setup local, configuração e validação manual |
 | **Como chegou aqui** | [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md) e [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) |
 
 ---
@@ -154,6 +155,9 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
 | `FACE_ANTI_SPOOFING` | `true` | Recusa foto impressa e tela |
+| `FACE_LANDMARKS_ENABLED` | `false` | Mostra landmarks somente na prévia de cadastro; opt-in |
+| `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local; caminho relativo à raiz do projeto |
+| `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Interpretador local isolado do worker MediaPipe |
 | `FACE_QUALITY_ENABLED` | `false` | Ativa checagens heurísticas de captura; opt-in |
 | `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão informada pelo detector, em pixels |
 | `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da luminosidade média, de 0 a 255 |
@@ -178,6 +182,13 @@ independente. A política de ambiguidade também é independente e não altera
 o limiar ou o anti-spoofing. Ao ativá-la, escolha a margem explicitamente;
 `0.0` significa rejeitar somente empates exatos, não uma margem recomendada.
 Nenhum teste sintético calibra valores nem mede desempenho biométrico.
+
+O overlay visual de landmarks é independente dessas decisões. Ele só é
+habilitado em `Cadastro facial`, desenha na cópia da prévia e nunca envia
+pixels alterados ao cadastro. MediaPipe Tasks roda em processo local isolado
+para manter um único fornecedor de `cv2` em cada ambiente. Veja a
+[configuração e os limites](docs/FACIAL-LANDMARKS.md) e o
+[resultado da tarefa 006](tasks/006-facial-landmarks/RESULTADO.md).
 
 ---
 

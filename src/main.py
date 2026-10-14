@@ -24,6 +24,7 @@ from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
 from src.domain.errors import ErroDeDominio
 from src.domain.services.consistencia_temporal import ParametrosTemporais
+from src.domain.services.facial_landmarks import LandmarksProvider
 from src.domain.services.matcher import PoliticaAmbiguidade
 from src.domain.services.qualidade_captura import ParametrosQualidade
 from src.infrastructure.camera.opencv_camera import OpenCVCamera
@@ -92,6 +93,23 @@ def montar_menu(settings: Settings) -> MenuCLI:
             "no lugar da pessoa. Use apenas em desenvolvimento."
         )
 
+    def abrir_janela(titulo: str) -> JanelaDeVideo:
+        if not settings.face_landmarks_enabled or titulo != "Cadastro facial":
+            return JanelaDeVideo(titulo)
+
+        def criar_landmarks() -> LandmarksProvider:
+            # Import e inicializacao ficam adiados ate a sessao de cadastro.
+            from src.infrastructure.face_recognition.mediapipe_landmarks import (
+                MediaPipeLandmarks,
+            )
+
+            return MediaPipeLandmarks(
+                settings.face_landmarks_model_path,
+                python_executable=settings.face_landmarks_python_path,
+            )
+
+        return JanelaDeVideo(titulo, criar_landmarks=criar_landmarks)
+
     return MenuCLI(
         cadastrar_aluno=CadastrarAluno(
             alunos, reconhecimento, storage, settings.timezone
@@ -114,7 +132,7 @@ def montar_menu(settings: Settings) -> MenuCLI:
             altura=settings.camera_altura,
             backend=settings.camera_backend,
         ),
-        abrir_janela=JanelaDeVideo,
+        abrir_janela=abrir_janela,
         temporal=temporal,
     )
 

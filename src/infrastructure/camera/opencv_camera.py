@@ -1,6 +1,6 @@
 """Camera via OpenCV.
 
-Um dos dois unicos modulos que importam cv2 (o outro e o viewer da CLI).
+A câmera, o viewer e o provider visual opcional são as fronteiras de OpenCV.
 
 O prototipo abria e liberava a camera em duas funcoes diferentes, com
 `release()` no fim do corpo: qualquer excecao no laco deixava o

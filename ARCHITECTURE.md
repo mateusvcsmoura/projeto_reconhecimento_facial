@@ -5,15 +5,15 @@ reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
-| **Estado** | Fases 1–9 da refatoração registradas como executadas; melhorias 001–004 implementadas optativamente ou em benchmark |
+| **Estado** | Fases 1–9 da refatoração registradas como executadas; tarefas 001–006 implementadas no workspace; inspeção visual manual da tarefa 006 pendente |
 | **Entrada** | `python -m src.main` |
-| **Código** | ~2.400 linhas em 30 módulos |
-| **Testes** | 812 unitários na tarefa 004; seleção focal de 167 testes na tarefa 005 (13/10/2026); última suíte completa histórica: 597 (Etapa 4) |
+| **Código** | ~2.400 linhas e 30 módulos no snapshot pré-006; novos módulos da tarefa 006 estão no diff local |
+| **Testes** | 841 testes unitários passaram; Ruff, mypy, formatação e `pip check` dos ambientes do app/worker aprovados; ver [resultado](tasks/006-facial-landmarks/RESULTADO.md) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
 refatoração em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md). O snapshot com
-fontes, verificações e limitações das tarefas 001–004 está em
+fontes, verificações e limitações das tarefas 001–006 está em
 [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ---
@@ -42,10 +42,10 @@ Quatro camadas, dependências apontando sempre para dentro.
 
 ```mermaid
 graph TD
-    P["<b>Presentation</b><br/>menu · prompts · viewer · mensagens"]
+    P["<b>Presentation</b><br/>menu · prompts · viewer · overlays"]
     A["<b>Application</b><br/>casos de uso"]
     D["<b>Domain</b><br/>entidades · contratos · matcher · erros"]
-    I["<b>Infrastructure</b><br/>PostgreSQL · OpenCV · DeepFace · arquivos"]
+    I["<b>Infrastructure</b><br/>PostgreSQL · OpenCV · DeepFace · worker MediaPipe local opcional"]
     M["<b>src/main.py</b><br/>composition root"]
 
     P --> A
@@ -89,7 +89,7 @@ src/
 │   ├── settings.py              pydantic-settings; falha no boot sem DATABASE_URL
 │   └── logging.py               logging estruturado, sem PII
 │
-├── domain/                      núcleo puro — só numpy como dependência externa
+├── domain/                      núcleo puro — regras e contratos
 │   ├── entities/
 │   │   ├── aluno.py             dataclass
 │   │   └── face_embedding.py    vetor L2-normalizado + modelo + dimensão
@@ -98,6 +98,7 @@ src/
 │   │   ├── matcher.py           escolha do melhor candidato (regra pura)
 │   │   ├── consistencia_temporal.py IDs/timestamps para confirmação vigente
 │   │   ├── face_recognition.py  contrato do reconhecimento
+│   │   ├── facial_landmarks.py  DTOs numéricos e contrato visual opcional
 │   │   ├── camera_provider.py   contrato da fonte de imagem
 │   │   └── image_storage.py     contrato do armazenamento
 │   └── errors.py                erros nomeados do domínio
@@ -114,6 +115,7 @@ src/
 │   ├── menu.py                  laço do menu e laços de vídeo
 │   ├── prompts.py               entrada do operador (leitor injetável)
 │   ├── viewer.py                janela OpenCV
+│   ├── landmarks_overlay.py    desenho transitório sobre cópia da prévia
 │   ├── confianca.py             distância → porcentagem legível
 │   ├── mensagens.py             erro de domínio → orientação acionável
 │   └── teclas.py                constantes, sem cv2
@@ -124,7 +126,10 @@ src/
     ├── camera/opencv_camera.py  captura (cv2)
     ├── storage/                 imagens em disco (cv2)
     └── face_recognition/
-        └── deepface_adapter.py  único importador de deepface
+        ├── deepface_adapter.py  único importador de deepface
+        ├── mediapipe_landmarks.py provider visual carregado sob demanda
+        ├── mediapipe_landmarks_protocol.py framing local por pipes binários
+        └── mediapipe_landmarks_worker.py Tasks executadas em processo auxiliar
 ```
 
 ---
@@ -323,6 +328,7 @@ corrida e, sobre os dados legados, **cego**: o formato de data gravado fazia
 | TensorFlow + tf-keras | 2.21.0 | Backend do Facenet512 |
 | PyTorch | 2.14.0 | Backend do anti-spoofing (MiniFASNet) |
 | OpenCV | 4.13.0.92 | Câmera e janela |
+| MediaPipe Tasks | 0.10.35 em `.venv-landmarks` | Worker visual optativo por pipes locais; `pip check` limpo e sem fornecedor cv2 concorrente por ambiente |
 
 O DeepFace declara só `tensorflow>=1.9.0` e não declara `torch`. Ambos são
 fixados aqui: sem isso, cada máquina resolvia uma combinação diferente — e
@@ -347,6 +353,9 @@ boot** se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — ver ADR-004 |
 | `FACE_ANTI_SPOOFING` | `true` | |
+| `FACE_LANDMARKS_ENABLED` | `false` | Overlay apenas em Cadastro facial; opt-in |
+| `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local, resolvido a partir da raiz |
+| `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Worker MediaPipe isolado do ambiente principal |
 | `FACE_QUALITY_ENABLED` | `false` | Opt-in; mantém a política de aceitação anterior por padrão |
 | `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão da face informada pelo detector |
 | `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da média de luminância, escala 0–255 |

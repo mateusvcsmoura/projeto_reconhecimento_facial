@@ -1,0 +1,5 @@
+# Instalar SOMENTE em .venv-landmarks, nunca no .venv-app.
+# Esse processo auxiliar é isolado do OpenCV usado por DeepFace na aplicação.
+mediapipe==0.10.35
+opencv-contrib-python==4.13.0.92
+numpy==2.5.3
