@@ -25,9 +25,11 @@ pendências biométricas.
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
+
 - Organização de experimentos reproduzíveis, separação por identidade, controles de cache e privacidade.
 
 ### Etapa 1 — Calibração de verificação 1:1
+
 - Limiar histórico operacional: `0.30`.
 - Candidato de validação previamente obtido: `0.42817932706540435` para meta de FAR <= 0,1%; **não aprovado para adoção operacional**.
 - Resultados históricos com LFW, verificação **1:1**, sem antispoofing: 336 identidades; 1.099 imagens; 2.001 pares genuínos; 601.350 pares impostores; extração falhou em aproximadamente 11,8%.
@@ -35,19 +37,23 @@ pendências biométricas.
 - Esses resultados **não representam** desempenho em sala de aula ou identificação **1:N**. O teste histórico já foi consultado; não tratá-lo como holdout intocado. Origem/autorização de reutilização do LFW e possível sobreposição com o pré-treinamento do FaceNet512 não foram resolvidas.
 
 ### Etapa 2 — Aprendizado supervisionado
+
 - Implementados experimentos para baseline M0 (`0.30`), M1 (limiar calibrado), M2 (regressão logística), M3 (Gaussian Naive Bayes), M4 (árvore de decisão).
 - Testes com vetores sintéticos; **não houve treinamento/avaliação biométrica real autorizada**.
 
 ### Etapa 3 — Identificação aberta 1:N
+
 - Infraestrutura experimental para galerias conhecidas/desconhecidas, FPIR/FNIR, top-1, variantes de limiar e tamanhos de galeria, 1 ou 3 embeddings de referência, bootstrap agrupado.
 - **Sem avaliação real com imagens biométricas autorizadas**.
 
 ### Etapa 4 — Aprendizado não supervisionado
+
 - Experimentos DBSCAN (distância cosseno), K-Means como baseline, Silhouette, ARI/NMI quando existem rótulos legítimos, ruído/cobertura, PCA.
 - Testes sintéticos; **sem avaliação real com rostos autorizados**.
 - Relato histórico: 597 testes da suíte completa passaram ao final desta etapa.
 
 ### Etapa 5 — Consolidação acadêmica
+
 - Documentação, matriz de rastreabilidade, comparação de abordagens, guia de reprodutibilidade, roteiro de apresentação e perguntas para avaliação.
 - Relato histórico: 518 testes unitários, Ruff e mypy passaram; a suíte completa não foi reexecutada nessa etapa.
 - Conferir arquivos existentes em `docs/ML-ETAPA-*-RESULTADO.md`, `docs/ML-CONSOLIDACAO-ACADEMICA.md`, `docs/ML-MATRIZ-RASTREABILIDADE.md`, `docs/ML-COMPARACAO-ABORDAGENS.md`, `docs/ML-GUIA-REPRODUTIBILIDADE.md`, `docs/ML-ROTEIRO-APRESENTACAO.md`, `docs/ML-PERGUNTAS-BANCA.md`.
@@ -74,12 +80,13 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 6. **Calibração biométrica real — pendente**: aguardar dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
 
 ### Evidências aceitáveis sem dataset externo
+
 - Testes unitários e de integração com embeddings **sintéticos** para lógica de matching, classificadores, clustering, rejeição, empates e bordas.
 - Benchmarks de engenharia para latência, memória e throughput.
 - Eventual piloto com voluntários **somente com autorização específica e avaliação dos requisitos institucionais e de privacidade**. Não presumir que o cadastro operacional de alunos autorize reutilização experimental.
 - Relatórios devem distinguir claramente **comportamento funcional**, **desempenho computacional** e **desempenho biométrico real**.
 
-## 6. Instruções para o Codex CLI
+## 6. Instruções para o Codex CLI/Claude Code
 
 - Antes de propor mudanças, ler `AGENTS.md`, instruções adicionais do repositório (por exemplo, `CLAUDE.md`, `instructions/`, `ARCHITECTURE.md`) e os módulos relevantes; confirmar o que realmente existe.
 - Verificar `git status`, branch e alterações existentes. **Preservar trabalho do usuário**; não sobrescrever alterações não relacionadas.
@@ -89,6 +96,7 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 - Não afirmar execução de testes, aprovação ética, licenças ou métricas que não tenham sido verificadas.
 - Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
 - Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
+- Commits sempre em PT-BR, nao se marcar como Co Author, usar apenas as credenciais Git do solicitante.
 
 ## 7. Próxima direção sugerida
 
