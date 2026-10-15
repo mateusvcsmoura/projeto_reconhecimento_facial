@@ -1,9 +1,10 @@
 # Sistema de Reconhecimento Facial para Controle de Presença
 
 Projeto acadêmico da disciplina de IA da Fatec, não um TCC. Aplicação CLI que
-cadastra referências faciais e apoia o registro de presença após confirmação
-do operador. PostgreSQL e arquitetura em camadas. O registro do estado atual,
-das fontes, verificações e limitações das tarefas 001–006 está em
+cadastra referências faciais e apoia o registro automático de presença após
+uma sequência temporal de verificações. PostgreSQL e arquitetura em camadas.
+O registro do estado atual, das fontes, verificações e limitações das tarefas
+001–007 está em
 [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Na
 correção da tarefa 006, 841 testes unitários passaram; os ambientes principal
 e auxiliar passaram em `pip check`. Os landmarks usam um worker local isolado;
@@ -17,6 +18,7 @@ o resultado detalha instalação, evidências e validação visual ainda pendent
 | **Apresentação** | [`docs/apresentacao.md`](docs/apresentacao.md) — roteiro de demonstração |
 | **Estado e evidências** | [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) — implementação, fontes, testes e limites |
 | **Landmarks visuais** | [`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md) — setup local, configuração e validação manual |
+| **Captura automática** | [`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md) — fluxo, parâmetros, fallback manual e roteiro visual |
 | **Como chegou aqui** | [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md) e [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) |
 
 ---
@@ -77,23 +79,30 @@ python -m src.main
 6 - Sair
 ```
 
-**Cadastrar (1)** — informe nome e matrícula, leia o termo de consentimento
-e confirme. **Sem o aceite a câmera nem liga.** Posicione apenas um rosto e
-pressione ESPAÇO; ESC cancela.
+**Cadastrar (1)** — informe nome e matrícula, leia o termo de consentimento.
+**Sem o aceite a câmera nem liga.** No modo automático padrão, mantenha um
+rosto único visível durante a sequência indicada; ESC cancela antes de gravar.
+ESPAÇO não antecipa a captura. Para recuperar o fluxo manual, configure
+`FACE_AUTO_CAPTURE_ENABLED=false`; nesse modo, ESPAÇO captura e ESC cancela.
 
 Com `FACE_QUALITY_ENABLED=true`, dimensão, iluminação e nitidez são
 checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
 e capture de novo; nome, matrícula e consentimento não são solicitados
 novamente. ESC cancela sem persistir a tentativa recusada.
 
-**Reconhecer (2), modo padrão** — o overlay mostra o nome e um indicador
+**Reconhecer (2), modo automático padrão** — o overlay mostra o nome e um indicador
 derivado da distância ao limiar, apresentado em porcentagem. Esse valor **não
 é probabilidade nem foi calibrado**. Abaixo de 40% avisa "confiança baixa"
 — vale conferir antes de registrar. Uma recusa de qualidade mostra uma
-orientação amarela e remove o candidato anterior; ENTER nesse ciclo não
-registra presença. ENTER registra uma presença reconhecida, ESC sai.
+orientação amarela e remove o candidato anterior. Uma presença só é registrada
+após 5 s de observações válidas, pelo menos três análises e uma reidentificação
+final recente da mesma pessoa; ESC cancela. ENTER e ESPAÇO não antecipam o
+registro. Cada abertura registra ou informa que a presença já existe e fecha a
+câmera. Para recuperar a confirmação manual, use
+`FACE_AUTO_CAPTURE_ENABLED=false`: ENTER registra uma identidade reconhecida,
+ESC sai.
 
-Com `FACE_TEMPORAL_ENABLED=true`, ENTER só fica habilitado após três
+No modo manual, com `FACE_TEMPORAL_ENABLED=true`, ENTER só fica habilitado após três
 identificações consecutivas da mesma pessoa, feitas nos ciclos de comparação
 (um a cada oito frames), dentro de uma janela de 5 s. A observação mais
 recente precisa ter até 2 s. Ao pressionar ENTER, o sistema lê outro frame e
@@ -155,6 +164,10 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
 | `FACE_ANTI_SPOOFING` | `true` | Recusa foto impressa e tela |
+| `FACE_AUTO_CAPTURE_ENABLED` | `true` | Captura e registro automáticos; `false` recupera ESPAÇO/ENTER |
+| `FACE_AUTO_CAPTURE_WAIT_SECONDS` | `5.0` | Duração mínima da sequência válida |
+| `FACE_AUTO_CAPTURE_SAMPLE_SECONDS` | `0.5` | Intervalo mínimo entre análises, medido do fim da análise anterior |
+| `FACE_AUTO_CAPTURE_MAX_AGE_SECONDS` | `2.0` | Idade/gap máximo das observações; maior que o intervalo de análise |
 | `FACE_LANDMARKS_ENABLED` | `false` | Mostra landmarks somente na prévia de cadastro; opt-in |
 | `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local; caminho relativo à raiz do projeto |
 | `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Interpretador local isolado do worker MediaPipe |
@@ -182,6 +195,13 @@ independente. A política de ambiguidade também é independente e não altera
 o limiar ou o anti-spoofing. Ao ativá-la, escolha a margem explicitamente;
 `0.0` significa rejeitar somente empates exatos, não uma margem recomendada.
 Nenhum teste sintético calibra valores nem mede desempenho biométrico.
+
+A captura automática exige no mínimo três análises com timestamps distintos,
+além da duração configurada. Tempo decorrido sem observações não dispara ação;
+frames correlacionados não demonstram ganho de acurácia. O timestamp é obtido
+antes da leitura, mas a câmera pode entregar frames antigos de seu buffer. Veja
+os estados, limites e procedimento manual em
+[`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md).
 
 O overlay visual de landmarks é independente dessas decisões. Ele só é
 habilitado em `Cadastro facial`, desenha na cópia da prévia e nunca envia

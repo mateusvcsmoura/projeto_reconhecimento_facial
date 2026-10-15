@@ -23,6 +23,7 @@ from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
 from src.domain.errors import ErroDeDominio
+from src.domain.services.captura_automatica import ParametrosCapturaAutomatica
 from src.domain.services.consistencia_temporal import ParametrosTemporais
 from src.domain.services.facial_landmarks import LandmarksProvider
 from src.domain.services.matcher import PoliticaAmbiguidade
@@ -80,6 +81,15 @@ def montar_menu(settings: Settings) -> MenuCLI:
         if settings.face_temporal_enabled
         else None
     )
+    captura_automatica = (
+        ParametrosCapturaAutomatica(
+            espera_segundos=settings.face_auto_capture_wait_seconds,
+            intervalo_amostragem_segundos=settings.face_auto_capture_sample_seconds,
+            idade_maxima_segundos=settings.face_auto_capture_max_age_seconds,
+        )
+        if settings.face_auto_capture_enabled
+        else None
+    )
     reconhecimento = DeepFaceAdapter(
         modelo=settings.face_model,
         detector=settings.face_detector,
@@ -134,6 +144,7 @@ def montar_menu(settings: Settings) -> MenuCLI:
         ),
         abrir_janela=abrir_janela,
         temporal=temporal,
+        captura_automatica=captura_automatica,
     )
 
 

@@ -6,6 +6,7 @@ cv2 direto, estes testes deixam de importar -- e isso e proposital.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from zoneinfo import ZoneInfo
 
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
@@ -18,7 +19,12 @@ from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
-from src.domain.errors import FalhaNaLeituraDaCamera, RostoSemNitidez
+from src.domain.errors import (
+    FalhaNaLeituraDaCamera,
+    RostoSemNitidez,
+)
+from src.domain.services.captura_automatica import ParametrosCapturaAutomatica
+from src.domain.services.consistencia_temporal import ParametrosTemporais
 from src.domain.services.matcher import PoliticaAmbiguidade
 from src.presentation.cli.menu import INTERVALO_DE_COMPARACAO, MenuCLI
 from src.presentation.cli.teclas import ENTER, ESC, ESPACO
@@ -47,6 +53,19 @@ class Contexto:
         self.__dict__.update(kwargs)
 
 
+class RelogioIncremental:
+    def __init__(self, passo: float = 0.01) -> None:
+        self.valor = 0.0
+        self.passo = passo
+
+    def __call__(self) -> float:
+        self.valor += self.passo
+        return self.valor
+
+    def avancar(self, segundos: float) -> None:
+        self.valor += segundos
+
+
 def montar(
     *,
     respostas: list[str],
@@ -58,6 +77,10 @@ def montar(
     erro_ao_ler: Exception | None = None,
     reconhecimento_fake: FakeFaceRecognition | None = None,
     ambiguidade: PoliticaAmbiguidade | None = None,
+    temporal: ParametrosTemporais | None = None,
+    captura_automatica: ParametrosCapturaAutomatica | None = None,
+    relogio: Callable[[], float] | None = None,
+    janela_fake: FakeJanela | None = None,
 ) -> tuple[MenuCLI, Contexto]:
     repo_alunos = FakeAlunoRepository(alunos or [], embeddings or {})
     repo_presencas = FakePresencaRepository()
@@ -65,7 +88,7 @@ def montar(
     reconhecimento = reconhecimento_fake or FakeFaceRecognition(embedding=consulta)
 
     camera = FakeCamera([object() for _ in range(frames)], erro_ao_ler=erro_ao_ler)
-    janela = FakeJanela(teclas)
+    janela = janela_fake or FakeJanela(teclas)
     saida: list[str] = []
     fila = list(respostas)
 
@@ -87,6 +110,9 @@ def montar(
         abrir_janela=lambda _titulo: janela,
         ler=lambda _rotulo: fila.pop(0),
         escrever=saida.append,
+        temporal=temporal,
+        captura_automatica=captura_automatica,
+        **({"relogio": relogio} if relogio is not None else {}),
     )
     contexto = Contexto(
         alunos=repo_alunos,

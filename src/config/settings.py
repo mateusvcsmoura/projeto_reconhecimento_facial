@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     face_temporal_window_seconds: float = 5.0
     face_temporal_max_age_seconds: float = 2.0
 
+    # Captura automatica por observacoes temporais; valores de engenharia,
+    # independentes das politicas de reconhecimento existentes.
+    face_auto_capture_enabled: bool = True
+    face_auto_capture_wait_seconds: float = 5.0
+    face_auto_capture_sample_seconds: float = 0.5
+    face_auto_capture_max_age_seconds: float = 2.0
+
     # A politica de margem e optativa e nao foi calibrada com dados
     # biometricos autorizados. Ao habilitar, a margem deve ser escolhida
     # explicitamente pelo ambiente, inclusive 0.0 para recusar so empates.
@@ -260,6 +267,47 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FACE_TEMPORAL_MAX_AGE_SECONDS nao pode exceder "
                 "FACE_TEMPORAL_WINDOW_SECONDS."
+            )
+        return self
+
+    @field_validator(
+        "face_auto_capture_wait_seconds",
+        "face_auto_capture_sample_seconds",
+        "face_auto_capture_max_age_seconds",
+        mode="before",
+    )
+    @classmethod
+    def _rejeitar_booleano_como_tempo_de_captura_automatica(
+        cls, valor: object
+    ) -> object:
+        if isinstance(valor, bool):
+            raise ValueError(
+                "Os tempos de captura automatica devem ser numeros positivos."
+            )
+        return valor
+
+    @field_validator(
+        "face_auto_capture_wait_seconds",
+        "face_auto_capture_sample_seconds",
+        "face_auto_capture_max_age_seconds",
+    )
+    @classmethod
+    def _exigir_tempo_de_captura_automatica_finito_positivo(cls, valor: float) -> float:
+        if not isfinite(valor) or valor <= 0.0:
+            raise ValueError(
+                "Os tempos de captura automatica devem ser finitos e positivos."
+            )
+        return valor
+
+    @model_validator(mode="after")
+    def _exigir_amostragem_menor_que_validade(self) -> Settings:
+        if (
+            self.face_auto_capture_sample_seconds
+            >= self.face_auto_capture_max_age_seconds
+        ):
+            raise ValueError(
+                "FACE_AUTO_CAPTURE_SAMPLE_SECONDS deve ser menor que "
+                "FACE_AUTO_CAPTURE_MAX_AGE_SECONDS."
             )
         return self
 

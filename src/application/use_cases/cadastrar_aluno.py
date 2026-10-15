@@ -13,7 +13,7 @@ from src.domain.errors import (
     DadosInvalidos,
 )
 from src.domain.repositories.aluno_repository import AlunoRepository
-from src.domain.services.face_recognition import FaceRecognition
+from src.domain.services.face_recognition import FacePreparada, FaceRecognition
 from src.domain.services.image_storage import ImageStorage
 
 MATRICULA_MAXIMA = 32
@@ -61,6 +61,39 @@ class CadastrarAluno:
 
         return matricula_limpa, nome_limpo
 
+    def validar_captura(self, imagem: Any) -> None:
+        """Valida uma observacao sem calcular embedding nem gravar dados."""
+        self._reconhecimento.extrair_face_unica(imagem)
+
+    def preparar_captura(self, imagem: Any) -> FacePreparada:
+        """Calcula uma preparacao unica, ainda sem gravar imagem ou aluno."""
+        return self._reconhecimento.preparar_cadastro(imagem)
+
+    def concluir_cadastro(
+        self,
+        matricula: str,
+        nome: str,
+        preparada: FacePreparada,
+        consentiu: bool,
+    ) -> Aluno:
+        """Revalida consentimento e identificacao antes de persistir a face."""
+        if not consentiu:
+            raise ConsentimentoNaoRegistrado(
+                "O titular precisa consentir com o tratamento do dado "
+                "biometrico antes do cadastro."
+            )
+
+        matricula_limpa, nome_limpo = self.validar_identificacao(matricula, nome)
+        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", preparada.imagem)
+
+        return self._alunos.cadastrar(
+            matricula=matricula_limpa,
+            nome=nome_limpo,
+            foto_arquivo=nome_arquivo,
+            embedding=preparada.embedding,
+            consentimento_em=dt.datetime.now(self._tz),
+        )
+
     def executar(
         self, matricula: str, nome: str, imagem: Any, consentiu: bool
     ) -> Aluno:
@@ -86,15 +119,10 @@ class CadastrarAluno:
 
         # Guarda-se o recorte alinhado, nao o frame inteiro (problema A14):
         # menos dado biometrico armazenado, sem fundo nem terceiros no
-        # enquadramento.
-        preparada = self._reconhecimento.preparar_cadastro(imagem)
+        # enquadramento. A identificacao ja foi validada antes do custo de ML;
+        # concluir_cadastro a revalida no limite de persistencia.
+        preparada = self.preparar_captura(imagem)
 
-        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", preparada.imagem)
-
-        return self._alunos.cadastrar(
-            matricula=matricula_limpa,
-            nome=nome_limpo,
-            foto_arquivo=nome_arquivo,
-            embedding=preparada.embedding,
-            consentimento_em=dt.datetime.now(self._tz),
+        return self.concluir_cadastro(
+            matricula_limpa, nome_limpo, preparada, consentiu=True
         )

@@ -149,3 +149,59 @@ def test_consentimento_negado_nao_prepara_face() -> None:
     assert reconhecimento.preparacoes == 0
     assert alunos.alunos == []
     assert storage.gravacoes == []
+
+
+def test_validar_captura_nao_calcula_embedding_nem_persiste() -> None:
+    reconhecimento = FakeFaceRecognition()
+    caso, alunos, storage = montar(reconhecimento=reconhecimento)
+
+    caso.validar_captura(FRAME)
+
+    assert reconhecimento.extracoes == 1
+    assert reconhecimento.inferencias == 0
+    assert reconhecimento.preparacoes == 0
+    assert alunos.alunos == []
+    assert storage.gravacoes == []
+
+
+def test_preparar_captura_nao_persiste_e_concluir_reusa_preparacao() -> None:
+    reconhecimento = FakeFaceRecognition()
+    caso, alunos, storage = montar(reconhecimento=reconhecimento)
+
+    preparada = caso.preparar_captura(FRAME)
+
+    assert reconhecimento.preparacoes == 1
+    assert reconhecimento.inferencias == 1
+    assert storage.gravacoes == []
+    assert alunos.alunos == []
+
+    aluno = caso.concluir_cadastro("42", "Maria", preparada, consentiu=True)
+
+    assert aluno.matricula == "42"
+    assert reconhecimento.preparacoes == 1
+    assert storage.imagens_salvas == [("42.jpg", preparada.imagem)]
+    assert alunos.embeddings[aluno.id] is preparada.embedding
+
+
+def test_concluir_cadastro_revalida_identificacao_antes_de_persistir() -> None:
+    existente = Aluno(id=1, matricula="42", nome="Maria")
+    repo = FakeAlunoRepository([existente])
+    caso, alunos, storage = montar(alunos=repo)
+    preparada = caso.preparar_captura(FRAME)
+
+    with pytest.raises(AlunoJaCadastrado):
+        caso.concluir_cadastro("42", "Outro nome", preparada, consentiu=True)
+
+    assert alunos.alunos == [existente]
+    assert storage.gravacoes == []
+
+
+def test_concluir_cadastro_exige_consentimento_antes_de_persistir() -> None:
+    caso, alunos, storage = montar()
+    preparada = caso.preparar_captura(FRAME)
+
+    with pytest.raises(ConsentimentoNaoRegistrado):
+        caso.concluir_cadastro("42", "Maria", preparada, consentiu=False)
+
+    assert alunos.alunos == []
+    assert storage.gravacoes == []

@@ -5,15 +5,15 @@ reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
-| **Estado** | Fases 1–9 da refatoração registradas como executadas; tarefas 001–006 implementadas no workspace; inspeção visual manual da tarefa 006 pendente |
+| **Estado** | Fases 1–9 da refatoração registradas como executadas; tarefas 001–007 implementadas no workspace; inspeção visual manual das tarefas 006–007 pendente |
 | **Entrada** | `python -m src.main` |
 | **Código** | ~2.400 linhas e 30 módulos no snapshot pré-006; novos módulos da tarefa 006 estão no diff local |
-| **Testes** | 841 testes unitários passaram; Ruff, mypy, formatação e `pip check` dos ambientes do app/worker aprovados; ver [resultado](tasks/006-facial-landmarks/RESULTADO.md) |
+| **Testes** | Tarefa 007: 911 testes unitários, Ruff, mypy e formato aprovados; `pip check` dos ambientes app/worker registrado na [tarefa 006](tasks/006-facial-landmarks/RESULTADO.md); ver [resultado 007](tasks/007-captura-automatica/RESULTADO.md) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
 refatoração em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md). O snapshot com
-fontes, verificações e limitações das tarefas 001–006 está em
+fontes, verificações e limitações das tarefas 001–007 está em
 [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ---
@@ -28,8 +28,8 @@ O que ele faz, em uma frase por operação:
 
 | Operação | O que acontece |
 |---|---|
-| **Cadastrar** | Colhe consentimento, valida uma captura e persiste o mesmo recorte usado no embedding |
-| **Reconhecer** | Uma inferência por ciclo, comparada por distância cosseno contra todos os cadastrados |
+| **Cadastrar** | Colhe consentimento; por padrão, valida uma sequência e persiste a preparação de um novo frame final |
+| **Reconhecer** | Por padrão, exige sequência da mesma identidade e reidentifica um frame novo antes da presença |
 | **Registrar presença** | `INSERT ... ON CONFLICT DO NOTHING` — a regra "uma por dia" é do banco |
 | **Listar / consultar** | Alunos com situação de embedding; presenças do dia com horário de chegada |
 | **Excluir** | Remove linha, embedding, imagem e presenças (cascade) |
@@ -97,6 +97,7 @@ src/
 │   ├── services/
 │   │   ├── matcher.py           escolha do melhor candidato (regra pura)
 │   │   ├── consistencia_temporal.py IDs/timestamps para confirmação vigente
+│   │   ├── captura_automatica.py regra temporal pura, sem IO nem imagens
 │   │   ├── face_recognition.py  contrato do reconhecimento
 │   │   ├── facial_landmarks.py  DTOs numéricos e contrato visual opcional
 │   │   ├── camera_provider.py   contrato da fonte de imagem
@@ -113,6 +114,7 @@ src/
 │
 ├── presentation/cli/
 │   ├── menu.py                  laço do menu e laços de vídeo
+│   ├── captura_automatica.py    orquestra cadastro e presença automáticos
 │   ├── prompts.py               entrada do operador (leitor injetável)
 │   ├── viewer.py                janela OpenCV
 │   ├── landmarks_overlay.py    desenho transitório sobre cópia da prévia
@@ -220,6 +222,36 @@ não demonstra ganho de acurácia e pode repetir uma decisão errada. O marco
 anterior à leitura inclui o tempo de espera da câmera, mas a leitura seguinte
 não garante frescor físico do sensor: dispositivos podem bufferizar frames.
 Não há rastreamento contínuo nem calibração biométrica desses limites.
+
+### Captura automática padrão
+
+`FACE_AUTO_CAPTURE_ENABLED=true` encaminha cadastro e reconhecimento para
+`CapturaAutomaticaCLI`, mantendo o modo manual quando a flag é `false`. O
+serviço puro `ConfirmadorCapturaAutomatica` armazena somente a chave atual,
+timestamps e contagem; não recebe frames nem persiste resultados. A sequência
+exige pelo menos três observações em timestamps distintos, intervalo válido e
+tempo mínimo de 5 s. Por padrão, as análises são separadas por ao menos 0,5 s,
+e uma observação vence quando fica mais velha que 2 s ou o gap excede esse
+limite. As análises são agendadas pelo relógio monotônico desde o fim da
+inferência anterior; a interface segue mostrando frames e verificando ESC.
+
+No cadastro, `validar_captura` faz sondagem sem embedding nem persistência.
+Quando a sequência está pronta, o menu lê um frame novo, prepara uma única
+`FacePreparada`, exibe a confirmação e só persiste se a sequência e a captura
+continuarem atuais. No reconhecimento, o ID precisa permanecer igual e um
+frame novo precisa identificar a mesma pessoa. Se `FACE_TEMPORAL_ENABLED` também
+estiver ativo, o `ConfirmadorTemporal` atual precisa estar confirmado para esse
+mesmo ID. Uma sessão registra no máximo uma presença, inclusive quando ela já
+existia naquele dia, e então fecha a câmera. SPACE e ENTER não antecipam ação;
+ESC continua cancelando antes da persistência.
+
+O marco do relógio ocorre antes da leitura da câmera, que não garante frescor
+físico do sensor se houver buffer. O worker de landmarks continua sendo apenas
+visual; o desenho usa uma cópia e não participa da decisão. O menu revalida o
+prazo após exibir o frame, pois o overlay pode atrasar a apresentação. Tempo e
+observações correlacionadas demonstram comportamento funcional, não melhoram
+nem medem acurácia biométrica. Configuração e roteiro manual estão em
+[`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md).
 
 ### Evidência histórica e benchmark atual
 
@@ -353,6 +385,10 @@ boot** se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `FACE_DETECTOR` | `opencv` | |
 | `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — ver ADR-004 |
 | `FACE_ANTI_SPOOFING` | `true` | |
+| `FACE_AUTO_CAPTURE_ENABLED` | `true` | Busca automática; `false` recupera ESPAÇO/ENTER |
+| `FACE_AUTO_CAPTURE_WAIT_SECONDS` | `5.0` | Duração mínima da sequência válida |
+| `FACE_AUTO_CAPTURE_SAMPLE_SECONDS` | `0.5` | Intervalo mínimo entre análises após cada inferência |
+| `FACE_AUTO_CAPTURE_MAX_AGE_SECONDS` | `2.0` | Idade e gap máximos; precisa exceder o intervalo de análise |
 | `FACE_LANDMARKS_ENABLED` | `false` | Overlay apenas em Cadastro facial; opt-in |
 | `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local, resolvido a partir da raiz |
 | `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Worker MediaPipe isolado do ambiente principal |
@@ -378,6 +414,12 @@ temporalidade e ambiguidade são controles independentes; nenhum altera o
 limiar 0.30 ou o anti-spoofing. Testes funcionais com embeddings sintéticos
 não calibram margem, não medem acurácia facial e não comprovam redução de FAR
 ou FPIR.
+
+Os limites da captura automática também são valores de engenharia, não
+calibrados com pessoas nem avaliados como política biométrica. O modo
+automático não altera `FACE_THRESHOLD=0.30`, anti-spoofing, embeddings ou
+regras de identidade. Frames correlacionados, cronômetro e um frame novo de
+confirmação não comprovam identidade nem frescor físico da câmera.
 
 ---
 

@@ -33,6 +33,7 @@ from src.domain.errors import (
     QualidadeCapturaInsuficiente,
 )
 from src.domain.services.camera_provider import CameraProvider
+from src.domain.services.captura_automatica import ParametrosCapturaAutomatica
 from src.domain.services.consistencia_temporal import (
     ConfirmadorTemporal,
     EstadoTemporal,
@@ -40,6 +41,7 @@ from src.domain.services.consistencia_temporal import (
 )
 from src.domain.services.matcher import MatrizDeReferencia
 from src.presentation.cli import prompts
+from src.presentation.cli.captura_automatica import CapturaAutomaticaCLI
 from src.presentation.cli.confianca import rotulo_de_estado
 from src.presentation.cli.mensagens import para_operador
 from src.presentation.cli.teclas import AMARELO, BRANCO, ENTER, ESC, ESPACO, VERDE
@@ -85,6 +87,7 @@ class MenuCLI:
         ler: prompts.Leitor = input,
         escrever: Callable[[str], None] = print,
         temporal: ParametrosTemporais | None = None,
+        captura_automatica: ParametrosCapturaAutomatica | None = None,
         relogio: Callable[[], float] = monotonic,
     ) -> None:
         self._cadastrar_aluno = cadastrar_aluno
@@ -100,6 +103,21 @@ class MenuCLI:
         self._escrever = escrever
         self._temporal = temporal
         self._relogio = relogio
+        self._fluxo_automatico = (
+            CapturaAutomaticaCLI(
+                cadastrar_aluno=cadastrar_aluno,
+                reconhecer_aluno=reconhecer_aluno,
+                registrar=self._registrar,
+                abrir_camera=abrir_camera,
+                abrir_janela=abrir_janela,
+                parametros=captura_automatica,
+                temporal=temporal,
+                relogio=relogio,
+                escrever=escrever,
+            )
+            if captura_automatica is not None
+            else None
+        )
 
     def preaquecer(self) -> None:
         """Repassa o pre-aquecimento ao provider de reconhecimento."""
@@ -165,6 +183,14 @@ class MenuCLI:
             return
 
         self._escrever("\nPosicione o rosto dentro da camera.")
+        if self._fluxo_automatico is not None:
+            aluno = self._fluxo_automatico.cadastrar(matricula, nome)
+            if aluno is None:
+                self._escrever("Cadastro cancelado.")
+                return
+            self._exibir_cadastro_concluido(aluno)
+            return
+
         self._escrever("ESPACO captura | ESC cancela.")
 
         while True:
@@ -182,6 +208,9 @@ class MenuCLI:
                 continue
             break
 
+        self._exibir_cadastro_concluido(aluno)
+
+    def _exibir_cadastro_concluido(self, aluno: Aluno) -> None:
         self._escrever("\nCADASTRO REALIZADO COM SUCESSO!")
         self._escrever(f"Aluno: {aluno.nome}")
         self._escrever(f"Matricula: {aluno.matricula}")
@@ -303,6 +332,11 @@ class MenuCLI:
 
         self._escrever("\n=== RECONHECIMENTO FACIAL ===")
         self._escrever("Olhe para a camera.")
+        if self._fluxo_automatico is not None:
+            self._escrever("A captura e automatica | ESC sai.")
+            self._fluxo_automatico.reconhecer(referencias)
+            return
+
         if self._temporal is None:
             self._escrever("ENTER registra a presenca | ESC sai.")
         else:

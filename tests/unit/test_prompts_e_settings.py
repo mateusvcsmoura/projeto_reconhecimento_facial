@@ -347,6 +347,66 @@ def test_caminho_relativo_dos_landmarks_resolve_a_partir_da_raiz_do_projeto() ->
     )
 
 
+def test_captura_automatica_comeca_habilitada_com_limites_de_engenharia(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for nome in (
+        "FACE_AUTO_CAPTURE_ENABLED",
+        "FACE_AUTO_CAPTURE_WAIT_SECONDS",
+        "FACE_AUTO_CAPTURE_SAMPLE_SECONDS",
+        "FACE_AUTO_CAPTURE_MAX_AGE_SECONDS",
+    ):
+        monkeypatch.delenv(nome, raising=False)
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_auto_capture_enabled is True
+    assert settings.face_auto_capture_wait_seconds == 5.0
+    assert settings.face_auto_capture_sample_seconds == 0.5
+    assert settings.face_auto_capture_max_age_seconds == 2.0
+
+
+def test_captura_automatica_aceita_overrides_de_ambiente(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FACE_AUTO_CAPTURE_ENABLED", "false")
+    monkeypatch.setenv("FACE_AUTO_CAPTURE_WAIT_SECONDS", "6.5")
+    monkeypatch.setenv("FACE_AUTO_CAPTURE_SAMPLE_SECONDS", "0.25")
+    monkeypatch.setenv("FACE_AUTO_CAPTURE_MAX_AGE_SECONDS", "1.5")
+
+    settings = Settings(_env_file=None, database_url=URL_VALIDA)
+
+    assert settings.face_auto_capture_enabled is False
+    assert settings.face_auto_capture_wait_seconds == 6.5
+    assert settings.face_auto_capture_sample_seconds == 0.25
+    assert settings.face_auto_capture_max_age_seconds == 1.5
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"face_auto_capture_wait_seconds": 0.0},
+        {"face_auto_capture_wait_seconds": float("nan")},
+        {"face_auto_capture_wait_seconds": True},
+        {"face_auto_capture_sample_seconds": 0.0},
+        {"face_auto_capture_sample_seconds": float("inf")},
+        {"face_auto_capture_sample_seconds": True},
+        {"face_auto_capture_max_age_seconds": 0.0},
+        {"face_auto_capture_max_age_seconds": float("nan")},
+        {"face_auto_capture_max_age_seconds": True},
+        {
+            "face_auto_capture_sample_seconds": 2.0,
+            "face_auto_capture_max_age_seconds": 2.0,
+        },
+    ],
+)
+def test_captura_automatica_rejeita_limites_invalidos(
+    kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, database_url=URL_VALIDA, **kwargs)  # type: ignore[arg-type]
+
+
 def test_landmarks_aceitam_override_de_ambiente(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
