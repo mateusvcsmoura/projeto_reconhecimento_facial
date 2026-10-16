@@ -1,6 +1,6 @@
 # Estado atual e evidências
 
-**Base analisada:** 16/10/2026, `main` na revisão inicial `6d5640954ad4d9faabc8a507327162848693814c`; código da tarefa 008 preparado nesta execução.
+**Base analisada:** 16/10/2026, `main` na revisão `31028e706ec8a90f41747c241ea724e9e380d142`; migration `0004` aplicada ao PostgreSQL local configurado nesta data.
 **Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
@@ -9,9 +9,11 @@ foi verificado com dados sintéticos e o que ainda depende de avaliação
 biométrica autorizada.
 
 A tarefa 008 adiciona gestão de turmas, vínculo N:N e contexto obrigatório
-para reconhecimento e presença novos. Sua migration Alembic `0004` não foi
-aplicada; a integração em PostgreSQL descartável está preparada, mas não foi
-executada. O código atual requer o novo schema para abrir o fluxo de turmas.
+para reconhecimento e presença novos. Sua migration Alembic `0004` foi
+aplicada no banco `escola` em `localhost:5433`, avançando de `0003` para `0004`.
+`alembic check` não encontrou operações pendentes; os testes de integração
+PostgreSQL e BDD permanecem pendentes. O código atual requer o novo schema para
+abrir o fluxo de turmas.
 Esta implementação de software não altera embeddings, consentimentos, o
 anti-spoofing ou o limiar `0.30`.
 
@@ -36,7 +38,7 @@ ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
 | 004 — benchmark de matching | Script compara a matriz NumPy vetorizada com referência independente de laço Python e um `NumPy dot` por embedding. Gera vetores sintéticos 512D; valida decisões e distâncias antes de cronometrar. | `scripts/benchmark_matcher.py`, `tests/unit/test_benchmark_matcher.py`; [resultado 004](../tasks/004-benchmark-matching/RESULTADO.md); [execuções agregadas](../tasks/004-benchmark-matching/evidencias/). | Não executa DeepFace, não usa dados faciais, não mede acurácia nem latência ponta a ponta, e não compara `pgvector`/ANN. `tracemalloc` não é RSS nem toda a memória nativa. |
 | 006 — landmarks visuais no cadastro | Opt-in (`FACE_LANDMARKS_ENABLED=false`), provider MediaPipe Tasks em worker Python local isolado apenas na janela Cadastro facial. Desenha contornos sobre cópia; a imagem original segue inalterada. | `src/domain/services/facial_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks_worker.py`, `src/presentation/cli/landmarks_overlay.py`, `src/presentation/cli/viewer.py`, `src/main.py`; testes unitários sintéticos; [resultado 006](../tasks/006-facial-landmarks/RESULTADO.md). | 841 testes unitários; Ruff, mypy e formato dos arquivos alterados passaram; `pip check` passou nos dois ambientes. Smoke com o modelo local e frame sintético passou; inspeção visual manual ainda pendente. Não há evidência de reconhecimento, qualidade ou prova de vida. |
 | 007 — captura automática | Padrão (`FACE_AUTO_CAPTURE_ENABLED=true`): cadastro sonda sem gravar e prepara um frame final; reconhecimento exige pelo menos 3 análises distintas durante 5 s por padrão e confirma um frame novo da mesma identidade. `false` preserva os atalhos manuais. | `src/domain/services/captura_automatica.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/captura_automatica.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_captura_automatica.py`, `test_menu_automatico.py`, `test_main_automatico.py`; [resultado 007](../tasks/007-captura-automatica/RESULTADO.md). | Limites de tempo são valores de engenharia. Testes dublados comprovam contratos funcionais, não frescor físico da câmera, acurácia 1:N nem melhora biométrica. A inspeção visual manual permanece pendente. |
-| 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; [resultado 008](../tasks/008-turmas/RESULTADO.md). | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram nesta execução. Migration, integração PostgreSQL e BDD não foram executados; nenhum banco foi acessado. A implantação requer parada coordenada dos escritores antigos e autorização separada. |
+| 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; [resultado 008](../tasks/008-turmas/RESULTADO.md). | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram na implementação. Migration `0003 -> 0004` aplicada ao banco local; `alembic check` passou. Testes de integração PostgreSQL e BDD não foram executados; atualizar outros ambientes exige coordenação dos escritores antigos. |
 
 Anti-spoofing continua habilitado por padrão (`FACE_ANTI_SPOOFING=true`). Sua
 eficácia contra ataques não foi medida. Captura automática vem habilitada por
@@ -57,7 +59,7 @@ contêm ambiente, comandos e limites.
 | Tarefa 004, 13/10/2026 | 812 testes unitários; Ruff, mypy e formatação aprovados | Verificações de software registradas no [relatório](../tasks/004-benchmark-matching/RESULTADO.md); benchmark sintético em três execuções sequenciais. |
 | Tarefa 006, 14/10/2026 | 839 testes unitários; Ruff, mypy, formatação e `pip check` dos dois ambientes aprovados | Worker MediaPipe local em doubles e array preto sintético com modelo; sem webcam, pessoas ou banco. A inspeção visual manual continua pendente; [relatório](../tasks/006-facial-landmarks/RESULTADO.md). |
 | Tarefa 007, 15/10/2026 | 911 testes unitários; Ruff, mypy, formato dos Python alterados e `git diff --check` aprovados | Relógios, frames e serviços dublados; sem webcam, banco ou dados faciais. A inspeção visual manual permanece pendente; [relatório](../tasks/007-captura-automatica/RESULTADO.md). |
-| Tarefa 008, 16/10/2026 | 955 testes unitários; Ruff, mypy, formato, compilação sintática de integration/features e `git diff --check` aprovados | Evidência funcional com doubles e dados sintéticos. Migration, testes PostgreSQL/BDD e implantação não foram executados; nenhum banco foi acessado. [Relatório](../tasks/008-turmas/RESULTADO.md). |
+| Tarefa 008, 16/10/2026 | 955 testes unitários; Ruff, mypy, formato, compilação sintática de integration/features e `git diff --check` aprovados; migration `0003 -> 0004` aplicada; `alembic check` sem operações pendentes | Evidência funcional com doubles e dados sintéticos. Testes PostgreSQL/BDD não foram executados; `presencas` tinha 0 linhas antes e depois do upgrade. [Relatório](../tasks/008-turmas/RESULTADO.md). |
 
 Cada JSON da tarefa 004 registra `status=ok`, 240 consultas comparadas, zero
 divergências de status/ID, zero divergências numéricas, zero distâncias não
@@ -99,10 +101,10 @@ separados. A inspeção visual manual permanece pendente. Veja o
 
 ## Pendências confirmadas
 
-- Aplicação revisada da migration `0004` e execução de integração/migration
-  em banco PostgreSQL descartável, com opt-in, identificação e autorização
-  específica. O código atual depende desse schema e não deve ser usado com o
-  banco operacional antes de implantação coordenada.
+- Execução dos testes PostgreSQL/BDD e teste de migration em bancos descartáveis
+  separados, marcados e com dados sintéticos; os testes podem executar
+  `TRUNCATE` e exigem opt-in explícito. Outros ambientes ainda precisam da
+  migration `0004` e da atualização coordenada do código.
 - Calibração biométrica 1:N e validação representativa do pipeline completo,
   condicionadas a fonte, finalidade, autorização e revisão institucional.
 - Avaliação do anti-spoofing em protocolo apropriado; a integração atual não

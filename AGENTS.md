@@ -23,9 +23,10 @@ Esse registro distingue o código atual dos resultados históricos e das
 pendências biométricas.
 
 A tarefa 008 implementa operações com contexto de turma, vínculo N:N e
-presença por turma. A migration `0004` está preparada, mas não foi aplicada;
-testes de integração PostgreSQL/BDD permanecem pendentes. O código atual
-requer esse schema para o menu de turmas. Consulte
+presença por turma. A migration `0004` foi aplicada ao PostgreSQL local
+configurado; testes de integração PostgreSQL/BDD permanecem pendentes. O
+código atual requer esse schema para o menu de turmas; outros ambientes devem
+ser verificados separadamente. Consulte
 [`docs/TURMAS.md`](docs/TURMAS.md) e
 [`tasks/008-turmas/RESULTADO.md`](tasks/008-turmas/RESULTADO.md) antes de
 qualquer implantação.
@@ -86,7 +87,7 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 4. **Múltiplas referências por identidade — pendente**: somente considerar quando houver cadastros autorizados; avaliar agregação e impacto no desempenho.
 5. **Desempenho — benchmark da tarefa 004**: comparação sintética de embeddings 512D, equivalência, latência e memória. Os resultados não são biométricos nem cobrem inferência.
 6. **Calibração biométrica real — pendente**: aguardar dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
-7. **Operações por turma — código da tarefa 008 preparado**: matrícula global única, vínculo N:N e presença contextualizada. A migration e a integração PostgreSQL ainda precisam de validação autorizada; o código não está pronto para uso no schema atual.
+7. **Operações por turma — tarefa 008**: matrícula global única, vínculo N:N e presença contextualizada; migration `0004` aplicada ao banco local configurado. Testes de integração PostgreSQL/BDD e atualização coordenada de outros ambientes continuam pendentes.
 
 ### Evidências aceitáveis sem dataset externo
 
@@ -105,8 +106,8 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 - Não afirmar execução de testes, aprovação ética, licenças ou métricas que não tenham sido verificadas.
 - Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
 - Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
-- Commits sempre em PT-BR, nao se marcar como Co Author, usar apenas as credenciais Git do solicitante.
+- Commits sempre em PT-BR, nao se marcar como Co Author, usar apenas as credenciais Git do solicitante. Se o commit contem muitos arquivos, faca commits separados de maneira organizada.
 
 ## 7. Próxima direção sugerida
 
-Manter o registro atual e as limitações das tarefas 001–008 atualizados. A aplicação da migration `0004` e a validação de integração em PostgreSQL descartável são pendências operacionais separadas da implementação. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–008 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; os testes de integração em banco descartável continuam pendentes. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

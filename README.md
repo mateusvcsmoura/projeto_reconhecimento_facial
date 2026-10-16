@@ -10,9 +10,9 @@ correção da tarefa 006, 841 testes unitários passaram; os ambientes principal
 e auxiliar passaram em `pip check`. Os landmarks usam um worker local isolado;
 o resultado detalha instalação, evidências e validação visual ainda pendente.
 A tarefa 008 acrescenta gestão e reconhecimento por turma. Seu código está
-publicado, mas a migration `0004` não foi aplicada e a integração PostgreSQL
-segue pendente; veja [`docs/TURMAS.md`](docs/TURMAS.md) antes de atualizar o
-schema.
+publicado, e a migration `0004` foi aplicada ao PostgreSQL local configurado.
+Os testes de integração PostgreSQL/BDD continuam pendentes; veja
+[`docs/TURMAS.md`](docs/TURMAS.md) antes de atualizar outros ambientes.
 
 | | |
 |---|---|
@@ -55,9 +55,8 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 
 # 4. Schema — a aplicação NUNCA cria tabelas, só migrations
-# A revisão 0004 de Turmas está preparada, mas ainda não foi aplicada.
-# Não execute até concluir o procedimento autorizado em docs/TURMAS.md.
-# alembic upgrade head
+# Aplica as revisões pendentes; no banco local do projeto, 0004 já está aplicada.
+alembic upgrade head
 
 # 5. Integração PostgreSQL é uma etapa separada e destrutiva.
 # Consulte docs/TURMAS.md; não basta criar um banco com outro nome.
@@ -242,10 +241,11 @@ para manter um único fornecedor de `cv2` em cada ambiente. Veja a
 [configuração e os limites](docs/FACIAL-LANDMARKS.md) e o
 [resultado da tarefa 006](tasks/006-facial-landmarks/RESULTADO.md).
 
-A tarefa 008 altera o schema por meio da migration `0004`; o aplicativo deste
-código requer essa revisão para operar com turmas. Não rode `alembic upgrade`
-no banco atual sem backup validado, parada dos escritores antigos e autorização
-específica. Os testes PostgreSQL exigem opt-in, marcador no banco descartável
+A tarefa 008 altera o schema por meio da migration `0004`; ela já foi aplicada
+ao banco local configurado. O aplicativo deste código requer essa revisão para
+operar com turmas. Ao atualizar outros ambientes, coordene os escritores da
+versão antiga, que usam a constraint global removida. Os testes PostgreSQL
+exigem opt-in, marcador no banco descartável
 e, para migrations, um segundo banco fisicamente separado. A suíte unitária
 não valida DDL ou locks reais.
 
@@ -292,10 +292,10 @@ Toda revisão implementa `downgrade()`. O autogenerate é ponto de partida: a
 revisão gerada deve ser **revisada à mão** — ele não emite `CHECK` nem
 `IDENTITY` de forma confiável.
 
-**Estado da tarefa 008:** `0004` está preparada e não foi aplicada. O código
-atual requer essa revisão para operações de turma. A aplicação do comando
-acima exige autorização específica, backup validado e parada coordenada dos
-escritores antigos; leia [`docs/TURMAS.md`](docs/TURMAS.md) antes.
+**Estado da tarefa 008:** `0004` está aplicada no PostgreSQL local configurado;
+`alembic check` confirmou que o schema corresponde aos modelos. Em outro
+ambiente, confira o alvo e coordene a parada dos escritores antigos antes do
+upgrade; leia [`docs/TURMAS.md`](docs/TURMAS.md).
 
 ### Trocar de modelo de reconhecimento
 

@@ -5,10 +5,10 @@ reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
-| **Estado** | Tarefas 001–008 implementadas no código; migration `0004` não aplicada; integração PostgreSQL de 008 pendente; inspeção visual manual de 006–007 pendente |
+| **Estado** | Tarefas 001–008 implementadas; migration `0004` aplicada ao PostgreSQL local configurado; testes de integração PostgreSQL/BDD de 008 pendentes; inspeção visual manual de 006–007 pendente |
 | **Entrada** | `python -m src.main` |
 | **Código** | Snapshot atual inclui os módulos visuais 006, captura 007 e turmas 008; o tamanho de 2.400 linhas/30 módulos era pré-006 |
-| **Testes** | Tarefa 008: 955 testes unitários, Ruff, mypy, formato e `git diff --check` aprovados; migration/integração PostgreSQL não executadas; ver [resultado 008](tasks/008-turmas/RESULTADO.md) |
+| **Testes** | Tarefa 008: 955 testes unitários, Ruff, mypy, formato, `git diff --check`, upgrade PostgreSQL e `alembic check` aprovados; integração/BDD não executada; ver [resultado 008](tasks/008-turmas/RESULTADO.md) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
@@ -38,9 +38,9 @@ O que ele faz, em uma frase por operação:
 A navegação principal gerencia e seleciona turmas; operações biométricas só
 existem no menu de uma turma ativa. Ao trocar de turma, a sessão e a galeria
 local são descartadas. Veja regras, setup e pendências em
-[`docs/TURMAS.md`](docs/TURMAS.md). A revisão Alembic `0004` está preparada,
-mas não foi aplicada: a versão atual do código requer esse schema e não deve
-ser conectada ao banco operacional antes de uma implantação autorizada.
+[`docs/TURMAS.md`](docs/TURMAS.md). A revisão Alembic `0004` já foi aplicada
+ao banco PostgreSQL local configurado. Outros ambientes precisam aplicar essa
+revisão antes de abrir operações de turma; não há auto-migration no boot.
 
 ---
 
@@ -377,14 +377,16 @@ corrida e, sobre os dados legados, **cego**: o formato de data gravado fazia
 `IMMUTABLE`. O PostgreSQL recusa isso em coluna gerada e em índice. O "dia"
 é decidido pela aplicação, em `APP_TIMEZONE`, e persistido.
 
-### Migração de turmas pendente
+### Migração de turmas
 
 A revisão `0004` é posterior a `0003` e preserva presenças antigas com
-`turma_id = NULL`; não cria turmas fictícias. A aplicação não faz auto-migration.
-Como a revisão remove a unicidade antiga, a implantação exige parar os
-escritores da versão anterior e atualizar o schema e o código de forma
-coordenada. A revisão e os testes de PostgreSQL não foram executados nesta
-entrega. O downgrade recusa dados novos antes de qualquer DDL destrutivo.
+`turma_id = NULL`; não cria turmas fictícias. Em 16/10/2026, `0004` foi
+aplicada ao PostgreSQL local configurado e `alembic check` não encontrou
+operações pendentes. A aplicação não faz auto-migration. Como a revisão remove
+a unicidade antiga, ambientes que ainda usam a versão anterior precisam parar
+seus escritores e atualizar o schema e o código de forma coordenada. Os testes
+PostgreSQL/BDD não foram executados. O downgrade recusa dados novos antes de
+qualquer DDL destrutivo.
 Veja o [procedimento de turma](docs/TURMAS.md) e o
 [resultado da tarefa 008](tasks/008-turmas/RESULTADO.md).
 
@@ -545,10 +547,11 @@ teste passar a exigi-las, o CI quebra, e essa quebra é o aviso de que uma
 fronteira vazou.
 
 Na tarefa 008 foram aprovados **955 testes unitários** com dublês e dados
-sintéticos. Testes PostgreSQL e BDD que executam migrations ou `TRUNCATE`
-ficaram sem execução autorizada; os fixtures agora exigem opt-in explícito,
-um comentário de identificação no banco descartável e URLs de teste. Para o
-teste de migration, a URL deve apontar a um segundo banco fisicamente
+sintéticos. A migration `0003 -> 0004` foi aplicada ao PostgreSQL local e
+`alembic check` não encontrou operações pendentes. Testes PostgreSQL e BDD que
+executam migrations ou `TRUNCATE` não foram rodados; os fixtures exigem opt-in
+explícito, um comentário de identificação no banco descartável e URLs de teste.
+Para o teste de migration, a URL deve apontar a um segundo banco fisicamente
 separado. Skips dessas integrações não contam como evidência de validação.
 
 ### CI
