@@ -38,7 +38,9 @@ def test_cadastro_automatico_valida_observacoes_e_prepara_uma_unica_vez() -> Non
 
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
     assert ctx.reconhecimento.preparacoes == 1  # type: ignore[attr-defined]
-    assert ctx.storage.gravacoes == ["42.jpg"]  # type: ignore[attr-defined]
+    gravacoes = ctx.storage.gravacoes  # type: ignore[attr-defined]
+    assert len(gravacoes) == 1 and gravacoes[0].endswith(".jpg")
+    assert gravacoes[0] != "42.jpg"
     assert "ESPACO captura" not in texto(ctx)
     assert texto(ctx).count("CONSENTIMENTO") == 1
     assert ctx.camera.liberada is True  # type: ignore[attr-defined]
@@ -122,7 +124,9 @@ def test_recusa_na_preparacao_final_descarta_preparacao_e_reinicia() -> None:
 
     assert reconhecimento.preparacoes == 2
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
-    assert ctx.storage.gravacoes == ["42.jpg"]  # type: ignore[attr-defined]
+    gravacoes = ctx.storage.gravacoes  # type: ignore[attr-defined]
+    assert len(gravacoes) == 1 and gravacoes[0].endswith(".jpg")
+    assert gravacoes[0] != "42.jpg"
     assert texto(ctx).count("CONSENTIMENTO") == 1
 
 
@@ -393,7 +397,11 @@ def test_falha_de_persistencia_nao_e_repetida_e_libera_camera(
         )
 
         def registrar_se_ausente(
-            _aluno_id: int, _dia: dt.date, _momento: dt.datetime
+            _aluno_id: int,
+            _dia: dt.date,
+            _momento: dt.datetime,
+            *,
+            turma_id: int,
         ) -> bool:
             nonlocal chamadas
             chamadas += 1

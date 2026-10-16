@@ -4,11 +4,15 @@ Projeto acadêmico da disciplina de IA da Fatec, não um TCC. Aplicação CLI qu
 cadastra referências faciais e apoia o registro automático de presença após
 uma sequência temporal de verificações. PostgreSQL e arquitetura em camadas.
 O registro do estado atual, das fontes, verificações e limitações das tarefas
-001–007 está em
+001–008 está em
 [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Na
 correção da tarefa 006, 841 testes unitários passaram; os ambientes principal
 e auxiliar passaram em `pip check`. Os landmarks usam um worker local isolado;
 o resultado detalha instalação, evidências e validação visual ainda pendente.
+A tarefa 008 acrescenta gestão e reconhecimento por turma. Seu código está
+publicado, mas a migration `0004` não foi aplicada e a integração PostgreSQL
+segue pendente; veja [`docs/TURMAS.md`](docs/TURMAS.md) antes de atualizar o
+schema.
 
 | | |
 |---|---|
@@ -19,6 +23,7 @@ o resultado detalha instalação, evidências e validação visual ainda pendent
 | **Estado e evidências** | [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) — implementação, fontes, testes e limites |
 | **Landmarks visuais** | [`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md) — setup local, configuração e validação manual |
 | **Captura automática** | [`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md) — fluxo, parâmetros, fallback manual e roteiro visual |
+| **Turmas** | [`docs/TURMAS.md`](docs/TURMAS.md) — vínculos, menus, dados legados e ativação futura |
 | **Como chegou aqui** | [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md) e [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) |
 
 ---
@@ -38,7 +43,7 @@ o resultado detalha instalação, evidências e validação visual ainda pendent
 ```powershell
 # 1. Configuração — o .env real nunca vai para o Git
 copy .env.example .env
-#    edite POSTGRES_PASSWORD e as duas URLs
+#    edite POSTGRES_PASSWORD e DATABASE_URL
 
 # 2. Banco
 docker compose up -d
@@ -50,11 +55,12 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 
 # 4. Schema — a aplicação NUNCA cria tabelas, só migrations
-alembic upgrade head
+# A revisão 0004 de Turmas está preparada, mas ainda não foi aplicada.
+# Não execute até concluir o procedimento autorizado em docs/TURMAS.md.
+# alembic upgrade head
 
-# 5. Banco de teste (opcional, para rodar a suíte)
-docker exec escola_postgres psql -U escola -d postgres `
-  -c "CREATE DATABASE escola_test OWNER escola;"
+# 5. Integração PostgreSQL é uma etapa separada e destrutiva.
+# Consulte docs/TURMAS.md; não basta criar um banco com outro nome.
 ```
 
 A instalação baixa TensorFlow e PyTorch: ~500 MB e alguns minutos.
@@ -71,15 +77,28 @@ python -m src.main
 ```
 
 ```text
-1 - Cadastrar aluno
-2 - Reconhecer aluno
-3 - Listar alunos
-4 - Presencas de hoje
-5 - Excluir aluno e seus dados
-6 - Sair
+Menu principal:
+1 - Criar turma
+2 - Listar e selecionar turma
+3 - Consultar histórico de turmas excluídas
+4 - Administração global (aluno e presenças legadas)
+5 - Sair
+
+Menu de turma ativa:
+1 - Cadastrar aluno novo
+2 - Vincular matrícula existente
+3 - Listar alunos da turma
+4 - Reconhecer e registrar presença
+5 - Consultar presenças
+6 - Remover vínculo
+7 - Atualizar matéria/período
+8 - Excluir turma
+9 - Voltar
 ```
 
-**Cadastrar (1)** — informe nome e matrícula, leia o termo de consentimento.
+**Cadastrar aluno novo (1)** — dentro da turma, informe nome e matrícula e
+leia o termo de consentimento. A matrícula continua única no sistema; o aluno
+e seu vínculo com a turma são gravados juntos.
 **Sem o aceite a câmera nem liga.** No modo automático padrão, mantenha um
 rosto único visível durante a sequência indicada; ESC cancela antes de gravar.
 ESPAÇO não antecipa a captura. Para recuperar o fluxo manual, configure
@@ -90,7 +109,8 @@ checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
 e capture de novo; nome, matrícula e consentimento não são solicitados
 novamente. ESC cancela sem persistir a tentativa recusada.
 
-**Reconhecer (2), modo automático padrão** — o overlay mostra o nome e um indicador
+**Reconhecer (4), modo automático padrão** — opera somente na turma selecionada.
+O overlay mostra o nome e um indicador
 derivado da distância ao limiar, apresentado em porcentagem. Esse valor **não
 é probabilidade nem foi calibrado**. Abaixo de 40% avisa "confiança baixa"
 — vale conferir antes de registrar. Uma recusa de qualidade mostra uma
@@ -130,14 +150,20 @@ pode repetir uma identificação errada. O marco de tempo ocorre antes da
 leitura da câmera; buffers do dispositivo podem manter frames antigos. O modo
 não rastreia a pessoa continuamente nem elimina a latência da câmera.
 
-**Listar (3)** — matrícula, nome e situação. Alunos marcados como *sem
+**Listar (3)** — matrícula, nome e situação dos alunos vinculados à turma.
+Para matrícula já existente, use a opção 2: o vínculo não recaptura nem
+altera a biometria, o nome ou o consentimento. Alunos marcados como *sem
 embedding* existem no cadastro mas **não serão reconhecidos**; rode o
 backfill antes da aula.
 
-**Presenças de hoje (4)** — horário de chegada, matrícula e nome.
+**Presenças (5)** — consulta o histórico da turma. A mesma pessoa pode registrar
+presença em turmas diferentes no mesmo dia; presença antiga sem turma continua
+disponível na administração global como legado.
 
-**Excluir (5)** — remove cadastro, imagem, embedding e presenças. Mostra
-quem será apagado e pede confirmação.
+**Remover vínculo (6)** mantém o aluno global e o histórico. **Excluir turma
+(8)** é lógico e preserva dados para consulta. A exclusão global do aluno,
+incluindo imagem, embedding e presenças, fica separada na administração
+principal e exige confirmação.
 
 Na primeira execução o modelo é carregado **antes** de qualquer câmera
 abrir, com aviso na tela: os pesos do DeepFace são baixados nesse momento e
@@ -148,13 +174,13 @@ parado na frente da câmera.
 
 ## Configuração
 
-Tudo vem do `.env`. `DATABASE_URL` não tem default: a aplicação falha no
-boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
+As configurações da aplicação vêm do `.env`. `DATABASE_URL` não tem default:
+a aplicação falha no boot se ela faltar, em vez de apontar silenciosamente
+para o banco errado.
 
 | Variável | Padrão | Para quê |
 |---|---|---|
 | `DATABASE_URL` | — | **Obrigatória** |
-| `TEST_DATABASE_URL` | — | Banco da suíte; precisa ser diferente |
 | `APP_TIMEZONE` | `America/Sao_Paulo` | Define o "dia" da presença |
 | `LOG_LEVEL` | `INFO` | |
 | `CAMERA_INDEX` | `0` | |
@@ -184,6 +210,12 @@ boot se ela faltar, em vez de apontar silenciosamente para o banco errado.
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
 
+Os testes PostgreSQL da tarefa 008 leem variáveis do processo, **não** do
+`.env`: `FACE_TURMAS_TEST_DB_AUTORIZACAO`,
+`FACE_TURMAS_TEST_DATABASE_URL` e `FACE_TURMAS_MIGRATION_DATABASE_URL`. Só
+devem ser configuradas após autorização e identificação dos bancos
+descartáveis conforme [`docs/TURMAS.md`](docs/TURMAS.md).
+
 Os limites de qualidade são heurísticas iniciais, não calibradas com rostos.
 Com a flag desligada, a aceitação anterior continua como baseline; a flag
 não altera `FACE_THRESHOLD` nem o anti-spoofing. Testes com imagens
@@ -209,6 +241,13 @@ pixels alterados ao cadastro. MediaPipe Tasks roda em processo local isolado
 para manter um único fornecedor de `cv2` em cada ambiente. Veja a
 [configuração e os limites](docs/FACIAL-LANDMARKS.md) e o
 [resultado da tarefa 006](tasks/006-facial-landmarks/RESULTADO.md).
+
+A tarefa 008 altera o schema por meio da migration `0004`; o aplicativo deste
+código requer essa revisão para operar com turmas. Não rode `alembic upgrade`
+no banco atual sem backup validado, parada dos escritores antigos e autorização
+específica. Os testes PostgreSQL exigem opt-in, marcador no banco descartável
+e, para migrations, um segundo banco fisicamente separado. A suíte unitária
+não valida DDL ou locks reais.
 
 ---
 
@@ -252,6 +291,11 @@ alembic revision --autogenerate -m "descricao"
 Toda revisão implementa `downgrade()`. O autogenerate é ponto de partida: a
 revisão gerada deve ser **revisada à mão** — ele não emite `CHECK` nem
 `IDENTITY` de forma confiável.
+
+**Estado da tarefa 008:** `0004` está preparada e não foi aplicada. O código
+atual requer essa revisão para operações de turma. A aplicação do comando
+acima exige autorização específica, backup validado e parada coordenada dos
+escritores antigos; leia [`docs/TURMAS.md`](docs/TURMAS.md) antes.
 
 ### Trocar de modelo de reconhecimento
 
@@ -315,7 +359,7 @@ outro formato é **rejeitado e relatado** — nunca adivinhado.
 pip install -r requirements-dev.txt
 
 pytest tests/unit                       # unitários, sem PostgreSQL
-pytest                                   # suíte completa; integração usa PostgreSQL de teste
+pytest                                   # suíte; integração exige opt-in e banco descartável marcado
 pytest --cov=src --cov-report=term       # com cobertura
 ruff check .                             # lint
 mypy                                     # tipos
@@ -333,9 +377,14 @@ tests/
 └── features/      24 cenários BDD em Gherkin (pytest-bdd)
 ```
 
-Os testes de integração usam `TEST_DATABASE_URL`, que precisa apontar para
-um banco **diferente** do de desenvolvimento: a suíte cria e destrói o
-schema. Nenhum teste lê dado real — os legados de teste são sintéticos.
+Os testes de integração PostgreSQL são destrutivos. Eles não leem `.env` e
+exigem as variáveis `FACE_TURMAS_TEST_DB_AUTORIZACAO` e
+`FACE_TURMAS_TEST_DATABASE_URL`, além do comentário de banco descartável
+descrito em [`docs/TURMAS.md`](docs/TURMAS.md). Os testes de migration usam
+`FACE_TURMAS_MIGRATION_DATABASE_URL`, que precisa apontar para outro banco
+físico também marcado. Sem essas condições, os testes são ignorados; um skip
+não conta como validação. Nenhum teste lê dado real — os legados de teste são
+sintéticos.
 
 ### Avaliação do modelo (≠ teste de software)
 

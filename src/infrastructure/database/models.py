@@ -10,10 +10,12 @@ import datetime as dt
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Identity,
     Index,
     LargeBinary,
@@ -22,6 +24,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -43,9 +46,7 @@ class Base(DeclarativeBase):
 class Aluno(Base):
     __tablename__ = "alunos"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
-    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
 
     # Chave de negocio, vinda de fora do sistema. Separada da PK interna
     # porque no SQLite `id` acumulava PK + matricula + biometria_id.
@@ -82,6 +83,9 @@ class Aluno(Base):
     presencas: Mapped[list[Presenca]] = relationship(
         back_populates="aluno", cascade="all, delete-orphan", passive_deletes=True
     )
+    vinculos_turma: Mapped[list[AlunoTurma]] = relationship(
+        back_populates="aluno", passive_deletes=True
+    )
 
     __table_args__ = (
         UniqueConstraint("matricula", name="uq_alunos_matricula"),
@@ -99,16 +103,83 @@ class Aluno(Base):
     )
 
 
-class Presenca(Base):
-    __tablename__ = "presencas"
+class Turma(Base):
+    __tablename__ = "turmas"
 
-    id: Mapped[int] = mapped_column(
-        BigInteger, Identity(always=True), primary_key=True
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    materia: Mapped[str] = mapped_column(String(120), nullable=False)
+    periodo: Mapped[str] = mapped_column(String(10), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    atualizado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    excluida_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    vinculos: Mapped[list[AlunoTurma]] = relationship(
+        back_populates="turma", passive_deletes=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(btrim(materia)) > 0", name="materia_nao_vazia"),
+        CheckConstraint(
+            "periodo IN ('matutino', 'diurno', 'noturno')", name="periodo_valido"
+        ),
+    )
+
+
+class AlunoTurma(Base):
+    __tablename__ = "aluno_turma"
+
+    turma_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("turmas.id", ondelete="RESTRICT"),
+        primary_key=True,
     )
     aluno_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("alunos.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    ativo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    vinculado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    desvinculado_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    turma: Mapped[Turma] = relationship(back_populates="vinculos")
+    aluno: Mapped[Aluno] = relationship(back_populates="vinculos_turma")
+
+    __table_args__ = (
+        CheckConstraint(
+            "(ativo AND desvinculado_em IS NULL) OR "
+            "(NOT ativo AND desvinculado_em IS NOT NULL)",
+            name="estado_vinculo_coerente",
+        ),
+        Index("ix_aluno_turma_aluno_id", "aluno_id"),
+    )
+
+
+class Presenca(Base):
+    __tablename__ = "presencas"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    aluno_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("alunos.id", ondelete="CASCADE"),
         nullable=False,
+    )
+    turma_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("turmas.id", ondelete="RESTRICT"),
+        nullable=True,
     )
 
     # Instante exato do registro.
@@ -125,9 +196,27 @@ class Presenca(Base):
     aluno: Mapped[Aluno] = relationship(back_populates="presencas")
 
     __table_args__ = (
-        # A regra "uma presenca por aluno por dia" passa a ser garantida pelo
-        # banco. Substitui o SELECT-depois-INSERT do prototipo, que era
-        # sujeito a corrida e cego para os dados legados.
-        UniqueConstraint("aluno_id", "data_referencia", name="uq_presencas_aluno_dia"),
+        ForeignKeyConstraint(
+            ["turma_id", "aluno_id"],
+            ["aluno_turma.turma_id", "aluno_turma.aluno_id"],
+            name="fk_presencas_turma_aluno_aluno_turma",
+            ondelete="CASCADE",
+        ),
+        # Presencas novas sao unicas dentro da turma; as linhas legadas com
+        # turma_id NULL usam um indice unico parcial independente.
+        UniqueConstraint(
+            "turma_id",
+            "aluno_id",
+            "data_referencia",
+            name="uq_presencas_turma_aluno_dia",
+        ),
+        Index(
+            "uq_presencas_legado_aluno_dia",
+            "aluno_id",
+            "data_referencia",
+            unique=True,
+            postgresql_where=text("turma_id IS NULL"),
+        ),
+        Index("ix_presencas_turma_data", "turma_id", "data_referencia"),
         Index("ix_presencas_data_referencia", "data_referencia"),
     )

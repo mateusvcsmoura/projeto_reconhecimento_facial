@@ -39,13 +39,16 @@ class ListarAlunos:
         self._alunos = alunos
         self._modelo = modelo
 
-    def executar(self) -> list[AlunoListado]:
+    def executar(self, *, turma_id: int) -> list[AlunoListado]:
         prontos = {
-            aluno.id for aluno, _ in self._alunos.listar_referencias(self._modelo)
+            aluno.id
+            for aluno, _ in self._alunos.listar_referencias(
+                self._modelo, turma_id=turma_id
+            )
         }
         return [
             AlunoListado(aluno=aluno, pronto_para_reconhecimento=aluno.id in prontos)
-            for aluno in self._alunos.listar()
+            for aluno in self._alunos.listar_por_turma(turma_id)
         ]
 
 
@@ -57,8 +60,20 @@ class ListarPresencasDoDia:
     def hoje(self) -> dt.date:
         return dt.datetime.now(self._tz).date()
 
-    def executar(self, dia: dt.date | None = None) -> list[PresencaRegistrada]:
-        return self._presencas.listar_do_dia(dia or self.hoje())
+    def executar(
+        self, dia: dt.date | None = None, *, turma_id: int
+    ) -> list[PresencaRegistrada]:
+        return self._presencas.listar_da_turma(turma_id, dia or self.hoje())
+
+    def executar_historico_turma(
+        self, turma_id: int, dia: dt.date | None = None
+    ) -> list[PresencaRegistrada]:
+        """Consulta historico inclusive de turma logicamente excluida."""
+        return self._presencas.listar_historico_da_turma(turma_id, dia or self.hoje())
+
+    def executar_legado(self, dia: dt.date | None = None) -> list[PresencaRegistrada]:
+        """Consulta separadamente presencas antigas sem atribuicao de turma."""
+        return self._presencas.listar_legado(dia or self.hoje())
 
     def horario_local(self, registro: PresencaRegistrada) -> str:
         return registro.registrado_em.astimezone(self._tz).strftime("%H:%M")

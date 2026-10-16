@@ -91,5 +91,41 @@ class AlunoNaoEncontrado(ErroDeDominio):
         self.matricula = matricula
 
 
+class TurmaNaoEncontrada(ErroDeDominio):
+    def __init__(self, turma_id: int) -> None:
+        super().__init__(f"Nao existe uma turma com o identificador {turma_id}.")
+        self.turma_id = turma_id
+
+
+class TurmaInativa(ErroDeDominio):
+    def __init__(self, turma_id: int) -> None:
+        super().__init__(f"A turma {turma_id} foi excluida e nao aceita operacoes.")
+        self.turma_id = turma_id
+
+
+class AlunoSemConsentimento(ErroDeDominio):
+    def __init__(self, matricula: str) -> None:
+        super().__init__(
+            f"O aluno {matricula} nao possui consentimento biometrico registrado."
+        )
+        self.matricula = matricula
+
+
+class VinculoNaoEncontrado(ErroDeDominio):
+    def __init__(self, turma_id: int, matricula: str) -> None:
+        super().__init__(
+            f"O aluno {matricula} nao possui vinculo nesta turma ({turma_id})."
+        )
+        self.turma_id = turma_id
+        self.matricula = matricula
+
+
+class VinculoInativo(ErroDeDominio):
+    def __init__(self, turma_id: int, aluno_id: int) -> None:
+        super().__init__(f"O aluno {aluno_id} nao esta vinculado a turma {turma_id}.")
+        self.turma_id = turma_id
+        self.aluno_id = aluno_id
+
+
 class ConsentimentoNaoRegistrado(ErroDeDominio):
     """Cadastro biometrico sem consentimento explicito nao pode ocorrer."""

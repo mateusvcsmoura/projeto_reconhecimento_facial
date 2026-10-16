@@ -11,15 +11,18 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 | 005 | Consolidação documental e demonstração acadêmica offline | Luna 6, esforço High | Documentação e verificações concluídas; veja [RESULTADO.md](005-consolidacao-demonstracao/RESULTADO.md) e a confirmação na resposta da execução |
 | 006 | Landmarks faciais na prévia de cadastro | Luna 6, esforço High | Correção técnica validada no workspace; inspeção visual manual pendente; veja [RESULTADO.md](006-facial-landmarks/RESULTADO.md) |
 | 007 | Captura automática no cadastro e registro de presença | Luna 6, esforço High | Implementação e verificações concluídas; veja [RESULTADO.md](007-captura-automatica/RESULTADO.md) |
+| 008 | Turmas, vínculos de alunos e presença por turma | Luna 6, esforço High | Código, migration e documentação publicados; 955 unitários, Ruff, mypy e formato aprovados; migration e integração PostgreSQL pendentes; veja [RESULTADO.md](008-turmas/RESULTADO.md) |
 
 ## Como executar
+
+Tarefa **008 — turmas e presença por turma**: [desenho](008-turmas/DESENHO.md), [migração planejada](008-turmas/MIGRACAO.md), [plano](008-turmas/PLANO.md), [prompt para Luna 6 High](008-turmas/PROMPT.md) e [resultado](008-turmas/RESULTADO.md). A entrega implementa matrícula global única, vínculo N:N, contexto de turma e preservação do histórico legado. A migration não foi aplicada; integração PostgreSQL depende de autorização separada em bancos descartáveis identificados. O código publicado exige o schema `0004` para operações de turma.
 
 Tarefa **007 — captura automática no cadastro e na presença**: [desenho](007-captura-automatica/DESENHO.md), [plano](007-captura-automatica/PLANO.md), [prompt](007-captura-automatica/PROMPT.md) e [resultado](007-captura-automatica/RESULTADO.md). O fluxo padrão busca ao abrir a câmera, exige sequência válida de 5 segundos configuráveis e realiza uma operação por sessão, sem ESPAÇO/ENTER. `FACE_AUTO_CAPTURE_ENABLED=false` recupera o modo manual. Nenhuma dependência nova.
 
 Tarefa **006 — landmarks faciais na prévia de cadastro**: [desenho](006-facial-landmarks/DESENHO.md), [dependências](006-facial-landmarks/DEPENDENCIAS.md), [plano](006-facial-landmarks/PLANO.md), [prompt](006-facial-landmarks/PROMPT.md), [correção de compatibilidade](006-facial-landmarks/PLANO-CORRECAO.md) e [resultado](006-facial-landmarks/RESULTADO.md). A aplicação usa um worker MediaPipe em ambiente local separado. A inspeção visual manual permanece pendente.
 
 1. Abra uma sessão no repositório com Luna 6 e esforço High.
-2. Envie o prompt da tarefa escolhida: [001 — qualidade](001-qualidade-captura/PROMPT.md), [002 — consistência temporal](002-consistencia-temporal/PROMPT.md), [003 — ambiguidade](003-rejeicao-ambiguidade/PROMPT.md), [004 — benchmark](004-benchmark-matching/PROMPT.md), [005 — consolidação e demonstração](005-consolidacao-demonstracao/PROMPT.md), [006 — landmarks](006-facial-landmarks/PROMPT.md) ou [007 — captura automática](007-captura-automatica/PROMPT.md).
+2. Envie o prompt da tarefa escolhida: [001 — qualidade](001-qualidade-captura/PROMPT.md), [002 — consistência temporal](002-consistencia-temporal/PROMPT.md), [003 — ambiguidade](003-rejeicao-ambiguidade/PROMPT.md), [004 — benchmark](004-benchmark-matching/PROMPT.md), [005 — consolidação e demonstração](005-consolidacao-demonstracao/PROMPT.md), [006 — landmarks](006-facial-landmarks/PROMPT.md), [007 — captura automática](007-captura-automatica/PROMPT.md) ou [008 — turmas](008-turmas/PROMPT.md).
 3. O executor lê o desenho e o plano, implementa, testa, documenta e faz commit + push na `main`, conforme autorização explícita do usuário registrada no prompt.
 
 A tarefa 001 foi implementada, verificada e publicada conforme o resultado registrado em [001-qualidade-captura/RESULTADO.md](001-qualidade-captura/RESULTADO.md). Não há tarefas de datasets externos neste pacote.

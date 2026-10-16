@@ -3,32 +3,43 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import NamedTuple, Protocol
+from dataclasses import dataclass
+from typing import Protocol
+
+from src.domain.entities.turma import Periodo
 
 
-class PresencaRegistrada(NamedTuple):
-    """Uma presenca ja gravada, com o aluno resolvido para exibicao."""
+@dataclass(frozen=True, slots=True)
+class PresencaRegistrada:
+    """Presenca e contexto de turma; turma_id nulo identifica o legado."""
 
     aluno_id: int
     matricula: str
     nome: str
     registrado_em: dt.datetime
+    turma_id: int | None = None
+    materia: str | None = None
+    periodo: Periodo | None = None
 
 
 class PresencaRepository(Protocol):
-    def listar_do_dia(self, dia: dt.date) -> list[PresencaRegistrada]:
+    def listar_da_turma(self, turma_id: int, dia: dt.date) -> list[PresencaRegistrada]:
         """Presencas de um dia, ordenadas por horario de chegada."""
         ...
 
-    def registrar_se_ausente(
-        self, aluno_id: int, dia: dt.date, momento: dt.datetime
-    ) -> bool:
-        """Registra a presenca do dia.
+    def listar_historico_da_turma(
+        self, turma_id: int, dia: dt.date
+    ) -> list[PresencaRegistrada]: ...
 
-        Devolve True se inseriu, False se ja havia registro para o aluno
-        naquele dia. A regra e garantida pela constraint UNIQUE do banco,
-        e nao por um SELECT previo -- que era o desenho sujeito a corrida
-        do prototipo (problema A4).
+    def listar_legado(self, dia: dt.date) -> list[PresencaRegistrada]: ...
+
+    def registrar_se_ausente(
+        self, aluno_id: int, dia: dt.date, momento: dt.datetime, *, turma_id: int
+    ) -> bool:
+        """Registra presenca dentro da turma e do vinculo ativos.
+
+        Devolve False somente se ja havia registro para esse aluno, turma e
+        dia. Contexto invalido levanta erro de dominio.
         """
         ...
 

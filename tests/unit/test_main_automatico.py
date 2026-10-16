@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from src.config.settings import Settings
+from src.domain.entities.turma import Periodo, Turma
 from src.domain.services.captura_automatica import ParametrosCapturaAutomatica
 from tests.unit.test_main_qualidade import _carregar_main_com_deepface_falso
 
@@ -27,6 +28,9 @@ def test_montar_menu_injeta_ou_desliga_captura_automatica(
         def __init__(self, **kwargs: Any) -> None:
             recebido.update(kwargs)
 
+        def executar(self) -> None:
+            pass
+
     class AdaptadorEspiao:
         def __init__(self, **_kwargs: Any) -> None:
             pass
@@ -38,6 +42,7 @@ def test_montar_menu_injeta_ou_desliga_captura_automatica(
     monkeypatch.setattr(main, "criar_engine", lambda _url: object())
     monkeypatch.setattr(main, "PostgresAlunoRepository", lambda _engine: object())
     monkeypatch.setattr(main, "PostgresPresencaRepository", lambda _engine: object())
+    monkeypatch.setattr(main, "PostgresTurmaRepository", lambda _engine: object())
     monkeypatch.setattr(main, "LocalImageStorage", lambda _diretorio: object())
     monkeypatch.setattr(main, "DeepFaceAdapter", AdaptadorEspiao)
     monkeypatch.setattr(main, "MenuCLI", MenuEspiao)
@@ -53,7 +58,8 @@ def test_montar_menu_injeta_ou_desliga_captura_automatica(
         face_auto_capture_max_age_seconds=1.25,
     )
 
-    main.montar_menu(settings)
+    menu = main.montar_menu(settings)
+    menu._abrir_turma(Turma(id=1, materia="IA", periodo=Periodo.DIURNO))
 
     esperado = (
         ParametrosCapturaAutomatica(

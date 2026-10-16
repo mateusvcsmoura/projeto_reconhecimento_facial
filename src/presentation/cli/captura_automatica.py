@@ -64,6 +64,7 @@ class CapturaAutomaticaCLI:
         abrir_camera: Callable[[], CameraProvider],
         abrir_janela: Callable[[str], JanelaAutomatica],
         parametros: ParametrosCapturaAutomatica,
+        turma_id: int,
         temporal: ParametrosTemporais | None,
         relogio: Callable[[], float] = monotonic,
         escrever: Callable[[str], None] = print,
@@ -74,6 +75,7 @@ class CapturaAutomaticaCLI:
         self._abrir_camera = abrir_camera
         self._abrir_janela = abrir_janela
         self._parametros = parametros
+        self._turma_id = turma_id
         self._temporal = temporal
         self._relogio = relogio
         self._escrever = escrever
@@ -207,7 +209,11 @@ class CapturaAutomaticaCLI:
                         self._parametros.idade_maxima_segundos
                     ):
                         return self._cadastrar_aluno.concluir_cadastro(
-                            matricula, nome, preparada, consentiu=True
+                            matricula,
+                            nome,
+                            preparada,
+                            consentiu=True,
+                            turma_id=self._turma_id,
                         )
 
                 fim_analise = self._relogio()
@@ -242,7 +248,7 @@ class CapturaAutomaticaCLI:
                 if analisar:
                     try:
                         reconhecido = self._reconhecer_aluno.identificar(
-                            frame, referencias
+                            frame, referencias, turma_id=self._turma_id
                         )
                     except (
                         QualidadeCapturaInsuficiente,
@@ -313,7 +319,9 @@ class CapturaAutomaticaCLI:
 
                 try:
                     novo_reconhecimento = self._reconhecer_aluno.identificar(
-                        frame_final, referencias
+                        frame_final,
+                        referencias,
+                        turma_id=self._turma_id,
                     )
                 except (
                     QualidadeCapturaInsuficiente,

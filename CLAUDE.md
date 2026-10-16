@@ -22,6 +22,11 @@ O código deve demonstrar:
 
 O sistema atual tem arquitetura em camadas, persistência PostgreSQL, embeddings FaceNet512, anti-spoofing e decisões de matching testáveis. Qualidade de captura, consistência temporal e rejeição por ambiguidade são optativas e desligadas por padrão. O limiar operacional continua em `0.30`. O registro verificável do estado, das evidências e das pendências está em [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
+A tarefa 008 prepara operações por turma e a migration Alembic `0004`, sem
+aplicá-la. O código atual exige o schema novo; até haver implantação
+coordenada e integração PostgreSQL autorizada, ele não deve ser conectado ao
+banco operacional. Regras e procedimento estão em [`docs/TURMAS.md`](docs/TURMAS.md).
+
 ---
 
 # 2. Baseline histórico do protótipo
@@ -133,6 +138,10 @@ Credenciais nunca devem ser gravadas no código.
 O banco não deve ser criado ou alterado silenciosamente durante a execução da aplicação.
 
 Schema e migrations pertencem ao processo de infraestrutura/desenvolvimento.
+
+Na tarefa 008, a revisão `0004` permanece não aplicada. Não execute upgrade ou
+downgrade como parte de testes rotineiros: as fixtures PostgreSQL podem
+destruir tabelas e exigem autorização explícita e banco descartável marcado.
 
 ---
 
@@ -324,7 +333,9 @@ devem ser lidas como uma lista de tarefas ainda não executadas. As fases 1–9
 foram entregues conforme o histórico em `REFACTORING_PLAN.md`, com pendências
 de validação ali identificadas. As melhorias posteriores 001–004 e suas
 limitações estão no registro atual indicado na seção 1. Avaliação biométrica
-representativa e calibração 1:N continuam pendentes.
+representativa e calibração 1:N continuam pendentes. As tarefas 001–008 e
+seus limites estão no registro indicado na seção 1; para 008, a revisão `0004`
+e a integração PostgreSQL permanecem pendentes.
 
 ## Fase 0 — Baseline
 

@@ -22,6 +22,7 @@ from tests.fakes import (
 )
 
 TZ = ZoneInfo("America/Sao_Paulo")
+TURMA_ID = 1
 FRAME = object()
 NOME_REAL = "Mariana Aparecida de Souza"
 
@@ -39,7 +40,7 @@ def test_sem_consentimento_nao_cadastra() -> None:
     caso, alunos, storage = montar_cadastro()
 
     with pytest.raises(ConsentimentoNaoRegistrado):
-        caso.executar("42", "Maria", FRAME, consentiu=False)
+        caso.executar("42", "Maria", FRAME, consentiu=False, turma_id=TURMA_ID)
 
     assert alunos.alunos == []
     assert storage.gravacoes == []
@@ -52,13 +53,13 @@ def test_consentimento_e_verificado_antes_de_tudo() -> None:
 
     # Mesmo com matricula duplicada, o erro que sobe e o de consentimento.
     with pytest.raises(ConsentimentoNaoRegistrado):
-        caso.executar("42", "Outro", FRAME, consentiu=False)
+        caso.executar("42", "Outro", FRAME, consentiu=False, turma_id=TURMA_ID)
 
 
 def test_consentimento_fica_datado_no_cadastro() -> None:
     caso, _, _ = montar_cadastro()
 
-    aluno = caso.executar("42", "Maria", FRAME, consentiu=True)
+    aluno = caso.executar("42", "Maria", FRAME, consentiu=True, turma_id=TURMA_ID)
 
     assert aluno.consentimento_em is not None
     assert aluno.consentimento_em.tzinfo is not None
@@ -149,7 +150,7 @@ def test_log_de_cadastro_nao_contem_o_nome_do_aluno(
     caso, _, _ = montar_cadastro()
 
     with caplog.at_level(logging.DEBUG):
-        caso.executar("42", NOME_REAL, FRAME, consentiu=True)
+        caso.executar("42", NOME_REAL, FRAME, consentiu=True, turma_id=TURMA_ID)
 
     registrado = caplog.text
     assert NOME_REAL not in registrado
@@ -178,7 +179,7 @@ def test_log_nao_contem_o_vetor_do_embedding(
     caso, _, _ = montar_cadastro()
 
     with caplog.at_level(logging.DEBUG):
-        aluno = caso.executar("42", "Maria", FRAME, consentiu=True)
+        aluno = caso.executar("42", "Maria", FRAME, consentiu=True, turma_id=TURMA_ID)
 
     assert aluno is not None
     assert "0.99" not in caplog.text

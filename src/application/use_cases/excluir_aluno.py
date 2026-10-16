@@ -24,7 +24,7 @@ class ExcluirAluno:
 
     def localizar(self, matricula: str) -> Aluno:
         """Busca o aluno para a interface confirmar antes de apagar."""
-        aluno = self._alunos.obter_por_matricula(matricula.strip())
+        aluno = self._alunos.obter_global_por_matricula(matricula.strip())
         if aluno is None:
             raise AlunoNaoEncontrado(matricula.strip())
         return aluno
@@ -39,7 +39,7 @@ class ExcluirAluno:
         """
         # A linha carrega o embedding; as presencas caem por ON DELETE
         # CASCADE, garantido pela constraint e nao por codigo.
-        self._alunos.excluir(aluno.id)
+        self._alunos.excluir_global(aluno.id)
 
         if aluno.foto_arquivo and self._storage.existe(aluno.foto_arquivo):
             try:

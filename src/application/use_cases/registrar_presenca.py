@@ -13,7 +13,13 @@ class RegistrarPresenca:
         self._presencas = presencas
         self._tz = tz
 
-    def executar(self, aluno_id: int, agora: dt.datetime | None = None) -> bool:
+    def executar(
+        self,
+        aluno_id: int,
+        *,
+        turma_id: int,
+        agora: dt.datetime | None = None,
+    ) -> bool:
         """Devolve True se registrou, False se ja havia presenca hoje.
 
         O "dia" e decidido aqui, no fuso da aplicacao, e persistido junto
@@ -22,4 +28,6 @@ class RegistrarPresenca:
         """
         momento = agora or dt.datetime.now(self._tz)
         dia = momento.astimezone(self._tz).date()
-        return self._presencas.registrar_se_ausente(aluno_id, dia, momento)
+        return self._presencas.registrar_se_ausente(
+            aluno_id, dia, momento, turma_id=turma_id
+        )

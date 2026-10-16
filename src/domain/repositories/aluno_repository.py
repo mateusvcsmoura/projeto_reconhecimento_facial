@@ -10,9 +10,15 @@ from src.domain.entities.face_embedding import FaceEmbedding
 
 
 class AlunoRepository(Protocol):
-    def existe_matricula(self, matricula: str) -> bool: ...
+    def validar_turma_ativa(self, turma_id: int) -> None: ...
 
-    def listar_referencias(self, modelo: str) -> list[tuple[Aluno, FaceEmbedding]]:
+    def existe_matricula_global(self, matricula: str) -> bool: ...
+
+    def listar_por_turma(self, turma_id: int) -> list[Aluno]: ...
+
+    def listar_referencias(
+        self, modelo: str, *, turma_id: int
+    ) -> list[tuple[Aluno, FaceEmbedding]]:
         """Alunos com embedding utilizavel para o modelo informado.
 
         Filtrar por modelo no repositorio evita carregar vetores que seriam
@@ -21,27 +27,24 @@ class AlunoRepository(Protocol):
         """
         ...
 
-    def obter_por_matricula(self, matricula: str) -> Aluno | None: ...
+    def obter_global_por_matricula(self, matricula: str) -> Aluno | None: ...
 
-    def listar(self) -> list[Aluno]:
-        """Todos os alunos, ordenados por nome, para exibicao."""
-        ...
-
-    def cadastrar(
+    def cadastrar_em_turma(
         self,
+        turma_id: int,
         matricula: str,
         nome: str,
         foto_arquivo: str | None,
         embedding: FaceEmbedding | None,
         consentimento_em: dt.datetime,
     ) -> Aluno:
-        """Insere e devolve o aluno com o id atribuido pelo banco.
+        """Insere aluno e vinculo na mesma transacao SQL.
 
         Levanta AlunoJaCadastrado se a matricula ja existir.
         """
         ...
 
-    def excluir(self, aluno_id: int) -> None:
+    def excluir_global(self, aluno_id: int) -> None:
         """Remove o aluno e, por cascade, todas as suas presencas.
 
         Direito do titular a eliminacao (LGPD art. 18, VI).

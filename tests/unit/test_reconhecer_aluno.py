@@ -22,6 +22,7 @@ from tests.fakes import FakeAlunoRepository, FakeFaceRecognition
 MODELO = "Facenet512"
 TZ = ZoneInfo("America/Sao_Paulo")
 LIMIAR = 0.30
+TURMA_ID = 1
 FRAME = object()
 
 ANA = Aluno(id=1, matricula="1", nome="Ana")
@@ -43,12 +44,12 @@ def montar(
 
 def test_sem_embeddings_a_referencia_vem_vazia() -> None:
     caso = montar([ANA], {}, FakeFaceRecognition())
-    assert len(caso.carregar_referencias()) == 0
+    assert len(caso.carregar_referencias(turma_id=TURMA_ID)) == 0
 
 
 def test_alunos_de_outro_modelo_ficam_de_fora() -> None:
     caso = montar([ANA], {1: emb([1.0, 0.0], "ArcFace")}, FakeFaceRecognition())
-    assert len(caso.carregar_referencias()) == 0
+    assert len(caso.carregar_referencias(turma_id=TURMA_ID)) == 0
 
 
 def test_identifica_o_aluno_mais_proximo() -> None:
@@ -59,7 +60,8 @@ def test_identifica_o_aluno_mais_proximo() -> None:
         reconhecimento,
     )
 
-    resultado = caso.identificar(FRAME, caso.carregar_referencias())
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    resultado = caso.identificar(FRAME, refs, turma_id=TURMA_ID)
 
     assert resultado is not None
     assert resultado.aluno.nome == "Bruno"
@@ -73,10 +75,10 @@ def test_uma_unica_inferencia_por_ciclo_independente_de_n() -> None:
     embeddings = {i: emb([1.0, 0.0, 0.0]) for i in range(1, 51)}
     caso = montar(muitos, embeddings, reconhecimento)
 
-    referencias = caso.carregar_referencias()
+    referencias = caso.carregar_referencias(turma_id=TURMA_ID)
     assert len(referencias) == 50
 
-    caso.identificar(FRAME, referencias)
+    caso.identificar(FRAME, referencias, turma_id=TURMA_ID)
 
     assert reconhecimento.inferencias == 1
 
@@ -85,14 +87,16 @@ def test_ninguem_abaixo_do_limiar_devolve_none() -> None:
     reconhecimento = FakeFaceRecognition(embedding=emb([0.0, 1.0, 0.0]))
     caso = montar([ANA], {1: emb([1.0, 0.0, 0.0])}, reconhecimento)
 
-    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    assert caso.identificar(FRAME, refs, turma_id=TURMA_ID) is None
 
 
 def test_referencia_vazia_nao_aciona_o_modelo() -> None:
     reconhecimento = FakeFaceRecognition()
     caso = montar([], {}, reconhecimento)
 
-    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    assert caso.identificar(FRAME, refs, turma_id=TURMA_ID) is None
     assert reconhecimento.inferencias == 0
 
 
@@ -100,7 +104,8 @@ def test_frame_sem_rosto_devolve_none() -> None:
     reconhecimento = FakeFaceRecognition(erro_ao_gerar=NenhumRostoDetectado())
     caso = montar([ANA], {1: emb([1.0, 0.0])}, reconhecimento)
 
-    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    assert caso.identificar(FRAME, refs, turma_id=TURMA_ID) is None
 
 
 def test_frame_com_varias_pessoas_devolve_none() -> None:
@@ -108,7 +113,8 @@ def test_frame_com_varias_pessoas_devolve_none() -> None:
     reconhecimento = FakeFaceRecognition(erro_ao_gerar=MultiplosRostosDetectados(3))
     caso = montar([ANA], {1: emb([1.0, 0.0])}, reconhecimento)
 
-    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    assert caso.identificar(FRAME, refs, turma_id=TURMA_ID) is None
 
 
 def test_falha_de_modelo_nao_se_disfarca_de_nao_reconhecido() -> None:
@@ -119,18 +125,40 @@ def test_falha_de_modelo_nao_se_disfarca_de_nao_reconhecido() -> None:
     caso = montar([ANA], {1: emb([1.0, 0.0])}, reconhecimento)
 
     with pytest.raises(ModeloIndisponivel):
-        caso.identificar(FRAME, caso.carregar_referencias())
+        refs = caso.carregar_referencias(turma_id=TURMA_ID)
+        caso.identificar(FRAME, refs, turma_id=TURMA_ID)
 
 
 def test_recarregar_enxerga_cadastros_novos() -> None:
     """Problema A15: o prototipo so via a lista materializada na entrada."""
     repo = FakeAlunoRepository([ANA], {1: emb([1.0, 0.0])})
     caso = ReconhecerAluno(repo, FakeFaceRecognition(), modelo=MODELO, limiar=LIMIAR)
-    assert len(caso.carregar_referencias()) == 1
+    assert len(caso.carregar_referencias(turma_id=TURMA_ID)) == 1
 
     repo.cadastrar("2", "Bruno", None, emb([0.0, 1.0]), dt.datetime.now(TZ))
 
-    assert len(caso.carregar_referencias()) == 2
+    assert len(caso.carregar_referencias(turma_id=TURMA_ID)) == 2
+
+
+def test_trocar_turma_filtra_galeria_e_recusa_matriz_anterior() -> None:
+    repo = FakeAlunoRepository(
+        [ANA, BRUNO],
+        {1: emb([1.0, 0.0]), 2: emb([0.0, 1.0])},
+    )
+    repo.turmas_ativas.add(2)
+    repo.vinculos = {(1, ANA.id), (2, BRUNO.id)}
+    reconhecimento = FakeFaceRecognition(embedding=emb([0.0, 1.0]))
+    caso = ReconhecerAluno(repo, reconhecimento, modelo=MODELO, limiar=LIMIAR)
+
+    refs_a = caso.carregar_referencias(turma_id=1)
+    refs_b = caso.carregar_referencias(turma_id=2)
+
+    assert len(refs_a) == 1
+    assert len(refs_b) == 1
+    with pytest.raises(RuntimeError, match="contexto da turma"):
+        caso.identificar(FRAME, refs_a, turma_id=2)
+    resultado = caso.identificar(FRAME, refs_b, turma_id=2)
+    assert resultado is not None and resultado.aluno == BRUNO
 
 
 def test_politica_de_ambiguidade_propaga_recusa_apos_uma_inferencia() -> None:
@@ -145,7 +173,8 @@ def test_politica_de_ambiguidade_propaga_recusa_apos_uma_inferencia() -> None:
     )
 
     with pytest.raises(IdentificacaoAmbigua):
-        caso.identificar(FRAME, caso.carregar_referencias())
+        refs = caso.carregar_referencias(turma_id=TURMA_ID)
+        caso.identificar(FRAME, refs, turma_id=TURMA_ID)
 
     assert reconhecimento.inferencias == 1
 
@@ -161,7 +190,8 @@ def test_politica_ativa_preserva_identidade_unica_e_distante() -> None:
         ambiguidade=PoliticaAmbiguidade(0.5),
     )
 
-    resultado = caso.identificar(FRAME, caso.carregar_referencias())
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    resultado = caso.identificar(FRAME, refs, turma_id=TURMA_ID)
 
     assert resultado is not None and resultado.aluno == ANA
     assert reconhecimento.inferencias == 1
@@ -177,5 +207,6 @@ def test_politica_ativa_mantem_none_quando_ninguem_atende_ao_limiar() -> None:
         ambiguidade=PoliticaAmbiguidade(0.1),
     )
 
-    assert caso.identificar(FRAME, caso.carregar_referencias()) is None
+    refs = caso.carregar_referencias(turma_id=TURMA_ID)
+    assert caso.identificar(FRAME, refs, turma_id=TURMA_ID) is None
     assert reconhecimento.inferencias == 1

@@ -5,15 +5,15 @@ reconhecimento facial para controle de presença de alunos.
 
 | | |
 |---|---|
-| **Estado** | Fases 1–9 da refatoração registradas como executadas; tarefas 001–007 implementadas no workspace; inspeção visual manual das tarefas 006–007 pendente |
+| **Estado** | Tarefas 001–008 implementadas no código; migration `0004` não aplicada; integração PostgreSQL de 008 pendente; inspeção visual manual de 006–007 pendente |
 | **Entrada** | `python -m src.main` |
-| **Código** | ~2.400 linhas e 30 módulos no snapshot pré-006; novos módulos da tarefa 006 estão no diff local |
-| **Testes** | Tarefa 007: 911 testes unitários, Ruff, mypy e formato aprovados; `pip check` dos ambientes app/worker registrado na [tarefa 006](tasks/006-facial-landmarks/RESULTADO.md); ver [resultado 007](tasks/007-captura-automatica/RESULTADO.md) |
+| **Código** | Snapshot atual inclui os módulos visuais 006, captura 007 e turmas 008; o tamanho de 2.400 linhas/30 módulos era pré-006 |
+| **Testes** | Tarefa 008: 955 testes unitários, Ruff, mypy, formato e `git diff --check` aprovados; migration/integração PostgreSQL não executadas; ver [resultado 008](tasks/008-turmas/RESULTADO.md) |
 | **Ponto de partida** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo de 364 linhas num arquivo só |
 
 Decisões e trade-offs em [`docs/adr/`](docs/adr/). Plano e histórico da
 refatoração em [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md). O snapshot com
-fontes, verificações e limitações das tarefas 001–007 está em
+fontes, verificações e limitações das tarefas 001–008 está em
 [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ---
@@ -28,11 +28,19 @@ O que ele faz, em uma frase por operação:
 
 | Operação | O que acontece |
 |---|---|
-| **Cadastrar** | Colhe consentimento; por padrão, valida uma sequência e persiste a preparação de um novo frame final |
-| **Reconhecer** | Por padrão, exige sequência da mesma identidade e reidentifica um frame novo antes da presença |
-| **Registrar presença** | `INSERT ... ON CONFLICT DO NOTHING` — a regra "uma por dia" é do banco |
-| **Listar / consultar** | Alunos com situação de embedding; presenças do dia com horário de chegada |
-| **Excluir** | Remove linha, embedding, imagem e presenças (cascade) |
+| **Cadastrar** | Em turma ativa, colhe consentimento e grava aluno global + vínculo atomicamente; por padrão, valida a sequência e persiste um frame final |
+| **Vincular** | Reutiliza matrícula global existente sem recaptura ou alteração biométrica |
+| **Reconhecer** | Usa somente a galeria da turma ativa; por padrão, exige sequência e reidentifica frame novo |
+| **Registrar presença** | Valida turma/vínculo na transação; unicidade por turma, aluno e dia |
+| **Listar / consultar** | Escopo da turma; legado sem turma e histórico de turmas excluídas têm consultas separadas |
+| **Excluir** | Desvincular preserva aluno e histórico; turma é exclusão lógica; exclusão global de aluno permanece separada |
+
+A navegação principal gerencia e seleciona turmas; operações biométricas só
+existem no menu de uma turma ativa. Ao trocar de turma, a sessão e a galeria
+local são descartadas. Veja regras, setup e pendências em
+[`docs/TURMAS.md`](docs/TURMAS.md). A revisão Alembic `0004` está preparada,
+mas não foi aplicada: a versão atual do código requer esse schema e não deve
+ser conectada ao banco operacional antes de uma implantação autorizada.
 
 ---
 
@@ -92,8 +100,9 @@ src/
 ├── domain/                      núcleo puro — regras e contratos
 │   ├── entities/
 │   │   ├── aluno.py             dataclass
-│   │   └── face_embedding.py    vetor L2-normalizado + modelo + dimensão
-│   ├── repositories/            contratos de persistência
+│   │   ├── face_embedding.py    vetor L2-normalizado + modelo + dimensão
+│   │   └── turma.py             matéria, período e estado lógico
+│   ├── repositories/            contratos de aluno, turma e presença
 │   ├── services/
 │   │   ├── matcher.py           escolha do melhor candidato (regra pura)
 │   │   ├── consistencia_temporal.py IDs/timestamps para confirmação vigente
@@ -106,6 +115,7 @@ src/
 │
 ├── application/use_cases/
 │   ├── cadastrar_aluno.py       consentimento → rosto → embedding → persistência
+│   ├── gerenciar_turmas.py      CRUD lógico e vínculos N:N
 │   ├── reconhecer_aluno.py      1 inferência + comparação vetorizada
 │   ├── registrar_presenca.py    delega a unicidade ao banco
 │   ├── excluir_aluno.py         direito à eliminação
@@ -114,6 +124,7 @@ src/
 │
 ├── presentation/cli/
 │   ├── menu.py                  laço do menu e laços de vídeo
+│   ├── turmas.py                administração global e contexto de turma
 │   ├── captura_automatica.py    orquestra cadastro e presença automáticos
 │   ├── prompts.py               entrada do operador (leitor injetável)
 │   ├── viewer.py                janela OpenCV
@@ -125,6 +136,7 @@ src/
 └── infrastructure/
     ├── database/                engine, sessão transacional, modelos ORM
     ├── repositories/            PostgreSQL — todo o SQL do sistema
+    │   └── postgres_turma_repository.py gestão de turmas e vínculos
     ├── camera/opencv_camera.py  captura (cv2)
     ├── storage/                 imagens em disco (cv2)
     └── face_recognition/
@@ -299,6 +311,9 @@ O benchmark não compara `pgvector` e não verifica afirmações históricas sob
 ```mermaid
 erDiagram
     ALUNOS ||--o{ PRESENCAS : "ON DELETE CASCADE"
+    TURMAS ||--o{ ALUNO_TURMA : "vinculos"
+    ALUNOS ||--o{ ALUNO_TURMA : "N:N"
+    ALUNO_TURMA ||--o{ PRESENCAS : "turma ativa"
 
     ALUNOS {
         bigint id PK "GENERATED ALWAYS AS IDENTITY"
@@ -313,11 +328,27 @@ erDiagram
         timestamptz atualizado_em
     }
 
+    TURMAS {
+        bigint id PK
+        varchar materia "1 a 120 caracteres"
+        varchar periodo "matutino, diurno ou noturno"
+        timestamptz excluida_em "NULL enquanto ativa"
+    }
+
+    ALUNO_TURMA {
+        bigint turma_id PK,FK
+        bigint aluno_id PK,FK
+        boolean ativo
+        timestamptz vinculado_em
+        timestamptz desvinculado_em
+    }
+
     PRESENCAS {
         bigint id PK "GENERATED ALWAYS AS IDENTITY"
         bigint aluno_id FK
+        bigint turma_id FK "NULL somente no legado"
         timestamptz registrado_em "instante exato"
-        date data_referencia "UNIQUE com aluno_id"
+        date data_referencia
     }
 ```
 
@@ -325,9 +356,12 @@ erDiagram
 
 | Regra | Como é garantida |
 |---|---|
-| Uma presença por aluno por dia | `UNIQUE (aluno_id, data_referencia)` |
+| Uma presença por turma, aluno e dia | `UNIQUE (turma_id, aluno_id, data_referencia)` |
+| Uma presença legada por aluno e dia | índice único parcial quando `turma_id IS NULL` |
 | Matrícula não se repete | `UNIQUE (matricula)` |
 | Presença sempre tem aluno | `FOREIGN KEY` — sempre ativa no PostgreSQL |
+| Presença de turma precisa do vínculo | FK composta `(turma_id, aluno_id)` para `aluno_turma` |
+| Turma e período válidos | `CHECK` de matéria e período; exclusão é lógica |
 | Excluir aluno leva as presenças | `ON DELETE CASCADE` |
 | Nome e matrícula não vazios | `CHECK (length(btrim(...)) > 0)` |
 | Embedding sem modelo é inutilizável | `CHECK` de coerência dos três campos |
@@ -342,6 +376,17 @@ corrida e, sobre os dados legados, **cego**: o formato de data gravado fazia
 `(registrado_em AT TIME ZONE 'America/Sao_Paulo')::date` é `STABLE`, não
 `IMMUTABLE`. O PostgreSQL recusa isso em coluna gerada e em índice. O "dia"
 é decidido pela aplicação, em `APP_TIMEZONE`, e persistido.
+
+### Migração de turmas pendente
+
+A revisão `0004` é posterior a `0003` e preserva presenças antigas com
+`turma_id = NULL`; não cria turmas fictícias. A aplicação não faz auto-migration.
+Como a revisão remove a unicidade antiga, a implantação exige parar os
+escritores da versão anterior e atualizar o schema e o código de forma
+coordenada. A revisão e os testes de PostgreSQL não foram executados nesta
+entrega. O downgrade recusa dados novos antes de qualquer DDL destrutivo.
+Veja o [procedimento de turma](docs/TURMAS.md) e o
+[resultado da tarefa 008](tasks/008-turmas/RESULTADO.md).
 
 ---
 
@@ -452,7 +497,10 @@ graph LR
 | `PossivelFraude` | Se está ao vivo, o modelo errou: melhore a iluminação e a resolução |
 | `ModeloIndisponivel` | Verifique a instalação — **mais a causa original anexada** |
 | `CameraIndisponivel` | Feche outros programas e ajuste `CAMERA_INDEX` |
-| `AlunoJaCadastrado` / `AlunoNaoEncontrado` | Confira na listagem |
+| `AlunoJaCadastrado` / `AlunoNaoEncontrado` | Confira a matrícula e a lista da turma |
+| `TurmaNaoEncontrada` / `TurmaInativa` | Selecione uma turma existente e ativa |
+| `VinculoNaoEncontrado` / `VinculoInativo` | Confira ou reative o vínculo na gestão da turma |
+| `AlunoSemConsentimento` | Obtenha consentimento válido antes de novo cadastro biométrico |
 
 O protótipo transformava tudo isso em `except Exception: continue` e exibia
 "Rosto nao reconhecido" — indistinguível de TensorFlow quebrado. Um teste
@@ -495,6 +543,13 @@ erros) sem exigir hardware.
 `requirements-dev.txt` não inclui essas bibliotecas de propósito: se um
 teste passar a exigi-las, o CI quebra, e essa quebra é o aviso de que uma
 fronteira vazou.
+
+Na tarefa 008 foram aprovados **955 testes unitários** com dublês e dados
+sintéticos. Testes PostgreSQL e BDD que executam migrations ou `TRUNCATE`
+ficaram sem execução autorizada; os fixtures agora exigem opt-in explícito,
+um comentário de identificação no banco descartável e URLs de teste. Para o
+teste de migration, a URL deve apontar a um segundo banco fisicamente
+separado. Skips dessas integrações não contam como evidência de validação.
 
 ### CI
 

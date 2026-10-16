@@ -6,11 +6,12 @@ import builtins
 import sys
 import types
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
 from src.config.settings import Settings
+from src.domain.entities.turma import Periodo, Turma
 from tests.unit.test_main_qualidade import _carregar_main_com_deepface_falso
 
 URL_VALIDA = "postgresql+psycopg://u:p@h:5432/d"
@@ -18,8 +19,14 @@ CAMINHO_PROVIDER = "src.infrastructure.face_recognition.mediapipe_landmarks"
 
 
 class MenuEspiao:
+    instancias: ClassVar[list[MenuEspiao]] = []
+
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
+        self.instancias.append(self)
+
+    def executar(self) -> None:
+        pass
 
 
 class JanelaEspiao:
@@ -37,6 +44,7 @@ def montar_com_settings(
     monkeypatch.setattr(main, "criar_engine", lambda _url: object())
     monkeypatch.setattr(main, "PostgresAlunoRepository", lambda _engine: object())
     monkeypatch.setattr(main, "PostgresPresencaRepository", lambda _engine: object())
+    monkeypatch.setattr(main, "PostgresTurmaRepository", lambda _engine: object())
     monkeypatch.setattr(main, "LocalImageStorage", lambda _raiz: object())
     monkeypatch.setattr(main, "DeepFaceAdapter", lambda **_kwargs: object())
     monkeypatch.setattr(main, "MenuCLI", MenuEspiao)
@@ -47,8 +55,10 @@ def montar_com_settings(
         return janela
 
     monkeypatch.setattr(main, "JanelaDeVideo", criar_janela)
+    MenuEspiao.instancias.clear()
     menu = main.montar_menu(settings)
-    return menu, janelas
+    menu._abrir_turma(Turma(id=1, materia="IA", periodo=Periodo.DIURNO))
+    return MenuEspiao.instancias[-1], janelas
 
 
 def test_flag_desligada_nao_importa_provider_nem_injeta_factory(

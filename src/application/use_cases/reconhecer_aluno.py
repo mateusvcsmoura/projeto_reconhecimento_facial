@@ -45,8 +45,10 @@ class ReconhecerAluno:
         self._limiar = limiar
         self._ambiguidade = ambiguidade
         self._referencias: dict[int, Aluno] = {}
+        self._turma_id: int | None = None
+        self._matriz: MatrizDeReferencia | None = None
 
-    def carregar_referencias(self) -> MatrizDeReferencia:
+    def carregar_referencias(self, *, turma_id: int) -> MatrizDeReferencia:
         """Le os embeddings cadastrados uma vez, para o ciclo de video todo.
 
         Deve ser chamado ao (re)entrar no modo de reconhecimento. O
@@ -54,18 +56,30 @@ class ReconhecerAluno:
         atualizava, entao cadastros novos ficavam invisiveis ate reiniciar
         o modo (problema A15).
         """
-        pares = self._alunos.listar_referencias(self._modelo)
+        # Limpa primeiro: se uma turma invalida ou uma falha de banco impedir
+        # a carga seguinte, a galeria anterior nao pode continuar utilizavel.
+        self.limpar_contexto()
+        pares = self._alunos.listar_referencias(self._modelo, turma_id=turma_id)
         self._referencias = {aluno.id: aluno for aluno, _ in pares}
 
         if not pares:
             logger.warning("Nenhum aluno com embedding para o modelo %s", self._modelo)
 
-        return MatrizDeReferencia.de_embeddings(
+        matriz = MatrizDeReferencia.de_embeddings(
             [(aluno.id, embedding) for aluno, embedding in pares]
         )
+        self._turma_id = turma_id
+        self._matriz = matriz
+        return matriz
+
+    def limpar_contexto(self) -> None:
+        """Descarta galerias e IDs ao sair ou trocar a turma selecionada."""
+        self._turma_id = None
+        self._matriz = None
+        self._referencias.clear()
 
     def identificar(
-        self, imagem: Any, referencias: MatrizDeReferencia
+        self, imagem: Any, referencias: MatrizDeReferencia, *, turma_id: int
     ) -> Reconhecimento | None:
         """Devolve o aluno de MENOR distancia abaixo do limiar, ou None.
 
@@ -74,6 +88,11 @@ class ReconhecerAluno:
         ModeloIndisponivel, para nao se disfarcar de "nao reconhecido"
         (problema A6).
         """
+        if self._turma_id != turma_id or self._matriz is not referencias:
+            raise RuntimeError(
+                "As referencias nao pertencem ao contexto da turma selecionada."
+            )
+
         if len(referencias) == 0:
             return None
 

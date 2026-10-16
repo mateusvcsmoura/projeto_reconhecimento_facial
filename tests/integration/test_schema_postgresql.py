@@ -18,13 +18,13 @@ from src.infrastructure.database.models import Base
 
 def test_migration_cria_as_tabelas_esperadas(engine: Engine) -> None:
     tabelas = set(inspect(engine).get_table_names())
-    assert {"alunos", "presencas"} <= tabelas
+    assert {"alunos", "presencas", "turmas", "aluno_turma"} <= tabelas
 
 
 def test_schema_do_banco_bate_com_os_modelos(engine: Engine) -> None:
     """Sem divergencia entre codigo e banco -- o problema P1 do baseline."""
     inspetor = inspect(engine)
-    for tabela in ("alunos", "presencas"):
+    for tabela in ("alunos", "presencas", "turmas", "aluno_turma"):
         colunas_banco = {c["name"] for c in inspetor.get_columns(tabela)}
         colunas_modelo = set(Base.metadata.tables[tabela].columns.keys())
         assert colunas_banco == colunas_modelo, tabela
@@ -39,13 +39,14 @@ def test_chaves_primarias_sao_identity(engine: Engine) -> None:
                 FROM information_schema.columns
                 WHERE table_schema = 'public'
                   AND column_name = 'id'
-                  AND table_name IN ('alunos', 'presencas')
+                  AND table_name IN ('alunos', 'presencas', 'turmas')
                 """
             )
         ).all()
     assert {(linha[0], linha[1]) for linha in resultado} == {
         ("alunos", "YES"),
         ("presencas", "YES"),
+        ("turmas", "YES"),
     }
 
 
@@ -58,7 +59,8 @@ def test_constraints_esperadas_existem(engine: Engine) -> None:
     uniques_presencas = {
         u["name"] for u in inspetor.get_unique_constraints("presencas")
     }
-    assert "uq_presencas_aluno_dia" in uniques_presencas
+    assert "uq_presencas_aluno_dia" not in uniques_presencas
+    assert "uq_presencas_turma_aluno_dia" in uniques_presencas
 
     checks_alunos = {c["name"] for c in inspetor.get_check_constraints("alunos")}
     assert {
@@ -67,12 +69,16 @@ def test_constraints_esperadas_existem(engine: Engine) -> None:
     } <= checks_alunos
 
     fks = inspetor.get_foreign_keys("presencas")
-    assert len(fks) == 1
-    assert fks[0]["referred_table"] == "alunos"
-    assert fks[0]["options"]["ondelete"] == "CASCADE"
+    assert {fk["referred_table"] for fk in fks} == {"alunos", "turmas", "aluno_turma"}
+    fk_aluno = next(fk for fk in fks if fk["referred_table"] == "alunos")
+    assert fk_aluno["options"]["ondelete"] == "CASCADE"
 
     indices = {i["name"] for i in inspetor.get_indexes("presencas")}
-    assert "ix_presencas_data_referencia" in indices
+    assert {
+        "ix_presencas_data_referencia",
+        "ix_presencas_turma_data",
+        "uq_presencas_legado_aluno_dia",
+    } <= indices
 
 
 def test_matricula_duplicada_e_rejeitada(banco_limpo: Engine) -> None:
@@ -105,7 +111,7 @@ def test_presenca_orfa_e_rejeitada(banco_limpo: Engine) -> None:
 
 
 def test_segunda_presenca_no_mesmo_dia_e_rejeitada(banco_limpo: Engine) -> None:
-    """A regra de negocio agora e garantida pelo banco, nao por SELECT previo."""
+    """Sem turma, a unicidade parcial protege apenas registros legados."""
     with banco_limpo.begin() as conexao:
         aluno_id = conexao.execute(
             text(
@@ -132,7 +138,7 @@ def test_segunda_presenca_no_mesmo_dia_e_rejeitada(banco_limpo: Engine) -> None:
 
 
 def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:
-    """Caminho usado pela aplicacao: registrar sem quebrar em duplicata."""
+    """O caminho explicito legado usa o indice parcial por conflito."""
     with banco_limpo.begin() as conexao:
         aluno_id = conexao.execute(
             text(
@@ -145,7 +151,8 @@ def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:
             text(
                 "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
                 " VALUES (:a, now(), DATE '2026-03-10')"
-                " ON CONFLICT ON CONSTRAINT uq_presencas_aluno_dia DO NOTHING"
+                " ON CONFLICT (aluno_id, data_referencia)"
+                " WHERE turma_id IS NULL DO NOTHING"
                 " RETURNING id"
             ),
             {"a": aluno_id},
@@ -154,7 +161,8 @@ def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:
             text(
                 "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
                 " VALUES (:a, now(), DATE '2026-03-10')"
-                " ON CONFLICT ON CONSTRAINT uq_presencas_aluno_dia DO NOTHING"
+                " ON CONFLICT (aluno_id, data_referencia)"
+                " WHERE turma_id IS NULL DO NOTHING"
                 " RETURNING id"
             ),
             {"a": aluno_id},

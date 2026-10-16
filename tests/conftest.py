@@ -1,8 +1,7 @@
 """Fixtures dos testes de integracao da Fase 1.
 
-Os testes rodam contra um PostgreSQL real (TEST_DATABASE_URL), que precisa
-ser diferente do banco de desenvolvimento: o schema e criado e destruido
-pelas migrations a cada sessao.
+Os testes rodam contra um PostgreSQL explicitamente descartavel. Antes de
+qualquer migration/limpeza exigem opt-in e comentario identificador no banco.
 
 Nenhum teste usa o escola.db real. Os dados legados de teste sao sinteticos,
 para que dado biometrico/pessoal nunca entre na suite nem no Git.
@@ -23,18 +22,58 @@ from sqlalchemy import Engine, text
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.settings import get_settings  # noqa: E402
 from src.infrastructure.database.engine import criar_engine  # noqa: E402
+
+VAR_URL = "FACE_TURMAS_TEST_DATABASE_URL"
+VAR_AUTORIZACAO = "FACE_TURMAS_TEST_DB_AUTORIZACAO"
+TOKEN_AUTORIZACAO = "AUTORIZO_DESTRUIR_BANCO_DESCARTAVEL_TASK_008"
+COMENTARIO_BANCO = "projeto_reconhecimento_facial: task 008 disposable test database"
 
 
 def _test_database_url() -> str:
-    url = get_settings().test_database_url
-    if not url:
+    if os.environ.get(VAR_AUTORIZACAO) != TOKEN_AUTORIZACAO:
         pytest.skip(
-            "TEST_DATABASE_URL nao definida. Suba o banco com "
-            "'docker compose up -d' e configure o .env."
+            "Integracao PostgreSQL desabilitada: exige opt-in explicito para "
+            "banco descartavel da tarefa 008."
         )
+    url = os.environ.get(VAR_URL)
+    if not url:
+        pytest.skip(f"{VAR_URL} nao definida; nenhum .env e consultado.")
     return url
+
+
+def _validar_banco_descartavel(url: str) -> None:
+    motor = criar_engine(url)
+    try:
+        with motor.connect() as conexao:
+            comentario = conexao.execute(
+                text(
+                    "SELECT shobj_description(oid, 'pg_database') "
+                    "FROM pg_database WHERE datname = current_database()"
+                )
+            ).scalar_one_or_none()
+        if comentario != COMENTARIO_BANCO:
+            raise RuntimeError(
+                "Banco recusado antes de DDL: o comentario nao confirma "
+                "o marcador descartavel esperado."
+            )
+    finally:
+        motor.dispose()
+
+
+def _identidade_banco(url: str) -> tuple[str, str | None, int | None]:
+    motor = criar_engine(url)
+    try:
+        with motor.connect() as conexao:
+            nome, endereco, porta = conexao.execute(
+                text(
+                    "SELECT current_database(), inet_server_addr()::text, "
+                    "inet_server_port()"
+                )
+            ).one()
+        return str(nome), endereco, porta
+    finally:
+        motor.dispose()
 
 
 def _alembic(*args: str, url: str) -> None:
@@ -54,29 +93,66 @@ def _alembic(*args: str, url: str) -> None:
 
 @pytest.fixture(scope="session")
 def database_url() -> str:
-    return _test_database_url()
+    url = _test_database_url()
+    _validar_banco_descartavel(url)
+    return url
+
+
+@pytest.fixture(scope="session")
+def migration_database_url() -> str:
+    if os.environ.get(VAR_AUTORIZACAO) != TOKEN_AUTORIZACAO:
+        pytest.skip("Teste de migration exige opt-in explicito task 008.")
+    url = os.environ.get("FACE_TURMAS_MIGRATION_DATABASE_URL")
+    if not url:
+        pytest.skip("FACE_TURMAS_MIGRATION_DATABASE_URL nao definida.")
+    if url == os.environ.get(VAR_URL):
+        raise RuntimeError(
+            "O banco dedicado de migration nao pode ser o banco "
+            "compartilhado de integracao."
+        )
+    _validar_banco_descartavel(url)
+    banco_compartilhado = os.environ.get(VAR_URL)
+    if banco_compartilhado and _identidade_banco(url) == _identidade_banco(
+        banco_compartilhado
+    ):
+        raise RuntimeError(
+            "A migration exige um banco fisicamente separado do banco "
+            "compartilhado de integracao."
+        )
+    return url
 
 
 @pytest.fixture(scope="session")
 def engine(database_url: str) -> Iterator[Engine]:
     """Aplica as migrations na entrada e desfaz na saida."""
-    # Limpa residuo de uma execucao anterior interrompida.
-    _alembic("downgrade", "base", url=database_url)
-    _alembic("upgrade", "head", url=database_url)
-
     motor = criar_engine(database_url)
+    migrations_started = False
     try:
+        _validar_banco_descartavel(database_url)
+
+        # O opt-in e o marcador foram validados antes de qualquer DDL.
+        migrations_started = True
+        _alembic("downgrade", "base", url=database_url)
+        _alembic("upgrade", "head", url=database_url)
         yield motor
     finally:
-        motor.dispose()
-        _alembic("downgrade", "base", url=database_url)
+        try:
+            if migrations_started:
+                _alembic("downgrade", "base", url=database_url)
+        finally:
+            motor.dispose()
 
 
 @pytest.fixture
 def banco_limpo(engine: Engine) -> Iterator[Engine]:
     """Zera as tabelas entre testes, preservando o schema."""
     with engine.begin() as conexao:
-        conexao.execute(text("TRUNCATE presencas, alunos RESTART IDENTITY CASCADE"))
+        conexao.execute(
+            text(
+                "TRUNCATE presencas, aluno_turma, turmas, alunos "
+                "RESTART IDENTITY CASCADE"
+            )
+        )
     yield engine
 
 

@@ -22,6 +22,14 @@ O estado confirmado das melhorias de captura, decisão e benchmark está em
 Esse registro distingue o código atual dos resultados históricos e das
 pendências biométricas.
 
+A tarefa 008 implementa operações com contexto de turma, vínculo N:N e
+presença por turma. A migration `0004` está preparada, mas não foi aplicada;
+testes de integração PostgreSQL/BDD permanecem pendentes. O código atual
+requer esse schema para o menu de turmas. Consulte
+[`docs/TURMAS.md`](docs/TURMAS.md) e
+[`tasks/008-turmas/RESULTADO.md`](tasks/008-turmas/RESULTADO.md) antes de
+qualquer implantação.
+
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
@@ -78,6 +86,7 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 4. **Múltiplas referências por identidade — pendente**: somente considerar quando houver cadastros autorizados; avaliar agregação e impacto no desempenho.
 5. **Desempenho — benchmark da tarefa 004**: comparação sintética de embeddings 512D, equivalência, latência e memória. Os resultados não são biométricos nem cobrem inferência.
 6. **Calibração biométrica real — pendente**: aguardar dados autorizados e representativos; não alterar `FACE_THRESHOLD=0.30` sem evidência e decisão explícita.
+7. **Operações por turma — código da tarefa 008 preparado**: matrícula global única, vínculo N:N e presença contextualizada. A migration e a integração PostgreSQL ainda precisam de validação autorizada; o código não está pronto para uso no schema atual.
 
 ### Evidências aceitáveis sem dataset externo
 
@@ -100,4 +109,4 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 
 ## 7. Próxima direção sugerida
 
-Manter o registro atual e as limitações das tarefas 001–004 atualizados. As próximas decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–008 atualizados. A aplicação da migration `0004` e a validação de integração em PostgreSQL descartável são pendências operacionais separadas da implementação. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

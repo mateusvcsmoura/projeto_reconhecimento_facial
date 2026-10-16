@@ -93,6 +93,29 @@ _ORIENTACOES: dict[type[Exception], Orientacao] = {
         problema="Ja existe um aluno com essa matricula.",
         acao="Use outra matricula, ou exclua o cadastro anterior.",
     ),
+    errors.TurmaNaoEncontrada: Orientacao(
+        problema="Turma nao encontrada.",
+        acao="Confira a lista de turmas e selecione uma turma existente.",
+    ),
+    errors.TurmaInativa: Orientacao(
+        problema="A turma esta excluida e nao aceita novas operacoes.",
+        acao="Consulte o historico ou selecione uma turma ativa.",
+    ),
+    errors.AlunoSemConsentimento: Orientacao(
+        problema="O aluno nao possui consentimento biometrico registrado.",
+        acao=(
+            "Nao vincule biometria sem consentimento; obtenha aceite valido "
+            "antes de um novo cadastro."
+        ),
+    ),
+    errors.VinculoNaoEncontrado: Orientacao(
+        problema="O aluno nao esta vinculado a esta turma.",
+        acao="Confira a matricula ou crie o vinculo na gestao da turma.",
+    ),
+    errors.VinculoInativo: Orientacao(
+        problema="O vinculo do aluno nesta turma esta inativo.",
+        acao="Reative o vinculo na gestao da turma ou selecione outro aluno.",
+    ),
 }
 
 

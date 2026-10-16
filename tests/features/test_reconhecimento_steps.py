@@ -27,6 +27,7 @@ def emb(valores: list[float]) -> FaceEmbedding:
 def contexto() -> dict[str, Any]:
     return {
         "alunos": FakeAlunoRepository(),
+        "turma_id": 1,
         "reconhecimento": FakeFaceRecognition(),
         "resultado": None,
         "erro": None,
@@ -51,6 +52,7 @@ def sistema_operacional(contexto: dict[str, Any]) -> None:
 def aluno_com_embedding(contexto: dict[str, Any], nome: str) -> None:
     aluno = Aluno(id=1, matricula="1001", nome=nome)
     contexto["alunos"].alunos.append(aluno)
+    contexto["alunos"].vinculos.add((contexto["turma_id"], aluno.id))
     contexto["alunos"].embeddings[1] = emb([1.0, 0.0, 0.0])
 
 
@@ -62,6 +64,9 @@ def dois_alunos_parecidos(contexto: dict[str, Any]) -> None:
             Aluno(id=2, matricula="2", nome="Segundo"),
         ]
     )
+    contexto["alunos"].vinculos.update(
+        {(contexto["turma_id"], 1), (contexto["turma_id"], 2)}
+    )
     contexto["alunos"].embeddings[1] = emb([1.0, 0.00, 0.0])
     contexto["alunos"].embeddings[2] = emb([1.0, 0.20, 0.0])
 
@@ -69,6 +74,7 @@ def dois_alunos_parecidos(contexto: dict[str, Any]) -> None:
 @given("que nenhum aluno possui embedding cadastrado")
 def sem_embeddings(contexto: dict[str, Any]) -> None:
     contexto["alunos"].alunos.append(Aluno(id=1, matricula="1", nome="Sem vetor"))
+    contexto["alunos"].vinculos.add((contexto["turma_id"], 1))
 
 
 @given(parsers.parse("que existem {quantidade:d} alunos cadastrados com embedding"))
@@ -78,6 +84,7 @@ def muitos_alunos(contexto: dict[str, Any], quantidade: int) -> None:
             Aluno(id=i, matricula=str(i), nome=f"Aluno {i}")
         )
         contexto["alunos"].embeddings[i] = emb([1.0, 0.0, 0.0])
+        contexto["alunos"].vinculos.add((contexto["turma_id"], i))
 
 
 @given("que o modelo de reconhecimento esta indisponivel")
@@ -90,9 +97,11 @@ def modelo_indisponivel(contexto: dict[str, Any]) -> None:
 
 def _identificar(contexto: dict[str, Any]) -> None:
     caso = _caso(contexto)
-    referencias = caso.carregar_referencias()
+    referencias = caso.carregar_referencias(turma_id=contexto["turma_id"])
     try:
-        contexto["resultado"] = caso.identificar(object(), referencias)
+        contexto["resultado"] = caso.identificar(
+            object(), referencias, turma_id=contexto["turma_id"]
+        )
     except Exception as erro:
         contexto["erro"] = erro
 
@@ -157,9 +166,7 @@ def nao_o_primeiro(contexto: dict[str, Any]) -> None:
     apenas_o_primeiro = MatrizDeReferencia.de_embeddings(
         [(1, contexto["alunos"].embeddings[1])]
     )
-    assert (
-        apenas_o_primeiro.melhor_candidato(emb([1.0, 0.20, 0.0]), LIMIAR) is not None
-    )
+    assert apenas_o_primeiro.melhor_candidato(emb([1.0, 0.20, 0.0]), LIMIAR) is not None
     assert contexto["resultado"].aluno.id != 1
 
 

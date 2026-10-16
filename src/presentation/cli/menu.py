@@ -8,6 +8,7 @@ exercitavel em teste com dubles -- sem webcam e sem OpenCV instalado
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 from collections.abc import Callable
 from time import monotonic
@@ -20,13 +21,17 @@ from src.application.use_cases.consultar import (
     ListarPresencasDoDia,
 )
 from src.application.use_cases.excluir_aluno import ExcluirAluno
+from src.application.use_cases.gerenciar_turmas import GerenciarTurmas
 from src.application.use_cases.reconhecer_aluno import (
     ReconhecerAluno,
     Reconhecimento,
 )
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
+from src.domain.entities.turma import Turma
 from src.domain.errors import (
+    AlunoSemConsentimento,
+    DadosInvalidos,
     ErroDeDominio,
     FalhaNaLeituraDaCamera,
     IdentificacaoAmbigua,
@@ -81,6 +86,8 @@ class MenuCLI:
         excluir_aluno: ExcluirAluno,
         listar_alunos: ListarAlunos,
         listar_presencas: ListarPresencasDoDia,
+        turma: Turma,
+        gerenciar_turmas: GerenciarTurmas,
         limiar: float,
         abrir_camera: Callable[[], CameraProvider],
         abrir_janela: Callable[[str], Janela],
@@ -96,6 +103,12 @@ class MenuCLI:
         self._excluir_aluno = excluir_aluno
         self._listar_alunos = listar_alunos
         self._listar_presencas = listar_presencas
+        if turma.id is None:
+            raise ValueError("O menu exige uma turma persistida.")
+        self._turma = turma
+        self._turma_id = turma.id
+        self._gerenciar_turmas = gerenciar_turmas
+        self._voltar_ao_menu_principal = False
         self._limiar = limiar
         self._abrir_camera = abrir_camera
         self._abrir_janela = abrir_janela
@@ -114,6 +127,7 @@ class MenuCLI:
                 temporal=temporal,
                 relogio=relogio,
                 escrever=escrever,
+                turma_id=self._turma_id,
             )
             if captura_automatica is not None
             else None
@@ -128,41 +142,56 @@ class MenuCLI:
     def executar(self) -> None:
         acoes: dict[str, Callable[[], None]] = {
             "1": self.cadastrar,
-            "2": self.reconhecer,
+            "2": self.vincular,
             "3": self.listar,
-            "4": self.presencas_de_hoje,
-            "5": self.excluir,
+            "4": self.reconhecer,
+            "5": self.presencas_de_hoje,
+            "6": self.desvincular,
+            "7": self.atualizar_turma,
+            "8": self.excluir_turma,
         }
 
-        while True:
-            self._mostrar_menu()
-            opcao = prompts.perguntar_opcao({"1", "2", "3", "4", "5", "6"}, self._ler)
+        try:
+            while not self._voltar_ao_menu_principal:
+                self._mostrar_menu()
+                opcao = prompts.perguntar_opcao(
+                    {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
+                    self._ler,
+                )
 
-            if opcao == "6":
-                self._escrever("Encerrando...")
-                return
+                if opcao == "9":
+                    self._escrever("Encerrando... Voltando da turma ao menu principal.")
+                    return
+                if opcao is None:
+                    self._escrever("Opcao invalida.")
+                    continue
 
-            if opcao is None:
-                self._escrever("Opcao invalida.")
-                continue
-
-            try:
-                acoes[opcao]()
-            except ErroDeDominio as erro:
-                # Erro esperado: vira mensagem, o menu continua de pe.
-                logger.warning("Operacao interrompida: %s", type(erro).__name__)
-                self._escrever(f"ERRO: {para_operador(erro)}")
+                try:
+                    acoes[opcao]()
+                except ErroDeDominio as erro:
+                    logger.warning("Operacao interrompida: %s", type(erro).__name__)
+                    self._escrever(f"ERRO: {para_operador(erro)}")
+        finally:
+            # A galeria e o mapa de IDs pertencem somente a esta sessao.
+            # Trocar de turma sempre exige nova consulta filtrada no SQL.
+            self._reconhecer_aluno.limpar_contexto()
 
     def _mostrar_menu(self) -> None:
         self._escrever("\n==============================")
-        self._escrever(" SISTEMA DE RECONHECIMENTO")
+        self._escrever(
+            f" TURMA {self._turma_id}: {self._turma.materia} "
+            f"({self._turma.periodo.value})"
+        )
         self._escrever("==============================")
-        self._escrever("1 - Cadastrar aluno")
-        self._escrever("2 - Reconhecer aluno")
-        self._escrever("3 - Listar alunos")
-        self._escrever("4 - Presencas de hoje")
-        self._escrever("5 - Excluir aluno e seus dados")
-        self._escrever("6 - Sair")
+        self._escrever("1 - Cadastrar novo aluno nesta turma")
+        self._escrever("2 - Vincular aluno existente por matricula")
+        self._escrever("3 - Listar alunos vinculados")
+        self._escrever("4 - Reconhecer e registrar presenca nesta turma")
+        self._escrever("5 - Consultar presencas da turma")
+        self._escrever("6 - Remover aluno desta turma")
+        self._escrever("7 - Atualizar materia/periodo")
+        self._escrever("8 - Excluir turma (preserva historico)")
+        self._escrever("9 - Voltar / trocar turma")
 
     # -- cadastro ---------------------------------------------------------
 
@@ -174,7 +203,9 @@ class MenuCLI:
 
         # Valida ANTES de acender a camera: nao faz sentido pedir o rosto do
         # aluno para so entao descobrir que a matricula esta duplicada.
-        matricula, nome = self._cadastrar_aluno.validar_identificacao(matricula, nome)
+        matricula, nome = self._cadastrar_aluno.validar_identificacao(
+            matricula, nome, turma_id=self._turma_id
+        )
 
         # O termo vem ANTES de a camera ligar. Coletar a biometria para so
         # entao perguntar inverteria a ordem que a LGPD exige.
@@ -201,7 +232,7 @@ class MenuCLI:
 
             try:
                 aluno = self._cadastrar_aluno.executar(
-                    matricula, nome, imagem, consentiu=True
+                    matricula, nome, imagem, consentiu=True, turma_id=self._turma_id
                 )
             except QualidadeCapturaInsuficiente as erro:
                 self._escrever(f"ERRO: {para_operador(erro)}")
@@ -228,7 +259,7 @@ class MenuCLI:
         )
         self._escrever("derivado dela, com a unica finalidade de controlar a presenca.")
         self._escrever(
-            "Voce pode pedir a exclusao a qualquer momento (opcao 3 do menu)."
+            "Voce pode pedir a exclusao global dos dados a qualquer momento."
         )
         resposta = prompts.perguntar("Voce concorda? (s/N): ", self._ler)
         return resposta.strip().lower() in {"s", "sim"}
@@ -259,9 +290,11 @@ class MenuCLI:
     # -- consultas --------------------------------------------------------
 
     def listar(self) -> None:
-        alunos = self._listar_alunos.executar()
+        alunos = self._listar_alunos.executar(turma_id=self._turma_id)
 
-        self._escrever("\n=== ALUNOS CADASTRADOS ===")
+        self._escrever(
+            f"\n=== ALUNOS DA TURMA {self._turma_id}: {self._turma.materia} ==="
+        )
         if not alunos:
             self._escrever("Nenhum aluno cadastrado ainda. Use a opcao 1.")
             return
@@ -284,10 +317,20 @@ class MenuCLI:
             )
 
     def presencas_de_hoje(self) -> None:
-        dia = self._listar_presencas.hoje()
-        registros = self._listar_presencas.executar(dia)
+        dia_texto = prompts.perguntar("Dia (AAAA-MM-DD; vazio = hoje): ", self._ler)
+        if dia_texto:
+            try:
+                dia = dt.date.fromisoformat(dia_texto)
+            except ValueError as erro:
+                raise DadosInvalidos("Informe a data no formato AAAA-MM-DD.") from erro
+        else:
+            dia = self._listar_presencas.hoje()
+        registros = self._listar_presencas.executar(dia, turma_id=self._turma_id)
 
-        self._escrever(f"\n=== PRESENCAS DE {dia.strftime('%d/%m/%Y')} ===")
+        self._escrever(
+            f"\n=== PRESENCAS DA TURMA {self._turma_id} "
+            f"({dia.strftime('%d/%m/%Y')}) ==="
+        )
         if not registros:
             self._escrever("Nenhuma presenca registrada hoje.")
             return
@@ -302,30 +345,81 @@ class MenuCLI:
 
     # -- exclusao ---------------------------------------------------------
 
-    def excluir(self) -> None:
-        self._escrever("\n=== EXCLUSAO DE ALUNO ===")
-        self._escrever("Remove o cadastro, a imagem, o embedding e as presencas.")
-
+    def vincular(self) -> None:
+        self._escrever("\n=== VINCULAR ALUNO EXISTENTE ===")
+        self._escrever(
+            "A biometria e o consentimento permanecem no cadastro global do aluno."
+        )
         matricula = prompts.perguntar("Matricula: ", self._ler)
         aluno = self._excluir_aluno.localizar(matricula)
-
         self._escrever(f"\nAluno: {aluno.nome} (matricula {aluno.matricula})")
+        if aluno.consentimento_em is None:
+            raise AlunoSemConsentimento(aluno.matricula)
         confirmacao = prompts.perguntar(
-            "Confirma a exclusao? Esta acao e irreversivel (s/N): ", self._ler
+            "Confirma o vinculo a esta turma? (s/N): ", self._ler
         )
         if confirmacao.strip().lower() not in {"s", "sim"}:
-            self._escrever("Exclusao cancelada.")
+            self._escrever("Vinculo cancelado.")
             return
+        _aluno, criado = self._gerenciar_turmas.vincular(
+            self._turma_id, aluno.matricula
+        )
+        if criado:
+            self._escrever("Aluno vinculado a esta turma. Cadastro global preservado.")
+        else:
+            self._escrever("Aluno ja estava vinculado a esta turma.")
 
-        self._excluir_aluno.executar(aluno)
-        self._escrever("Aluno e todos os seus dados foram removidos.")
+    def desvincular(self) -> None:
+        self._escrever("\n=== REMOVER ALUNO DESTA TURMA ===")
+        self._escrever(
+            "Isso preserva o cadastro global, a biometria e o historico de presencas."
+        )
+        matricula = prompts.perguntar("Matricula: ", self._ler)
+        aluno = self._excluir_aluno.localizar(matricula)
+        self._escrever(f"Aluno: {aluno.nome} (matricula {aluno.matricula})")
+        confirmacao = prompts.perguntar(
+            "Confirma remover somente desta turma? (s/N): ", self._ler
+        )
+        if confirmacao.strip().lower() not in {"s", "sim"}:
+            self._escrever("Remocao cancelada.")
+            return
+        self._gerenciar_turmas.desvincular(self._turma_id, aluno.matricula)
+        self._escrever("Aluno removido desta turma; cadastro e historico preservados.")
+
+    def atualizar_turma(self) -> None:
+        self._escrever("\n=== ATUALIZAR TURMA ===")
+        materia = prompts.perguntar("Materia: ", self._ler)
+        periodo = prompts.perguntar("Periodo (matutino/diurno/noturno): ", self._ler)
+        self._turma = self._gerenciar_turmas.atualizar(self._turma_id, materia, periodo)
+        self._escrever(
+            f"Turma atualizada: {self._turma_id} - {self._turma.materia} "
+            f"({self._turma.periodo.value})."
+        )
+
+    def excluir_turma(self) -> None:
+        self._escrever("\n=== EXCLUSAO LOGICA DA TURMA ===")
+        self._escrever(
+            "A turma sai das operacoes ativas; alunos e historico de presencas "
+            "permanecem consultaveis."
+        )
+        confirmacao = prompts.perguntar(
+            "Confirma excluir esta turma? (s/N): ", self._ler
+        )
+        if confirmacao.strip().lower() not in {"s", "sim"}:
+            self._escrever("Exclusao da turma cancelada.")
+            return
+        self._gerenciar_turmas.excluir(self._turma_id)
+        self._escrever("Turma excluida logicamente; o historico foi preservado.")
+        self._voltar_ao_menu_principal = True
 
     # -- reconhecimento ---------------------------------------------------
 
     def reconhecer(self) -> None:
         # Recarrega a cada entrada no modo: cadastros feitos depois da ultima
         # visita passam a valer imediatamente (problema A15).
-        referencias = self._reconhecer_aluno.carregar_referencias()
+        referencias = self._reconhecer_aluno.carregar_referencias(
+            turma_id=self._turma_id
+        )
         if len(referencias) == 0:
             self._escrever("Nenhum aluno com embedding cadastrado.")
             return
@@ -371,7 +465,7 @@ class MenuCLI:
                 if contador % INTERVALO_DE_COMPARACAO == 0:
                     try:
                         reconhecido = self._reconhecer_aluno.identificar(
-                            frame, referencias
+                            frame, referencias, turma_id=self._turma_id
                         )
                     except (QualidadeCapturaInsuficiente, IdentificacaoAmbigua) as erro:
                         reconhecido = None
@@ -426,7 +520,7 @@ class MenuCLI:
                 if comparacao:
                     try:
                         reconhecido = self._reconhecer_aluno.identificar(
-                            frame, referencias
+                            frame, referencias, turma_id=self._turma_id
                         )
                     except (
                         QualidadeCapturaInsuficiente,
@@ -523,7 +617,9 @@ class MenuCLI:
 
                 try:
                     novo_reconhecimento = self._reconhecer_aluno.identificar(
-                        frame_confirmacao, referencias
+                        frame_confirmacao,
+                        referencias,
+                        turma_id=self._turma_id,
                     )
                 except (
                     QualidadeCapturaInsuficiente,
@@ -610,7 +706,7 @@ class MenuCLI:
         return "Procurando...", BRANCO
 
     def _registrar(self, aluno: Aluno) -> None:
-        if self._registrar_presenca.executar(aluno.id):
+        if self._registrar_presenca.executar(aluno.id, turma_id=self._turma_id):
             self._escrever(f"Presenca registrada: {aluno.nome}")
         else:
             self._escrever(f"Presenca ja registrada hoje: {aluno.nome}")

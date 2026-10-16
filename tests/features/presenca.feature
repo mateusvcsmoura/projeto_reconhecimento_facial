@@ -28,4 +28,4 @@ Funcionalidade: Registro de presenca
   Cenario: Aluno inexistente
     Dado que nenhum aluno esta cadastrado
     Quando o operador confirmar a presenca de um aluno inexistente
-    Entao o registro deve falhar por integridade referencial
+    Entao o registro deve falhar porque o aluno nao pertence a turma

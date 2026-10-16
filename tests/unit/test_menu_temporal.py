@@ -15,6 +15,7 @@ from src.application.use_cases.reconhecer_aluno import (
 )
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
+from src.domain.entities.turma import Periodo, Turma
 from src.domain.errors import (
     FalhaNaLeituraDaCamera,
     IdentificacaoAmbigua,
@@ -130,16 +131,19 @@ class IdentificadorRoteirizado:
         self._ao_identificar = ao_identificar
         self.frames: list[Frame] = []
         self.carregamentos = 0
+        self.turmas: list[int] = []
 
-    def carregar_referencias(self) -> MatrizDeReferencia:
+    def carregar_referencias(self, *, turma_id: int) -> MatrizDeReferencia:
         self.carregamentos += 1
+        self.turmas.append(turma_id)
         return MatrizDeReferencia.de_embeddings(
             [(ANA.id, FaceEmbedding.de_valores([1.0, 0.0, 0.0], MODELO))]
         )
 
     def identificar(
-        self, imagem: Frame, _referencias: MatrizDeReferencia
+        self, imagem: Frame, _referencias: MatrizDeReferencia, *, turma_id: int
     ) -> Reconhecimento | None:
+        self.turmas.append(turma_id)
         self.frames.append(imagem)
         if self._ao_identificar is not None:
             self._ao_identificar(len(self.frames), imagem)
@@ -158,7 +162,7 @@ class RegistroRoteirizado:
         self.ids: list[int] = []
         self._resultados = list(resultados or [])
 
-    def executar(self, aluno_id: int) -> bool:
+    def executar(self, aluno_id: int, *, turma_id: int) -> bool:
         self.ids.append(aluno_id)
         if self._resultados:
             return self._resultados.pop(0)
@@ -193,6 +197,8 @@ def _montar_menu(
         excluir_aluno=inerte,
         listar_alunos=inerte,
         listar_presencas=inerte,
+        turma=Turma(id=1, materia="IA", periodo=Periodo.DIURNO),
+        gerenciar_turmas=inerte,
         limiar=0.30,
         abrir_camera=lambda: next(fila_cameras),
         abrir_janela=lambda _titulo: next(fila_janelas),

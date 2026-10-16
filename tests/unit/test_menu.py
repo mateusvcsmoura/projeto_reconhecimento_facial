@@ -6,6 +6,7 @@ cv2 direto, estes testes deixam de importar -- e isso e proposital.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 from zoneinfo import ZoneInfo
 
@@ -19,6 +20,7 @@ from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.domain.entities.aluno import Aluno
 from src.domain.entities.face_embedding import FaceEmbedding
+from src.domain.entities.turma import Periodo, Turma
 from src.domain.errors import (
     FalhaNaLeituraDaCamera,
     RostoSemNitidez,
@@ -32,6 +34,7 @@ from tests.fakes import (
     FakeAlunoRepository,
     FakeCamera,
     FakeFaceRecognition,
+    FakeGerenciarTurmas,
     FakeImageStorage,
     FakeJanela,
     FakePresencaRepository,
@@ -81,16 +84,30 @@ def montar(
     captura_automatica: ParametrosCapturaAutomatica | None = None,
     relogio: Callable[[], float] | None = None,
     janela_fake: FakeJanela | None = None,
+    turma_id: int = 1,
 ) -> tuple[MenuCLI, Contexto]:
     repo_alunos = FakeAlunoRepository(alunos or [], embeddings or {})
     repo_presencas = FakePresencaRepository()
     storage = FakeImageStorage()
+    gerenciar_turmas = FakeGerenciarTurmas(repo_alunos, turma_id)
     reconhecimento = reconhecimento_fake or FakeFaceRecognition(embedding=consulta)
 
     camera = FakeCamera([object() for _ in range(frames)], erro_ao_ler=erro_ao_ler)
     janela = janela_fake or FakeJanela(teclas)
     saida: list[str] = []
     fila = list(respostas)
+
+    def ler(rotulo: str) -> str:
+        if rotulo == "Escolha: ":
+            resposta = fila.pop(0)
+            # Scripts da suite ainda descrevem os numeros do menu anterior;
+            # converte somente no prompt de opcao, nunca em matriculas/IDs.
+            return {"2": "4", "4": "5", "5": "6", "6": "9", "9": "0"}.get(
+                resposta, resposta
+            )
+        if rotulo.startswith("Dia (AAAA-MM-DD") and fila and fila[0] == "6":
+            return ""
+        return fila.pop(0)
 
     menu = MenuCLI(
         cadastrar_aluno=CadastrarAluno(repo_alunos, reconhecimento, storage, TZ),
@@ -105,10 +122,12 @@ def montar(
         excluir_aluno=ExcluirAluno(repo_alunos, storage),
         listar_alunos=ListarAlunos(repo_alunos, MODELO),
         listar_presencas=ListarPresencasDoDia(repo_presencas, TZ),
+        turma=Turma(id=turma_id, materia="IA", periodo=Periodo.DIURNO),
+        gerenciar_turmas=gerenciar_turmas,
         limiar=0.30,
         abrir_camera=lambda: camera,
         abrir_janela=lambda _titulo: janela,
-        ler=lambda _rotulo: fila.pop(0),
+        ler=ler,
         escrever=saida.append,
         temporal=temporal,
         captura_automatica=captura_automatica,
@@ -116,6 +135,7 @@ def montar(
     )
     contexto = Contexto(
         alunos=repo_alunos,
+        turmas=gerenciar_turmas,
         presencas=repo_presencas,
         storage=storage,
         camera=camera,
@@ -133,7 +153,7 @@ def texto(contexto: Contexto) -> str:
 # -- menu ------------------------------------------------------------------
 
 
-def test_opcao_3_encerra() -> None:
+def test_voltar_encerra_sessao_da_turma() -> None:
     menu, ctx = montar(respostas=["6"], teclas=[])
     menu.executar()
     assert "Encerrando..." in texto(ctx)
@@ -163,7 +183,9 @@ def test_espaco_captura_e_cadastra() -> None:
 
     assert "CADASTRO REALIZADO COM SUCESSO!" in texto(ctx)
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
-    assert ctx.storage.gravacoes == ["42.jpg"]  # type: ignore[attr-defined]
+    gravacoes = ctx.storage.gravacoes  # type: ignore[attr-defined]
+    assert len(gravacoes) == 1 and gravacoes[0].endswith(".jpg")
+    assert gravacoes[0] != "42.jpg"
 
 
 def test_esc_cancela_o_cadastro() -> None:
@@ -211,7 +233,9 @@ def test_cadastro_repete_captura_ruim_sem_repetir_identificacao_ou_consentimento
     assert texto(ctx).count("CONSENTIMENTO") == 1
     assert ctx.reconhecimento.preparacoes == 2  # type: ignore[attr-defined]
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
-    assert ctx.storage.gravacoes == ["42.jpg"]  # type: ignore[attr-defined]
+    gravacoes = ctx.storage.gravacoes  # type: ignore[attr-defined]
+    assert len(gravacoes) == 1 and gravacoes[0].endswith(".jpg")
+    assert gravacoes[0] != "42.jpg"
 
 
 def test_esc_apos_recusa_de_qualidade_libera_camera_sem_persistir() -> None:
@@ -240,6 +264,42 @@ def test_sem_candidatos_nao_abre_a_camera() -> None:
     menu.executar()
 
     assert "Nenhum aluno com embedding cadastrado." in texto(ctx)
+    assert ctx.camera.aberta is False  # type: ignore[attr-defined]
+
+
+def test_reconhecimento_nao_considera_aluno_de_outra_turma() -> None:
+    bruno = Aluno(id=2, matricula="2", nome="Bruno")
+    menu, ctx = montar(
+        respostas=["2", "6"],
+        teclas=[0] * 7 + [ENTER, ESC],
+        alunos=[ANA, bruno],
+        embeddings={1: emb([0.0, 1.0, 0.0]), 2: emb([1.0, 0.0, 0.0])},
+        consulta=emb([1.0, 0.0, 0.0]),
+    )
+    ctx.alunos.vinculos = {(1, ANA.id), (2, bruno.id)}  # type: ignore[attr-defined]
+    ctx.alunos.turmas_ativas.add(2)  # type: ignore[attr-defined]
+
+    menu.executar()
+
+    assert ctx.presencas.chamadas == []  # type: ignore[attr-defined]
+    assert ctx.camera.liberada is True  # type: ignore[attr-defined]
+
+
+def test_vincular_aluno_existente_nao_abre_camera_nem_duplica_cadastro() -> None:
+    consentiu_em = dt.datetime(2026, 3, 10, 8, 0, tzinfo=dt.UTC)
+    ana = Aluno(
+        id=1,
+        matricula="1",
+        nome="Ana",
+        foto_arquivo="ana.jpg",
+        consentimento_em=consentiu_em,
+    )
+    menu, ctx = montar(respostas=["1", "s"], teclas=[], alunos=[ana], turma_id=2)
+
+    menu.vincular()
+
+    assert ctx.alunos.alunos == [ana]  # type: ignore[attr-defined]
+    assert (2, ana.id) in ctx.alunos.vinculos  # type: ignore[attr-defined]
     assert ctx.camera.aberta is False  # type: ignore[attr-defined]
 
 
@@ -386,10 +446,10 @@ def test_esc_sai_do_reconhecimento() -> None:
     assert "Encerrando..." in texto(ctx)
 
 
-# -- exclusao (Fase 6/7) ---------------------------------------------------
+# -- desvinculo do aluno da turma -----------------------------------------
 
 
-def test_exclusao_pede_confirmacao_e_remove() -> None:
+def test_desvincular_pede_confirmacao_e_preserva_cadastro_global() -> None:
     menu, ctx = montar(
         respostas=["5", "1", "s", "6"],
         teclas=[],
@@ -398,8 +458,9 @@ def test_exclusao_pede_confirmacao_e_remove() -> None:
     )
     menu.executar()
 
-    assert "Aluno e todos os seus dados foram removidos." in texto(ctx)
-    assert ctx.alunos.alunos == []  # type: ignore[attr-defined]
+    assert "Aluno removido desta turma" in texto(ctx)
+    assert ctx.alunos.alunos == [ANA]  # type: ignore[attr-defined]
+    assert (1, ANA.id) not in ctx.alunos.vinculos  # type: ignore[attr-defined]
 
 
 def test_exclusao_mostra_quem_sera_apagado_antes_de_apagar() -> None:
@@ -408,14 +469,14 @@ def test_exclusao_mostra_quem_sera_apagado_antes_de_apagar() -> None:
 
     saida = texto(ctx)
     assert "Ana" in saida
-    assert saida.index("Ana") < saida.index("removidos")
+    assert saida.index("Ana") < saida.index("removido desta turma")
 
 
 def test_resposta_diferente_de_sim_cancela_a_exclusao() -> None:
     menu, ctx = montar(respostas=["5", "1", "n", "6"], teclas=[], alunos=[ANA])
     menu.executar()
 
-    assert "Exclusao cancelada." in texto(ctx)
+    assert "Remocao cancelada." in texto(ctx)
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
 
 
@@ -424,7 +485,7 @@ def test_enter_vazio_nao_confirma_a_exclusao() -> None:
     menu, ctx = montar(respostas=["5", "1", "", "6"], teclas=[], alunos=[ANA])
     menu.executar()
 
-    assert "Exclusao cancelada." in texto(ctx)
+    assert "Remocao cancelada." in texto(ctx)
     assert len(ctx.alunos.alunos) == 1  # type: ignore[attr-defined]
 
 

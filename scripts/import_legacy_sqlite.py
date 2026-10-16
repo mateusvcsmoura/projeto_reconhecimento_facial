@@ -15,7 +15,7 @@ Uso:
 Garantias:
   * transacao unica: ou tudo entra, ou nada entra;
   * idempotente: reexecutar nao duplica (alunos por matricula, presencas
-    pela UNIQUE(aluno_id, data_referencia));
+    pela UNIQUE parcial do legado sem turma);
   * nada e descartado em silencio: toda linha nao migrada aparece no
     relatorio JSON, com o motivo e o conteudo original.
 """
@@ -260,32 +260,42 @@ def _migrar_presencas(
     for registrado_em, aluno_id, linha in validas:
         data_referencia = registrado_em.date()
 
-        # ON CONFLICT DO NOTHING sobre UNIQUE(aluno_id, data_referencia): e a
-        # mesma constraint que passa a garantir a regra de negocio. Torna a
-        # reexecucao segura e colapsa as repeticoes do legado.
-        comando = (
-            pg_insert(Presenca)
-            .values(
-                aluno_id=aluno_id,
-                registrado_em=registrado_em,
-                data_referencia=data_referencia,
-            )
-            .on_conflict_do_nothing(constraint="uq_presencas_aluno_dia")
-            .returning(Presenca.id)
-        )
+        # Dados importados continuam sem atribuicao de turma. A idempotencia
+        # usa o indice parcial especifico para turma_id IS NULL; nao inventa
+        # uma turma nem tenta inserir por uma constraint operacional.
+        comando = _comando_presenca_legada(aluno_id, registrado_em, data_referencia)
         inserido = session.execute(comando).scalar()
 
         if inserido is None:
             relatorio.presencas_ja_existentes += 1
             relatorio.registrar(
                 "aviso",
-                "presenca nao inserida: ja existe registro para este aluno neste "
-                "dia (regra de uma presenca por dia)",
+                "presenca legada nao inserida: ja existe registro sem turma "
+                "para este aluno neste dia",
                 legado=dict(linha),
                 data_referencia=data_referencia.isoformat(),
             )
         else:
             relatorio.presencas_inseridas += 1
+
+
+def _comando_presenca_legada(
+    aluno_id: int, registrado_em: dt.datetime, data_referencia: dt.date
+) -> Any:
+    return (
+        pg_insert(Presenca)
+        .values(
+            aluno_id=aluno_id,
+            turma_id=None,
+            registrado_em=registrado_em,
+            data_referencia=data_referencia,
+        )
+        .on_conflict_do_nothing(
+            index_elements=[Presenca.aluno_id, Presenca.data_referencia],
+            index_where=Presenca.turma_id.is_(None),
+        )
+        .returning(Presenca.id)
+    )
 
 
 def migrar(

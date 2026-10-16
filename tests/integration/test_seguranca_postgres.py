@@ -9,20 +9,29 @@ import pytest
 from sqlalchemy import Engine, text
 
 from src.domain.entities.face_embedding import FaceEmbedding
+from src.domain.entities.turma import Periodo, Turma
 from src.infrastructure.repositories.postgres_aluno_repository import (
     PostgresAlunoRepository,
 )
 from src.infrastructure.repositories.postgres_presenca_repository import (
     PostgresPresencaRepository,
 )
+from src.infrastructure.repositories.postgres_turma_repository import (
+    PostgresTurmaRepository,
+)
 
 TZ = ZoneInfo("America/Sao_Paulo")
 MODELO = "Facenet512"
 AGORA = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
+TURMA_ID = 1
 
 
 @pytest.fixture
 def alunos(banco_limpo: Engine) -> PostgresAlunoRepository:
+    turma = PostgresTurmaRepository(banco_limpo).criar(
+        Turma.nova("IA", Periodo.DIURNO), AGORA
+    )
+    assert turma.id == TURMA_ID
     return PostgresAlunoRepository(banco_limpo)
 
 
@@ -35,9 +44,9 @@ def presencas(banco_limpo: Engine) -> PostgresPresencaRepository:
 
 
 def test_consentimento_e_persistido(alunos: PostgresAlunoRepository) -> None:
-    aluno = alunos.cadastrar("42", "Maria", None, None, AGORA)
+    aluno = alunos.cadastrar_em_turma(TURMA_ID, "42", "Maria", None, None, AGORA)
 
-    recuperado = alunos.obter_por_matricula("42")
+    recuperado = alunos.obter_global_por_matricula("42")
 
     assert recuperado is not None
     assert recuperado.consentimento_em == AGORA
@@ -47,7 +56,7 @@ def test_consentimento_e_persistido(alunos: PostgresAlunoRepository) -> None:
 def test_obter_por_matricula_inexistente_devolve_none(
     alunos: PostgresAlunoRepository,
 ) -> None:
-    assert alunos.obter_por_matricula("999") is None
+    assert alunos.obter_global_por_matricula("999") is None
 
 
 # -- exclusao --------------------------------------------------------------
@@ -60,32 +69,34 @@ def test_exclusao_leva_embedding_e_presencas_junto(
 ) -> None:
     """A cascata e da constraint, nao de uma varredura da aplicacao."""
     embedding = FaceEmbedding.de_valores([1.0, 0.0, 0.0], MODELO)
-    aluno = alunos.cadastrar("42", "Maria", "42.jpg", embedding, AGORA)
-    presencas.registrar_se_ausente(aluno.id, AGORA.date(), AGORA)
+    aluno = alunos.cadastrar_em_turma(
+        TURMA_ID, "42", "Maria", "42.jpg", embedding, AGORA
+    )
+    presencas.registrar_se_ausente(aluno.id, AGORA.date(), AGORA, turma_id=TURMA_ID)
 
     with banco_limpo.connect() as conexao:
         assert conexao.execute(text("SELECT count(*) FROM presencas")).scalar_one() == 1
 
-    alunos.excluir(aluno.id)
+    alunos.excluir_global(aluno.id)
 
     with banco_limpo.connect() as conexao:
         assert conexao.execute(text("SELECT count(*) FROM alunos")).scalar_one() == 0
         assert conexao.execute(text("SELECT count(*) FROM presencas")).scalar_one() == 0
-    assert alunos.listar_referencias(MODELO) == []
+    assert alunos.listar_referencias(MODELO, turma_id=TURMA_ID) == []
 
 
 def test_exclusao_nao_afeta_os_demais_alunos(
     alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
 ) -> None:
-    ana = alunos.cadastrar("1", "Ana", None, None, AGORA)
-    bruno = alunos.cadastrar("2", "Bruno", None, None, AGORA)
-    presencas.registrar_se_ausente(ana.id, AGORA.date(), AGORA)
-    presencas.registrar_se_ausente(bruno.id, AGORA.date(), AGORA)
+    ana = alunos.cadastrar_em_turma(TURMA_ID, "1", "Ana", None, None, AGORA)
+    bruno = alunos.cadastrar_em_turma(TURMA_ID, "2", "Bruno", None, None, AGORA)
+    presencas.registrar_se_ausente(ana.id, AGORA.date(), AGORA, turma_id=TURMA_ID)
+    presencas.registrar_se_ausente(bruno.id, AGORA.date(), AGORA, turma_id=TURMA_ID)
 
-    alunos.excluir(ana.id)
+    alunos.excluir_global(ana.id)
 
-    assert alunos.obter_por_matricula("2") is not None
-    assert alunos.obter_por_matricula("1") is None
+    assert alunos.obter_global_por_matricula("2") is not None
+    assert alunos.obter_global_por_matricula("1") is None
 
 
 # -- retencao --------------------------------------------------------------
@@ -96,18 +107,20 @@ def test_expurgo_remove_apenas_o_que_excedeu_o_prazo(
     presencas: PostgresPresencaRepository,
     banco_limpo: Engine,
 ) -> None:
-    aluno = alunos.cadastrar("42", "Maria", None, None, AGORA)
+    aluno = alunos.cadastrar_em_turma(TURMA_ID, "42", "Maria", None, None, AGORA)
     for dia in (dt.date(2020, 1, 1), dt.date(2024, 6, 1), dt.date(2026, 3, 10)):
         momento = dt.datetime.combine(dia, dt.time(8, 0), tzinfo=TZ)
-        presencas.registrar_se_ausente(aluno.id, dia, momento)
+        presencas.registrar_se_ausente(aluno.id, dia, momento, turma_id=TURMA_ID)
 
     removidas = presencas.expurgar_anteriores_a(dt.date(2025, 1, 1))
 
     assert removidas == 2
     with banco_limpo.connect() as conexao:
-        restantes = conexao.execute(
-            text("SELECT data_referencia FROM presencas")
-        ).scalars().all()
+        restantes = (
+            conexao.execute(text("SELECT data_referencia FROM presencas"))
+            .scalars()
+            .all()
+        )
     assert restantes == [dt.date(2026, 3, 10)]
 
 
@@ -121,12 +134,15 @@ def test_expurgo_nao_apaga_o_aluno(
     alunos: PostgresAlunoRepository, presencas: PostgresPresencaRepository
 ) -> None:
     """Retencao vale para o historico de presenca, nao para o cadastro."""
-    aluno = alunos.cadastrar("42", "Maria", None, None, AGORA)
+    aluno = alunos.cadastrar_em_turma(TURMA_ID, "42", "Maria", None, None, AGORA)
     dia = dt.date(2020, 1, 1)
     presencas.registrar_se_ausente(
-        aluno.id, dia, dt.datetime.combine(dia, dt.time(8, 0), tzinfo=TZ)
+        aluno.id,
+        dia,
+        dt.datetime.combine(dia, dt.time(8, 0), tzinfo=TZ),
+        turma_id=TURMA_ID,
     )
 
     presencas.expurgar_anteriores_a(dt.date(2025, 1, 1))
 
-    assert alunos.obter_por_matricula("42") is not None
+    assert alunos.obter_global_por_matricula("42") is not None

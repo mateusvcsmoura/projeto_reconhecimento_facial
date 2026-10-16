@@ -18,10 +18,12 @@ import sys
 from src.application.use_cases.cadastrar_aluno import CadastrarAluno
 from src.application.use_cases.consultar import ListarAlunos, ListarPresencasDoDia
 from src.application.use_cases.excluir_aluno import ExcluirAluno
+from src.application.use_cases.gerenciar_turmas import GerenciarTurmas
 from src.application.use_cases.reconhecer_aluno import ReconhecerAluno
 from src.application.use_cases.registrar_presenca import RegistrarPresenca
 from src.config.logging import configurar_logging
 from src.config.settings import Settings, get_settings
+from src.domain.entities.turma import Turma
 from src.domain.errors import ErroDeDominio
 from src.domain.services.captura_automatica import ParametrosCapturaAutomatica
 from src.domain.services.consistencia_temporal import ParametrosTemporais
@@ -37,14 +39,18 @@ from src.infrastructure.repositories.postgres_aluno_repository import (
 from src.infrastructure.repositories.postgres_presenca_repository import (
     PostgresPresencaRepository,
 )
+from src.infrastructure.repositories.postgres_turma_repository import (
+    PostgresTurmaRepository,
+)
 from src.infrastructure.storage.local_image_storage import LocalImageStorage
 from src.presentation.cli.menu import MenuCLI
+from src.presentation.cli.turmas import TurmasCLI
 from src.presentation.cli.viewer import JanelaDeVideo
 
 logger = logging.getLogger(__name__)
 
 
-def montar_menu(settings: Settings) -> MenuCLI:
+def montar_menu(settings: Settings) -> TurmasCLI:
     ambiguidade: PoliticaAmbiguidade | None = None
     if settings.face_ambiguity_enabled:
         margem = settings.face_ambiguity_min_margin
@@ -61,6 +67,9 @@ def montar_menu(settings: Settings) -> MenuCLI:
 
     alunos = PostgresAlunoRepository(engine)
     presencas = PostgresPresencaRepository(engine)
+    gerenciar_turmas = GerenciarTurmas(
+        PostgresTurmaRepository(engine), settings.timezone
+    )
     storage = LocalImageStorage(settings.storage_dir)
     qualidade = (
         ParametrosQualidade(
@@ -120,35 +129,54 @@ def montar_menu(settings: Settings) -> MenuCLI:
 
         return JanelaDeVideo(titulo, criar_landmarks=criar_landmarks)
 
-    return MenuCLI(
-        cadastrar_aluno=CadastrarAluno(
-            alunos, reconhecimento, storage, settings.timezone
-        ),
-        reconhecer_aluno=ReconhecerAluno(
-            alunos,
-            reconhecimento,
-            modelo=settings.face_model,
-            limiar=settings.face_threshold,
-            ambiguidade=ambiguidade,
-        ),
-        registrar_presenca=RegistrarPresenca(presencas, settings.timezone),
-        excluir_aluno=ExcluirAluno(alunos, storage),
-        listar_alunos=ListarAlunos(alunos, settings.face_model),
-        listar_presencas=ListarPresencasDoDia(presencas, settings.timezone),
+    cadastrar_aluno = CadastrarAluno(alunos, reconhecimento, storage, settings.timezone)
+    reconhecer_aluno = ReconhecerAluno(
+        alunos,
+        reconhecimento,
+        modelo=settings.face_model,
         limiar=settings.face_threshold,
-        abrir_camera=lambda: OpenCVCamera(
-            settings.camera_index,
-            largura=settings.camera_largura,
-            altura=settings.camera_altura,
-            backend=settings.camera_backend,
-        ),
-        abrir_janela=abrir_janela,
-        temporal=temporal,
-        captura_automatica=captura_automatica,
+        ambiguidade=ambiguidade,
+    )
+    registrar_presenca = RegistrarPresenca(presencas, settings.timezone)
+    excluir_aluno = ExcluirAluno(alunos, storage)
+    listar_alunos = ListarAlunos(alunos, settings.face_model)
+    listar_presencas = ListarPresencasDoDia(presencas, settings.timezone)
+
+    def abrir_turma(turma: Turma) -> None:
+        if turma.id is None:
+            raise ValueError("A selecao exige uma turma persistida.")
+        menu_turma = MenuCLI(
+            cadastrar_aluno=cadastrar_aluno,
+            reconhecer_aluno=reconhecer_aluno,
+            registrar_presenca=registrar_presenca,
+            excluir_aluno=excluir_aluno,
+            listar_alunos=listar_alunos,
+            listar_presencas=listar_presencas,
+            turma=turma,
+            gerenciar_turmas=gerenciar_turmas,
+            limiar=settings.face_threshold,
+            abrir_camera=lambda: OpenCVCamera(
+                settings.camera_index,
+                largura=settings.camera_largura,
+                altura=settings.camera_altura,
+                backend=settings.camera_backend,
+            ),
+            abrir_janela=abrir_janela,
+            temporal=temporal,
+            captura_automatica=captura_automatica,
+        )
+        menu_turma.executar()
+
+    return TurmasCLI(
+        gerenciar_turmas=gerenciar_turmas,
+        listar_presencas=listar_presencas,
+        excluir_aluno=excluir_aluno,
+        abrir_turma=abrir_turma,
+        preaquecer=cadastrar_aluno.preaquecer,
     )
 
 
-def _preaquecer(menu: MenuCLI, modelo: str) -> None:
+def _preaquecer(menu: TurmasCLI, modelo: str) -> None:
     """Carrega o modelo antes de abrir a camera.
 
     Na primeira execucao o DeepFace baixa os pesos, o que leva minutos. Sem

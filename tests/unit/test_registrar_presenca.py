@@ -13,30 +13,47 @@ TZ = ZoneInfo("America/Sao_Paulo")
 
 def test_primeira_presenca_do_dia_e_registrada() -> None:
     caso = RegistrarPresenca(FakePresencaRepository(), TZ)
-    assert caso.executar(aluno_id=1) is True
+    assert caso.executar(aluno_id=1, turma_id=1) is True
 
 
 def test_segunda_presenca_no_mesmo_dia_nao_registra() -> None:
     caso = RegistrarPresenca(FakePresencaRepository(), TZ)
     momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
 
-    assert caso.executar(1, momento) is True
-    assert caso.executar(1, momento.replace(hour=17)) is False
+    assert caso.executar(1, turma_id=1, agora=momento) is True
+    assert caso.executar(1, turma_id=1, agora=momento.replace(hour=17)) is False
 
 
 def test_mesmo_aluno_em_dias_diferentes_registra_duas_vezes() -> None:
     caso = RegistrarPresenca(FakePresencaRepository(), TZ)
 
-    assert caso.executar(1, dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)) is True
-    assert caso.executar(1, dt.datetime(2026, 3, 11, 8, 0, tzinfo=TZ)) is True
+    assert (
+        caso.executar(1, turma_id=1, agora=dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ))
+        is True
+    )
+    assert (
+        caso.executar(1, turma_id=1, agora=dt.datetime(2026, 3, 11, 8, 0, tzinfo=TZ))
+        is True
+    )
 
 
 def test_alunos_diferentes_no_mesmo_dia_nao_se_bloqueiam() -> None:
     caso = RegistrarPresenca(FakePresencaRepository(), TZ)
     momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
 
-    assert caso.executar(1, momento) is True
-    assert caso.executar(2, momento) is True
+    assert caso.executar(1, turma_id=1, agora=momento) is True
+    assert caso.executar(2, turma_id=1, agora=momento) is True
+
+
+def test_mesmo_aluno_pode_ter_presenca_em_duas_turmas_no_mesmo_dia() -> None:
+    repo = FakePresencaRepository()
+    caso = RegistrarPresenca(repo, TZ)
+    momento = dt.datetime(2026, 3, 10, 8, 0, tzinfo=TZ)
+
+    assert caso.executar(1, turma_id=1, agora=momento) is True
+    assert caso.executar(1, turma_id=2, agora=momento) is True
+    assert caso.executar(1, turma_id=1, agora=momento) is False
+    assert repo.contextos == [(1, 1), (1, 2), (1, 1)]
 
 
 def test_o_dia_e_calculado_no_fuso_da_aplicacao() -> None:
@@ -44,7 +61,11 @@ def test_o_dia_e_calculado_no_fuso_da_aplicacao() -> None:
     presencas = FakePresencaRepository()
     caso = RegistrarPresenca(presencas, TZ)
 
-    caso.executar(1, dt.datetime(2026, 3, 10, 23, 30, tzinfo=dt.UTC))
+    caso.executar(
+        1,
+        turma_id=1,
+        agora=dt.datetime(2026, 3, 10, 23, 30, tzinfo=dt.UTC),
+    )
 
     _, dia, _ = presencas.chamadas[0]
     assert dia == dt.date(2026, 3, 10)

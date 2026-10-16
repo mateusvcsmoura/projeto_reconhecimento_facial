@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
+import uuid
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,6 +20,7 @@ from src.domain.services.image_storage import ImageStorage
 
 MATRICULA_MAXIMA = 32
 NOME_MAXIMO = 255
+logger = logging.getLogger(__name__)
 
 
 class CadastrarAluno:
@@ -37,7 +40,9 @@ class CadastrarAluno:
         """Carrega o modelo agora, e nao no meio do fluxo de camera."""
         self._reconhecimento.preaquecer()
 
-    def validar_identificacao(self, matricula: str, nome: str) -> tuple[str, str]:
+    def validar_identificacao(
+        self, matricula: str, nome: str, *, turma_id: int
+    ) -> tuple[str, str]:
         """Valida antes de acender a camera.
 
         Separado de `executar` de proposito: nao faz sentido pedir o rosto
@@ -56,7 +61,8 @@ class CadastrarAluno:
             raise DadosInvalidos("Informe o nome do aluno.")
         if len(nome_limpo) > NOME_MAXIMO:
             raise DadosInvalidos(f"O nome pode ter no maximo {NOME_MAXIMO} caracteres.")
-        if self._alunos.existe_matricula(matricula_limpa):
+        self._alunos.validar_turma_ativa(turma_id)
+        if self._alunos.existe_matricula_global(matricula_limpa):
             raise AlunoJaCadastrado(matricula_limpa)
 
         return matricula_limpa, nome_limpo
@@ -75,6 +81,8 @@ class CadastrarAluno:
         nome: str,
         preparada: FacePreparada,
         consentiu: bool,
+        *,
+        turma_id: int,
     ) -> Aluno:
         """Revalida consentimento e identificacao antes de persistir a face."""
         if not consentiu:
@@ -83,19 +91,49 @@ class CadastrarAluno:
                 "biometrico antes do cadastro."
             )
 
-        matricula_limpa, nome_limpo = self.validar_identificacao(matricula, nome)
-        nome_arquivo = self._storage.salvar(f"{matricula_limpa}.jpg", preparada.imagem)
-
-        return self._alunos.cadastrar(
-            matricula=matricula_limpa,
-            nome=nome_limpo,
-            foto_arquivo=nome_arquivo,
-            embedding=preparada.embedding,
-            consentimento_em=dt.datetime.now(self._tz),
+        matricula_limpa, nome_limpo = self.validar_identificacao(
+            matricula, nome, turma_id=turma_id
         )
+        nome_tentativa = f"{uuid.uuid4().hex}.jpg"
+        try:
+            nome_arquivo = self._storage.salvar(nome_tentativa, preparada.imagem)
+        except Exception:
+            self._remover_imagem_da_tentativa(nome_tentativa)
+            raise
+
+        try:
+            return self._alunos.cadastrar_em_turma(
+                turma_id=turma_id,
+                matricula=matricula_limpa,
+                nome=nome_limpo,
+                foto_arquivo=nome_arquivo,
+                embedding=preparada.embedding,
+                consentimento_em=dt.datetime.now(self._tz),
+            )
+        except Exception:
+            # A transacao SQL e atomica; o arquivo e externo a ela. Compensar
+            # somente o nome exclusivo criado por esta tentativa e preservar
+            # a excecao original se a limpeza tambem falhar.
+            self._remover_imagem_da_tentativa(nome_arquivo)
+            raise
+
+    def _remover_imagem_da_tentativa(self, nome_arquivo: str) -> None:
+        try:
+            self._storage.remover(nome_arquivo)
+        except Exception as erro:
+            logger.error(
+                "Falha ao remover imagem criada pela tentativa de cadastro (%s).",
+                type(erro).__name__,
+            )
 
     def executar(
-        self, matricula: str, nome: str, imagem: Any, consentiu: bool
+        self,
+        matricula: str,
+        nome: str,
+        imagem: Any,
+        consentiu: bool,
+        *,
+        turma_id: int,
     ) -> Aluno:
         """Extrai o rosto, calcula o embedding e persiste tudo de uma vez.
 
@@ -115,7 +153,9 @@ class CadastrarAluno:
                 "biometrico antes do cadastro."
             )
 
-        matricula_limpa, nome_limpo = self.validar_identificacao(matricula, nome)
+        matricula_limpa, nome_limpo = self.validar_identificacao(
+            matricula, nome, turma_id=turma_id
+        )
 
         # Guarda-se o recorte alinhado, nao o frame inteiro (problema A14):
         # menos dado biometrico armazenado, sem fundo nem terceiros no
@@ -124,5 +164,9 @@ class CadastrarAluno:
         preparada = self.preparar_captura(imagem)
 
         return self.concluir_cadastro(
-            matricula_limpa, nome_limpo, preparada, consentiu=True
+            matricula_limpa,
+            nome_limpo,
+            preparada,
+            consentiu=True,
+            turma_id=turma_id,
         )

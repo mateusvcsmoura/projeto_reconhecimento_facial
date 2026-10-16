@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from src.config.settings import Settings
+from src.domain.entities.turma import Periodo, Turma
 from src.domain.services.consistencia_temporal import ParametrosTemporais
 from src.domain.services.matcher import PoliticaAmbiguidade
 from src.domain.services.qualidade_captura import ParametrosQualidade
@@ -45,6 +46,9 @@ def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
         def __init__(self, **kwargs: Any) -> None:
             recebido_menu.update(kwargs)
 
+        def executar(self) -> None:
+            pass
+
     class ReconhecedorEspiao:
         def __init__(self, *_args: object, **kwargs: Any) -> None:
             recebido_reconhecedor.update(kwargs)
@@ -52,6 +56,7 @@ def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
     monkeypatch.setattr(main, "criar_engine", lambda _url: object())
     monkeypatch.setattr(main, "PostgresAlunoRepository", lambda _engine: object())
     monkeypatch.setattr(main, "PostgresPresencaRepository", lambda _engine: object())
+    monkeypatch.setattr(main, "PostgresTurmaRepository", lambda _engine: object())
     monkeypatch.setattr(main, "LocalImageStorage", lambda _raiz: object())
     monkeypatch.setattr(main, "DeepFaceAdapter", AdaptadorEspiao)
     monkeypatch.setattr(main, "MenuCLI", MenuEspiao)
@@ -85,7 +90,8 @@ def test_montar_menu_compõe_politicas_sem_conectar_ao_banco(
             face_ambiguity_min_margin=0.04,
         )
 
-    main.montar_menu(Settings(**valores))
+    menu = main.montar_menu(Settings(**valores))
+    menu._abrir_turma(Turma(id=1, materia="IA", periodo=Periodo.DIURNO))
 
     esperado_qualidade = (
         ParametrosQualidade(

@@ -1,12 +1,19 @@
 # Estado atual e evidências
 
-**Base analisada:** 13/10/2026, revisão `f116a9574925708e99d7684c2013683fd07d6f50` (`main`); mudanças locais da tarefa 006 ainda não publicadas.
-**Atualização posterior:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
+**Base analisada:** 16/10/2026, `main` na revisão inicial `6d5640954ad4d9faabc8a507327162848693814c`; código da tarefa 008 preparado nesta execução.
+**Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
 presença. Não é um TCC. Este registro separa o que o código implementa, o que
 foi verificado com dados sintéticos e o que ainda depende de avaliação
 biométrica autorizada.
+
+A tarefa 008 adiciona gestão de turmas, vínculo N:N e contexto obrigatório
+para reconhecimento e presença novos. Sua migration Alembic `0004` não foi
+aplicada; a integração em PostgreSQL descartável está preparada, mas não foi
+executada. O código atual requer o novo schema para abrir o fluxo de turmas.
+Esta implementação de software não altera embeddings, consentimentos, o
+anti-spoofing ou o limiar `0.30`.
 
 ## Pipeline e política operacional
 
@@ -29,6 +36,7 @@ ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
 | 004 — benchmark de matching | Script compara a matriz NumPy vetorizada com referência independente de laço Python e um `NumPy dot` por embedding. Gera vetores sintéticos 512D; valida decisões e distâncias antes de cronometrar. | `scripts/benchmark_matcher.py`, `tests/unit/test_benchmark_matcher.py`; [resultado 004](../tasks/004-benchmark-matching/RESULTADO.md); [execuções agregadas](../tasks/004-benchmark-matching/evidencias/). | Não executa DeepFace, não usa dados faciais, não mede acurácia nem latência ponta a ponta, e não compara `pgvector`/ANN. `tracemalloc` não é RSS nem toda a memória nativa. |
 | 006 — landmarks visuais no cadastro | Opt-in (`FACE_LANDMARKS_ENABLED=false`), provider MediaPipe Tasks em worker Python local isolado apenas na janela Cadastro facial. Desenha contornos sobre cópia; a imagem original segue inalterada. | `src/domain/services/facial_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks_worker.py`, `src/presentation/cli/landmarks_overlay.py`, `src/presentation/cli/viewer.py`, `src/main.py`; testes unitários sintéticos; [resultado 006](../tasks/006-facial-landmarks/RESULTADO.md). | 841 testes unitários; Ruff, mypy e formato dos arquivos alterados passaram; `pip check` passou nos dois ambientes. Smoke com o modelo local e frame sintético passou; inspeção visual manual ainda pendente. Não há evidência de reconhecimento, qualidade ou prova de vida. |
 | 007 — captura automática | Padrão (`FACE_AUTO_CAPTURE_ENABLED=true`): cadastro sonda sem gravar e prepara um frame final; reconhecimento exige pelo menos 3 análises distintas durante 5 s por padrão e confirma um frame novo da mesma identidade. `false` preserva os atalhos manuais. | `src/domain/services/captura_automatica.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/captura_automatica.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_captura_automatica.py`, `test_menu_automatico.py`, `test_main_automatico.py`; [resultado 007](../tasks/007-captura-automatica/RESULTADO.md). | Limites de tempo são valores de engenharia. Testes dublados comprovam contratos funcionais, não frescor físico da câmera, acurácia 1:N nem melhora biométrica. A inspeção visual manual permanece pendente. |
+| 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; [resultado 008](../tasks/008-turmas/RESULTADO.md). | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram nesta execução. Migration, integração PostgreSQL e BDD não foram executados; nenhum banco foi acessado. A implantação requer parada coordenada dos escritores antigos e autorização separada. |
 
 Anti-spoofing continua habilitado por padrão (`FACE_ANTI_SPOOFING=true`). Sua
 eficácia contra ataques não foi medida. Captura automática vem habilitada por
@@ -49,6 +57,7 @@ contêm ambiente, comandos e limites.
 | Tarefa 004, 13/10/2026 | 812 testes unitários; Ruff, mypy e formatação aprovados | Verificações de software registradas no [relatório](../tasks/004-benchmark-matching/RESULTADO.md); benchmark sintético em três execuções sequenciais. |
 | Tarefa 006, 14/10/2026 | 839 testes unitários; Ruff, mypy, formatação e `pip check` dos dois ambientes aprovados | Worker MediaPipe local em doubles e array preto sintético com modelo; sem webcam, pessoas ou banco. A inspeção visual manual continua pendente; [relatório](../tasks/006-facial-landmarks/RESULTADO.md). |
 | Tarefa 007, 15/10/2026 | 911 testes unitários; Ruff, mypy, formato dos Python alterados e `git diff --check` aprovados | Relógios, frames e serviços dublados; sem webcam, banco ou dados faciais. A inspeção visual manual permanece pendente; [relatório](../tasks/007-captura-automatica/RESULTADO.md). |
+| Tarefa 008, 16/10/2026 | 955 testes unitários; Ruff, mypy, formato, compilação sintática de integration/features e `git diff --check` aprovados | Evidência funcional com doubles e dados sintéticos. Migration, testes PostgreSQL/BDD e implantação não foram executados; nenhum banco foi acessado. [Relatório](../tasks/008-turmas/RESULTADO.md). |
 
 Cada JSON da tarefa 004 registra `status=ok`, 240 consultas comparadas, zero
 divergências de status/ID, zero divergências numéricas, zero distâncias não
@@ -83,13 +92,17 @@ separados. A inspeção visual manual permanece pendente. Veja o
 - **Etapas 0–5 de ML:** experimentos e consolidação acadêmica em
   [`ML-CONSOLIDACAO-ACADEMICA.md`](ML-CONSOLIDACAO-ACADEMICA.md). A Etapa 5
   histórica não é esta tarefa 005.
-- **Tarefas 001–007:** melhorias de captura/decisão, benchmark,
+- **Tarefas 001–008:** melhorias de captura/decisão, benchmark,
   consolidação documental e overlay visual, indexadas em
   [`../tasks/README.md`](../tasks/README.md). Tarefa 005 não é a prioridade 5
   do AGENTS.md nem a Etapa 5 de ML.
 
 ## Pendências confirmadas
 
+- Aplicação revisada da migration `0004` e execução de integração/migration
+  em banco PostgreSQL descartável, com opt-in, identificação e autorização
+  específica. O código atual depende desse schema e não deve ser usado com o
+  banco operacional antes de implantação coordenada.
 - Calibração biométrica 1:N e validação representativa do pipeline completo,
   condicionadas a fonte, finalidade, autorização e revisão institucional.
 - Avaliação do anti-spoofing em protocolo apropriado; a integração atual não
@@ -97,9 +110,6 @@ separados. A inspeção visual manual permanece pendente. Veja o
 - Múltiplas referências operacionais por identidade; os testes de ML que
   aceitam galerias não significam que o cadastro operacional já as oferece.
 - Checagem explícita de orientação facial, ausente nas heurísticas 001.
-- A mensagem de consentimento da CLI ainda aponta para a opção 3 ao falar
-  sobre exclusão; no menu atual, excluir aluno é a opção 5. A correção está
-  fora do escopo documental da tarefa 005.
 - Validação de instalação limpa por outra pessoa, pendente no plano original.
 - Inspeção visual manual do overlay com uma pessoa, pendente conforme tarefa
   006. A incompatibilidade da wheel Windows 0.10.31 foi corrigida por worker
