@@ -1,8 +1,19 @@
-# Migração planejada — 008
+# Migração e resultado — 008
 
 ## Autorização e estado
 
-O usuário solicitou planejamento no formato de task. AGENTS.md exige instrução explícita para executar migrations. Portanto, **o executor prepara migration e testes, mas não aplica upgrade/downgrade, não lê .env nem acessa banco real**. Mesmo as fixtures atuais de integração executam migrations e TRUNCATE; não rodá-las sem autorização específica para um banco descartável identificado.
+No planejamento original, a migration e os testes destrutivos ficaram pendentes por falta de autorização explícita. Em 16/10/2026, o usuário autorizou a migration no banco do projeto e informou que ele ainda não está em uso. A autorização foi usada apenas para `upgrade head`; os testes que executam `TRUNCATE` continuam reservados a bancos descartáveis identificados.
+
+## Resultado da aplicação
+
+- Alvo configurado pelo `.env`: banco `escola`, PostgreSQL 18.6 em `localhost:5433`.
+- Estado confirmado antes: revisão Alembic `0003`; tabela `presencas` com 0 linhas.
+- Executado: `python -m alembic upgrade head` no ambiente `.venv-app`.
+- Resultado: upgrade `0003 -> 0004` concluído; `alembic current` retornou `0004 (head)`.
+- `alembic check`: `No new upgrade operations detected.`
+- Verificação estrutural: tabelas `turmas` e `aluno_turma`, coluna anulável `presencas.turma_id`, constraints e índices criados.
+- `presencas` permaneceu com 0 linhas. Nenhum dado foi excluído, `TRUNCATE` ou downgrade foi executado.
+- Testes de integração/BDD não executados; eles exigem bancos descartáveis separados e incluem operações de limpeza.
 
 Nenhuma dependência nova. Reutilizar SQLAlchemy, Alembic e PostgreSQL atuais. Não instalar/subir servidor, Docker ou ambiente adicional nesta task.
 
@@ -29,7 +40,7 @@ Uma revisão Alembic após 0003, sob transação PostgreSQL:
 4. Remover `uq_presencas_aluno_dia` apenas quando as substitutas já existirem. Alunos.matricula mantém sua UK original.
 5. Sem UPDATE de dados para atribuir turmas, sem nova biometria, sem turma fictícia.
 
-Compatibilidade: **a versão antiga do app/importador usa o nome da UK removida e não pode continuar escrevendo após o upgrade**. Não prometer operação simultânea entre versões. Plano de implantação futura: parar escritores; backup validado; testar em cópia autorizada; aplicar schema; disponibilizar código008; verificar integridade; liberar operadores. Não executar esse procedimento nesta tarefa.
+Compatibilidade: **a versão antiga do app/importador usa o nome da UK removida e não pode continuar escrevendo após o upgrade**. Não prometer operação simultânea entre versões. O banco local configurado já avançou para `0004`; em outros ambientes, parar escritores antigos e coordenar a atualização de schema e código.
 
 Nenhuma migration no boot. Erro de schema incompatível deve orientar aplicação da versão correta pelo operador, sem auto-migrar.
 
@@ -55,4 +66,4 @@ Testes unitários de metadados/compilação SQL ajudam a revisar constraints, ma
 
 Não reutilizar cegamente a fixture que executa downgrade base na entrada. Preparar fixture específica para migração em banco descartável; impedir execução se não houver sinalização explícita de ambiente de teste. Nunca considerar só nome de variável/URL diferente como prova de que o banco pode ser destruído.
 
-RESULTADO.md deve separar: revisão estática; unitários efetivamente executados; integração/migration preparada e **não executada**; procedimento operacional pendente de autorização. Não chamar skips de testes aprovados.
+RESULTADO.md deve separar: revisão estática; unitários efetivamente executados; migration aplicada ao banco local; integração/BDD ainda não executada. Não chamar skips de testes aprovados.

@@ -2,11 +2,12 @@
 
 ## Estado
 
-**Código implementado e publicado na `main`; migration `0004` preparada, mas
-não aplicada; validação PostgreSQL/BDD pendente.** O código desta revisão
-requer o schema `0004` para abrir as operações de turma. Portanto, o push do
-código não representa implantação nem autorização para conectá-lo ao banco
-operacional.
+**Código implementado e publicado na `main`; migration `0004` aplicada ao
+PostgreSQL local configurado; testes de integração/BDD ainda pendentes.** Em
+16/10/2026, após autorização explícita do usuário, o banco `escola` em
+`localhost:5433` avançou de `0003` para `0004`. O código requer esse schema para
+abrir as operações de turma. Essa execução não publicou nem iniciou o
+aplicativo.
 
 ## Diagnóstico e decisão
 
@@ -24,8 +25,9 @@ turma antes de qualquer DDL destrutivo e recusa quando os encontra.
 
 Não foi criada dependência nem escolhida biblioteca alternativa. A implementação
 reutiliza os repositórios, casos de uso, captura automática 007 e worker visual
-006 existentes. A integração com banco não foi executada porque o prompt desta
-tarefa proibiu conexões e migrations nesta etapa.
+006 existentes. O prompt original proibia conexões e migrations durante a
+implementação; a instrução posterior do usuário autorizou a aplicação da
+migration no PostgreSQL local configurado.
 
 ## Comportamento entregue
 
@@ -73,9 +75,10 @@ tarefa proibiu conexões e migrations nesta etapa.
 
 ## Verificações executadas
 
-Ambiente de testes: `.venv-ml`. Os testes usaram doubles e dados sintéticos.
-Nenhum `.env`, conexão PostgreSQL, webcam, imagem biométrica real, migration
-ou importador foi aberto/executado.
+Ambiente de testes da implementação: `.venv-ml`. Esses testes usaram doubles
+e dados sintéticos, sem ler `.env`, abrir webcam, acessar imagens biométricas
+reais ou executar importador. A migration foi aplicada depois, conforme a
+seção PostgreSQL abaixo.
 
 | Comando | Resultado |
 |---|---|
@@ -87,6 +90,22 @@ ou importador foi aberto/executado.
 | `.\.venv-ml\Scripts\python.exe -m compileall -q tests/integration tests/features` | Passou; compilação sintática somente, não executou testes |
 | `git diff --check` | Passou; sem erros de whitespace |
 
+### Aplicação PostgreSQL posterior
+
+| Verificação | Resultado |
+|---|---|
+| Estado anterior | Banco `escola`, PostgreSQL 18.6, revisão `0003`; `presencas` tinha 0 linhas |
+| `python -m alembic upgrade head` (`.venv-app`) | Aplicou `0003 -> 0004` com sucesso; sem erro de DDL |
+| `python -m alembic current` (`.venv-app`) | `0004 (head)` |
+| `python -m alembic check` (`.venv-app`) | `No new upgrade operations detected.` |
+| Estrutura após upgrade | `turmas` e `aluno_turma` existem; `presencas.turma_id` é anulável; FKs e índices novos presentes |
+| Presenças após upgrade | 0; nenhuma linha foi excluída ou reclassificada |
+
+O comando usou o `.env` já configurado pelo projeto; a saída não expôs
+credenciais. Nenhum `TRUNCATE`, downgrade ou alteração manual de dados foi
+executado. Os testes PostgreSQL/BDD não foram rodados, pois usam bancos
+descartáveis e operações de limpeza próprios.
+
 A primeira execução completa encontrou um erro de cobertura de mensagens para
 cinco novos erros de domínio (`944 passaram, 1 falhou`). As orientações foram
 adicionadas e cobertas pela execução focada; a repetição final da suíte passou
@@ -94,32 +113,29 @@ com 955 testes.
 
 ## Não executado e limites
 
-- `alembic upgrade`/`downgrade`, qualquer teste de `tests/integration` ou
-  `tests/features`, `TRUNCATE` e qualquer conexão a banco: **não executados**.
+- `alembic downgrade`, testes de `tests/integration` ou `tests/features` e
+  `TRUNCATE`: **não executados**. O upgrade `0003 -> 0004` foi aplicado ao banco
+  PostgreSQL local configurado conforme registrado acima.
 - A compilação de arquivos de teste e os testes unitários não validam DDL,
   constraints, locks, isolamento transacional ou concorrência reais no
   PostgreSQL. Os skips causados pelos gates não foram contabilizados como
   testes aprovados.
 - Não houve smoke com webcam, pessoas ou embeddings biométricos reais; esta
   tarefa muda organização e contexto de persistência, não mede reconhecimento.
-- O código atual requer o schema `0004`; enquanto a revisão não for aplicada
-  de forma autorizada e coordenada, não use esta versão com o banco operacional.
-- A implantação exige backup validado, parada dos escritores antigos e
-  atualização coordenada: o app/importador antigo nomeia a constraint global
-  removida e não deve gravar depois do upgrade.
+- O banco local configurado está em `0004`; outros bancos continuam exigindo
+  aplicação coordenada da revisão antes de abrir as operações de turma.
+- O app/importador antigo nomeia a constraint global removida e não pode gravar
+  simultaneamente nesse banco após o upgrade.
 
-## Ativação e rollback futuros
+## Ativação e rollback
 
-1. Obter autorização específica para o schema e integração; identificar um
-   PostgreSQL descartável e um segundo banco fisicamente separado para os
-   testes de migration, conforme [`docs/TURMAS.md`](../../docs/TURMAS.md).
-2. Validar backup e plano de restauração; parar escritores antigos; executar
-   a suíte de integração protegida somente depois de configurar o opt-in e o
-   marcador dos dois bancos descartáveis.
-3. Revisar os resultados da migration em cópia autorizada e então combinar a
-   aplicação do schema `0004` com a disponibilização deste código. Não há
-   migration automática no boot.
-4. Rollback sem dados novos pode usar downgrade. Com turmas, vínculos ou
+1. O banco local configurado já está na revisão `0004`; outros ambientes devem
+   aplicar `alembic upgrade head` após verificar a URL e coordenar a parada de
+   escritores antigos. Não há migration automática no boot.
+2. Para executar a suíte de integração protegida, use os opt-ins e marcadores
+   documentados em [`docs/TURMAS.md`](../../docs/TURMAS.md), com bancos
+   descartáveis fisicamente separados.
+3. Rollback sem dados novos pode usar downgrade. Com turmas, vínculos ou
    presenças contextualizadas, `downgrade()` recusa antes de DDL; rollback
    exige plano explícito de exportação/restauração, sem achatar presenças.
 

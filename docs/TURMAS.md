@@ -2,16 +2,16 @@
 
 ## Estado da entrega
 
-O código da tarefa 008 prepara a navegação por turma, o vínculo N:N, o
-reconhecimento filtrado e a presença por turma. A revisão Alembic `0004` foi
-criada depois de `0003`, mas **não foi aplicada** nesta etapa. A integração com
-PostgreSQL também está pendente de autorização e de execução em banco
-descartável identificado. O commit e o push do código não aplicam schema nem
-liberam o sistema para uso no banco atual.
+O código da tarefa 008 implementa a navegação por turma, o vínculo N:N, o
+reconhecimento filtrado e a presença por turma. Em 16/10/2026, após autorização
+explícita, a revisão Alembic `0004` foi aplicada ao PostgreSQL local configurado
+(`escola`, `localhost:5433`), avançando de `0003` para `0004`. O upgrade não
+apagou dados; `presencas` tinha e manteve 0 linhas. A execução não iniciou o
+aplicativo nem os testes de integração/BDD.
 
 O aplicativo que está no workspace exige o schema `0004` quando acessa o menu
-de turmas. Antes da aplicação autorizada da migration, não execute essa versão
-contra o banco operacional.
+de turmas. O banco local configurado já possui esse schema; outros bancos
+precisam ser verificados e atualizados antes de usar as operações de turma.
 
 ## Regras do modelo
 
@@ -68,13 +68,14 @@ usa nome de arquivo exclusivo; se a transação falha, a compensação remove
 somente o arquivo daquela tentativa. Essa compensação não transforma o
 filesystem em parte da transação e não oculta a falha original.
 
-## Aplicação futura e proteção dos testes
+## Aplicação e proteção dos testes
 
-A aplicação da migration depende de autorização específica em etapa separada.
-O procedimento futuro exige backup validado, parada dos escritores antigos,
-aplicação coordenada do schema e disponibilização do novo código. O app e o
+A migration `0004` já foi aplicada no banco local configurado. Em cada ambiente
+restante, verifique a URL, confirme que o alvo é o banco esperado e execute
+`alembic upgrade head` em coordenação com a versão do código. O app e o
 importador antigos nomeiam a constraint removida `uq_presencas_aluno_dia`; as
-duas versões não podem gravar simultaneamente após o upgrade.
+duas versões não podem gravar simultaneamente após o upgrade. A aplicação não
+faz auto-migration.
 
 Os testes de integração existentes foram protegidos para não ler `.env` nem
 destruir bancos por engano. Eles só obtêm uma URL por variáveis de ambiente,
@@ -103,14 +104,16 @@ $env:FACE_TURMAS_MIGRATION_DATABASE_URL = "postgresql+psycopg://.../escola_migra
 O nome diferente da URL, isoladamente, não é uma confirmação de segurança: o
 fixture confere o marcador do próprio banco e a identidade PostgreSQL dos dois
 bancos antes de DDL. Sem essas variáveis, os testes ignoram a integração; esse
-skip não conta como validação. Nenhuma dessas variáveis foi configurada nem
-nenhuma conexão foi aberta nesta entrega.
+skip não conta como validação. Essas variáveis não foram configuradas nesta
+execução e os testes que fazem `TRUNCATE` não foram rodados. A migration foi
+aplicada diretamente ao banco local configurado, sem executar a suíte
+destrutiva.
 
-Depois de autorização, a revisão deve incluir migração de snapshot `0003`,
-preservação de IDs e linhas legadas, vínculos N:N, concorrência entre registro
-e desvinculação, integridade por turma e a guarda do downgrade. O smoke
-sintético e os testes unitários não substituem essa prova PostgreSQL nem uma
-validação visual com pessoa real.
+A suíte de integração em bancos descartáveis deve cobrir migração de snapshot
+`0003`, preservação de IDs e linhas legadas, vínculos N:N, concorrência entre
+registro e desvinculação, integridade por turma e a guarda do downgrade. O
+smoke sintético e os testes unitários não substituem essa prova PostgreSQL nem
+uma validação visual com pessoa real.
 
 ## Rollback
 
