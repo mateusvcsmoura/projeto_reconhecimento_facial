@@ -68,7 +68,7 @@ migration no PostgreSQL local configurado.
   modelos, migration, importador, mensagens e menus; callsites dos testes
   PostgreSQL/BDD atualizados; novos testes preparados em
   `tests/integration/test_turmas_postgresql.py` e
-  `tests/integration/test_migracao_turmas.py`.
+  `tests/integration/test_migracao_turmas_postgresql.py`.
 - **Documentação/configuração:** `README.md`, `ARCHITECTURE.md`, `AGENTS.md`,
   `CLAUDE.md`, `.env.example`, `docs/ESTADO-ATUAL-E-EVIDENCIAS.md`,
   `docs/TURMAS.md` e `tasks/README.md`.

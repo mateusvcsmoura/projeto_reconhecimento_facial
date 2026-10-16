@@ -6,6 +6,7 @@ Funcionalidade: Cadastro de aluno
 
   Contexto:
     Dado que o sistema esta operacional
+    E que uma turma ativa foi selecionada
 
   Cenario: Aluno valido
     Dado que a camera entrega o rosto de uma pessoa real

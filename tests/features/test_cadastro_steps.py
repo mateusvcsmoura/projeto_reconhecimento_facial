@@ -33,6 +33,7 @@ def contexto() -> dict[str, Any]:
         "reconhecimento": FakeFaceRecognition(
             embedding=FaceEmbedding.de_valores([1.0, 0.0, 0.0], MODELO)
         ),
+        "turma_id": None,
         "erro": None,
         "aluno": None,
     }
@@ -50,6 +51,12 @@ def _caso(contexto: dict[str, Any]) -> CadastrarAluno:
 @given("que o sistema esta operacional")
 def sistema_operacional(contexto: dict[str, Any]) -> None:
     assert contexto["alunos"] is not None
+
+
+@given("que uma turma ativa foi selecionada")
+def turma_ativa_selecionada(contexto: dict[str, Any]) -> None:
+    contexto["turma_id"] = 1
+    contexto["alunos"].validar_turma_ativa(contexto["turma_id"])
 
 
 @given("que a camera entrega o rosto de uma pessoa real")
@@ -91,7 +98,11 @@ def aluno_existente(contexto: dict[str, Any], matricula: str) -> None:
 def cadastrar(contexto: dict[str, Any], nome: str, matricula: str) -> None:
     try:
         contexto["aluno"] = _caso(contexto).executar(
-            matricula, nome, object(), consentiu=True
+            matricula,
+            nome,
+            object(),
+            consentiu=True,
+            turma_id=contexto["turma_id"],
         )
     except Exception as erro:  # o cenario diz qual erro esperar
         contexto["erro"] = erro
@@ -107,7 +118,11 @@ def cadastrar_sem_consentimento(
 ) -> None:
     try:
         contexto["aluno"] = _caso(contexto).executar(
-            matricula, nome, object(), consentiu=False
+            matricula,
+            nome,
+            object(),
+            consentiu=False,
+            turma_id=contexto["turma_id"],
         )
     except Exception as erro:
         contexto["erro"] = erro

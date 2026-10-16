@@ -17,7 +17,7 @@
 
 - [ ] Alterar `src/infrastructure/database/models.py`; criar `migrations/versions/0004_turmas.py` após confirmar head. Implementar schema e guarda do downgrade especificados.
 - [ ] Criar testes de metadados/SQL em `tests/unit/test_modelos_turmas.py`: PK/UK/FK/CHECK, índices parciais, nulabilidade apenas para legado, sem import do app ou conexão.
-- [ ] Preparar `tests/integration/test_turmas_postgresql.py` e `tests/integration/test_migracao_turmas.py` com cenários de MIGRACAO.md. Não executá-los.
+- [ ] Preparar `tests/integration/test_turmas_postgresql.py` e `tests/integration/test_migracao_turmas_postgresql.py` com cenários de MIGRACAO.md. Não executá-los.
 - [ ] Adaptar fixtures/BDD que dependem da constraint antiga e limpeza de tabelas; evitar SQL destrutivo automático em fixtures novas sem guardas explícitas de autorização.
 
 ## 3. Repositórios e atomicidade
