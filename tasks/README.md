@@ -15,6 +15,46 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 
 ## Como executar
 
+### FaceDiff web — novo ciclo 009–020
+
+Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
+na020**, após aprovação do backend na019. API/testes HTTP não incluem telas
+provisórias. Todos os novos pacotes contêm DESENHO.md, PLANO.md e PROMPT.md
+para Luna 6 High. Nenhuma dessas implementações foi iniciada.
+
+Ler o [contrato comum de execução](WEB-CONTRATO-EXECUCAO.md) e o
+[contrato de migrations](WEB-MIGRACOES.md). A autorização de commit/push dos
+pacotes antigos não se estende automaticamente aos novos; publicação e ações
+de infraestrutura dependem de autorização explícita vigente.
+
+| ID | Tarefa / desenho | Executor previsto | Estado |
+|---|---|---|---|
+| 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 014 | [API de cadastro por link e aprovação](014-web-api-cadastro-aprovacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 015 | [Sessões, tentativas e presença por API](015-web-api-sessoes-presencas/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 016 | [CRUD autorizado, revisão manual, auditoria e CSV](016-web-gestao-revisao-relatorios/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 017 | [Backup cifrado, retenção e restauração](017-web-backup-retencao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 018 | [Artefatos de implantação Ubuntu, Compose e Caddy](018-web-infraestrutura-compose/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 019 | [Validação integrada do backend e gate para a interface](019-web-validacao-backend/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 020 | [Interface web responsiva e validação ponta a ponta](020-web-interface-final/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+
+Começar pelo [prompt009](009-web-fundacao-linux/PROMPT.md).
+Executar uma task de cada vez e ler o resultado das dependências. A020 não
+pode começar com testes apenas preparados: exige gate019 aprovado. Testes de
+navegador/câmera e acessibilidade ficam na020, depois da construção da interface.
+Medição real da VPS, conexão Drive e dados reais continuam sujeitos a gates
+operacionais próprios e autorização; não são aprovados por testes sintéticos.
+
+Os documentos consolidados estão no [planejamento](../docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md),
+[arquitetura](../docs/FACEDIFF-WEB-ARQUITETURA-OPERACAO.md) e
+[roadmap](../docs/FACEDIFF-WEB-ROADMAP.md).
+
+### Ciclo anterior — 001–008
+
 Tarefa **008 — turmas e presença por turma**: [desenho](008-turmas/DESENHO.md), [plano de migração e resultado da aplicação](008-turmas/MIGRACAO.md), [plano](008-turmas/PLANO.md), [prompt para Luna 6 High](008-turmas/PROMPT.md) e [resultado](008-turmas/RESULTADO.md). A entrega implementa matrícula global única, vínculo N:N, contexto de turma e preservação do histórico legado. A migration `0004` foi aplicada ao PostgreSQL local configurado; os testes de integração continuam pendentes e exigem bancos descartáveis identificados.
 
 Tarefa **007 — captura automática no cadastro e na presença**: [desenho](007-captura-automatica/DESENHO.md), [plano](007-captura-automatica/PLANO.md), [prompt](007-captura-automatica/PROMPT.md) e [resultado](007-captura-automatica/RESULTADO.md). O fluxo padrão busca ao abrir a câmera, exige sequência válida de 5 segundos configuráveis e realiza uma operação por sessão, sem ESPAÇO/ENTER. `FACE_AUTO_CAPTURE_ENABLED=false` recupera o modo manual. Nenhuma dependência nova.
