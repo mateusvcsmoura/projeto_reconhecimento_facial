@@ -61,6 +61,28 @@ Separar **cadastro facial inicial** de **verificação de presença**. Ambos os 
 
 ## Arquitetura sugerida
 
+### Hospedagem do frontend no Render
+
+Confirmado na documentação oficial consultada em 17/10/2026: Render hospeda
+também a página acessada pelos alunos, com URL onrender.com e HTTPS.
+Há duas alternativas, ainda não contratadas:
+
+- **Frontend servido pela própria API:** proposta inicial para simplificar
+  este projeto pequeno, com páginas/arquivos estáticos e endpoints no mesmo
+  Web Service e domínio. Não exige outra instância de compute; compartilha
+  os recursos e limites já orçados.
+- **Static Site separado:** frontend HTML/CSS/JavaScript ou build estático
+  de React, servido por CDN, chamando a API paga. Sem custo de compute do
+  frontend, mas sujeito às franquias/custos de tráfego e build do workspace.
+  Configurar origens permitidas e autenticação adequadamente. Renderização
+  dinâmica no servidor não se enquadra como Static Site gratuito.
+
+Para o escopo proposto, não é necessário contratar um segundo servidor
+apenas para exibir a página. Links de cadastro/presença são rotas da mesma
+aplicação, não sites ou serviços separados para cada aluno/turma.
+Fontes: [Static Sites](https://render.com/docs/static-sites) e
+[Web Services](https://render.com/docs/web-services).
+
 | Componente | Papel |
 |---|---|
 | Frontend responsivo | Formulário, permissão da câmera, orientação e confirmação, em diferentes dispositivos |
