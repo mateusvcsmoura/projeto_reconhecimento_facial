@@ -110,4 +110,10 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 
 ## 7. Próxima direção sugerida
 
+O planejamento futuro de verificação remota de presença por link, câmera no
+navegador, janela de horário e hospedagem está em
+[`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
+Atualizar esse registro conforme novas decisões do usuário. É planejamento,
+não autorização para implementar, migrar, contratar hospedagem ou publicar.
+
 Manter o registro atual e as limitações das tarefas 001–008 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; os testes de integração em banco descartável continuam pendentes. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
