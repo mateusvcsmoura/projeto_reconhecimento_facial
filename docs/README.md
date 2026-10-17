@@ -4,6 +4,8 @@
 
 - [Estado atual e evidências](ESTADO-ATUAL-E-EVIDENCIAS.md)
 - [Planejamento futuro de presença pela web](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md)
+- [FaceDiff web: arquitetura e operação na Hostinger KVM 2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md)
+- [FaceDiff web: roadmap e plano de validação](FACEDIFF-WEB-ROADMAP.md)
 - [Tarefas: desenhos, planos, prompts e resultados](../tasks/README.md)
 
 ## Arquitetura e privacidade
@@ -41,4 +43,5 @@ em `docs/superpowers/plans/`, já encerradas e documentadas nos relatórios.
 Esses arquivos eram ignorados pelo Git, portanto sua remoção é local e não
 aparece como exclusão no histórico versionado. Especificações de arquitetura,
 ADRs, LGPD, evidências, guias operacionais e todos os pacotes de `tasks/`
-foram preservados. O planejamento web continua aberto.
+foram preservados. O planejamento web foi consolidado em 17/10/2026; sua
+implementação e implantação continuam futuras e dependem de autorização.

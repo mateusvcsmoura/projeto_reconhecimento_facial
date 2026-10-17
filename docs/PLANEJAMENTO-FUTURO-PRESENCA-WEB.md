@@ -1,240 +1,429 @@
 # Planejamento futuro — verificação de presença pela web
 
-Última atualização: **17/10/2026**.
+## FaceDiff: consolidação de 17/10/2026
 
-Documento vivo das conversas com o usuário. Registra intenções, propostas e pendências; **não é uma task autorizada para implementação ou implantação**. Acrescentar decisões futuras neste arquivo e marcar explicitamente propostas substituídas. Não transformar estimativas em resultados medidos.
+**Status: planejamento consolidado; implementação e implantação não executadas.**
+Este documento substitui as propostas conflitantes das versões anteriores.
+Não autoriza alteração de código, migrations, contratação, conexão ao Google
+Drive, deploy, testes biométricos reais, commit ou push.
 
-## Intenção confirmada pelo usuário
+Documentos complementares:
 
-- Evoluir para um serviço de verificação de presença em tempo real, acessível por link no navegador de celular, desktop ou notebook.
-- O professor gera e compartilha o link; o aluno permite a câmera, fornece as informações necessárias e valida a presença. A aplicação persiste os registros pelo backend.
-- A presença pode ser remota: **não há exigência de localização física em sala**. Geolocalização, Wi-Fi institucional e comprovação de presença física não fazem parte do requisito.
-- O objetivo não inclui videoconferência ou sala de aula virtual.
-- A captura deve acontecer naquele momento, dentro de uma faixa de horário configurada pelo professor.
-- Manter o contexto de turmas, matrícula global única e possibilidade de um aluno participar de várias turmas, conforme decisão anterior.
-- Preferência anterior por captura automática após abertura da câmera, sem botão obrigatório de captura, deve orientar a experiência web; os detalhes precisam ser adaptados ao navegador.
-- Escala inicial informada: poucas requisições; no dia da apresentação, aproximadamente **30 links gerados e 50 imagens**. Esses números não significam 30 servidores, 50 usuários simultâneos ou 50 imagens por segundo.
-- Estimativa atual solicitada: hospedagem disponível **24 horas por dia durante 10 dias (240 horas)**. A estimativa mensal anterior fica como referência de preços. Nenhum serviço foi contratado ou provisionado nesta conversa.
-- Confirmado cadastro remoto por link específico de turma: aluno informa nome/matrícula e captura a foto; backend registra cadastro e vínculo para verificações posteriores.
-- Professor recebe confirmação da presença validada e pode exportar relatório simples da turma selecionada, de um dia ou de intervalos abrangendo outros dias/meses.
-- Manter criação, leitura, atualização e exclusão de turmas/alunos, além do compartilhamento dos links. “Enviar turma/alunos” foi interpretado como compartilhar acesso/convites; envio de arquivos ou importação em lote não foi definido.
+- [Arquitetura, segurança e operação na KVM 2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
+- [Roadmap, testes e critérios de aceite](FACEDIFF-WEB-ROADMAP.md).
+- [Arquitetura atual](../ARCHITECTURE.md), [turmas atuais](TURMAS.md) e
+  [evidências históricas](ESTADO-ATUAL-E-EVIDENCIAS.md).
 
-## Fluxo proposto, ainda a detalhar
+## 1. Resumo executivo
 
-1. Professor autenticado seleciona uma turma e configura início/fim da janela de presença.
-2. Sistema gera link temporário associado à turma e à janela; QR Code é uma conveniência sugerida, não um requisito confirmado.
-3. Aluno acessa pelo navegador, recebe explicação do tratamento dos dados e solicita acesso à câmera.
-4. Backend cria uma tentativa temporária; captura e validação ficam vinculadas a essa tentativa.
-5. Backend verifica janela de horário, identidade, vínculo com turma, validade da tentativa e duplicidade.
-6. A presença aceita é persistida; aluno recebe confirmação e professor acompanha o resultado no contexto de sua turma. Não confirmar sucesso antes de concluir a persistência.
-7. Professor seleciona turma e data/período e exporta relatório de presenças.
+FaceDiff é um projeto de disciplina de Inteligência Artificial da Fatec,
+não um TCC. A futura aplicação web permitirá cadastro facial autorizado e
+verificação remota de presença por link, pelo navegador de celular, notebook
+ou desktop. O professor administra suas turmas, aprova cadastros e acompanha
+presenças; o aluno usa a câmera do próprio dispositivo. Não haverá exigência
+de localização física, GPS, Wi-Fi institucional nem videoconferência.
 
-### Cadastro por link — confirmado
+Hospedagem definitiva: uma Hostinger KVM 2, disponível 24/7 por aproximadamente
+10 dias, incluindo preparação e apresentação. Frontend, API, processamento
+facial e PostgreSQL ficam na mesma VPS. O Drive será somente destino de backup
+criptografado. A disponibilidade 24/7 é o objetivo operacional; uma única VPS
+é ponto único de falha, sem promessa de alta disponibilidade.
 
-Professor gera link com finalidade **cadastro** vinculado à turma. Aluno informa nome e matrícula, recebe informações de tratamento/consentimento, permite câmera e captura sua foto. Backend valida os dados, prepara referência facial e persiste cadastro/vínculo. Manter matrícula global única e N:N: matrícula existente não pode ter foto/nome substituídos por alguém que apenas acessou um link. A autorização para vincular cadastro existente e verificar a identidade declarada permanece a definir.
+A apresentação prioriza presença e usa integrantes do próprio grupo, com
+ciência e autorização documentadas. Cadastro ao vivo é permitido com os mesmos
+controles. Os antigos números de 30 links e 50 imagens são estimativas de
+volume, não de concorrência; três referências e desafios com vários frames
+podem aumentar significativamente o número de imagens processadas.
 
-Informações estruturadas e referência ao artefato facial ficam no banco; a exigência de armazenar o cadastro não obriga guardar bytes da foto em PostgreSQL. Proposta: preservar armazenamento privado da referência e embedding no banco, com retenção/acesso definidos. Não duplicar a foto por turma.
+## 2. Matriz de decisões
 
-Links de cadastro e presença têm finalidades distintas, validadas no servidor; um não pode ser usado no endpoint do outro. A janela de aula é requisito confirmado do link de presença. Expiração do convite de cadastro deve ser definida separadamente.
+**Ordem atualizada pelo usuário:** implementar e testar todas as funcionalidades
+do backend antes da interface. Pacotes009–019 cobrem fundação, APIs, modelos,
+gestão, operação e validação integrada. A interface completa fica exclusivamente
+na020, condicionada ao gate de backend aprovado na019. Testes móveis e E2E de
+câmera ocorrem na020 após construção da interface. Ver [tasks](../tasks/README.md)
+e [roadmap](FACEDIFF-WEB-ROADMAP.md); a antiga ordem W01–W12 foi substituída.
 
-### Professor, relatórios e manutenção
+Legenda: **C** = confirmado pelo usuário; **R** = recomendação técnica deste
+planejamento; **V** = validação necessária antes de liberar a etapa indicada.
 
-- Introduzir entidade Professor e relação de autorização com turmas; cardinalidade (um ou vários professores por turma) ainda a decidir. Login/conta não pode ser substituído por um ID enviado livremente pelo cliente.
-- Proposta inicial de confirmação: atualizar o painel do professor por consulta periódica, sem exigir e-mail, WhatsApp, push ou WebSockets. Canal e intervalo ainda não foram escolhidos.
-- Relatório simples: CSV UTF-8 como proposta inicial, filtrado por turma e data inicial/final inclusivas no fuso do projeto. Seleção de mês vira intervalo de datas. Incluir turma, matéria, período, matrícula, nome, data e horário da presença; não exportar fotos/embeddings/tokens.
-- Autorizar o professor para a turma também no download do relatório. Tratar CSV com escape correto e proteção contra fórmulas em campos fornecidos pelo usuário. Não inferir faltas a partir de ausência de registro sem calendário/roster histórico apropriado.
-- CRUD de turmas/alunos permanece. Preservar distinção entre desvincular aluno, excluir turma logicamente e excluir aluno globalmente. Atualização de nome/vínculo não implica recaptura facial; mudança de matrícula e substituição de biometria precisam de regras próprias.
+| Tema | Estado | Decisão |
+|---|---|---|
+| Infraestrutura | C | KVM 2: 2 vCPU, 8 GB RAM, 100 GB NVMe; Ubuntu Server 24.04 LTS, Compose, Caddy, PostgreSQL local |
+| Duração | C | Aproximadamente 10 dias 24/7; contratar um mês, não supor cobrança diária |
+| Domínio | C/V | Hostinger se elegível para oferta de um mês; verificar antes do deploy; alternativa no documento operacional |
+| Web | R | FastAPI como camada de apresentação adicional, frontend simples na mesma origem; preservar domínio/aplicação existentes |
+| Professor | C | Usuário/senha; exatamente um responsável por turma; administrador inicial seguro; recuperação administrativa sem e-mail |
+| Painel | C | Polling a cada 15 segundos; CRUD, CSV e correção justificada/auditada |
+| Aluno | C | Matrícula global única; vínculo N:N com turmas; sem login próprio na primeira versão |
+| Turma | C | Matéria e período obrigatórios: matutino, diurno ou noturno |
+| Cadastro | C | Link de turma por 7 dias, revogável; três capturas guiadas; aprovação humana antes de habilitar |
+| Matrícula existente | C | Nunca substituir cadastro pelo link; verificar identidade e autorizar novo vínculo explicitamente |
+| Biometria | C | FaceNet512, embeddings no PostgreSQL, fotos privadas; atualização autorizada/auditada; professor não vê biometria |
+| Presença | C | Matrícula informada, verificação 1:1, link compartilhado por turma/sessão, unicidade aluno/sessão |
+| Horário | C | Início no servidor dentro da janela; envio completo até 2 minutos após encerramento para tentativa já iniciada |
+| Falhas | C | Até três tentativas por aluno/sessão; depois revisão manual justificada, nunca aprovação automática por falha |
+| Captura recente | C/V | Desafio curto de movimento com participação do backend + antispoofing; validar acessibilidade e limites |
+| Comparação de três referências | R/V | Mediana das três distâncias cosseno <= 0,30; política versionada, validar antes do uso real |
+| Modelos e fila | C/R | Uma inferência por vez; fila simples; limite inicial recomendado de 10 aguardando |
+| Timeout/capacidade | V | Medir na KVM 2 antes de definir timeout e capacidade anunciada |
+| Retenção | C/R | Uso por cerca de 10 dias; data de encerramento explícita; apagar o que não tiver preservação autorizada |
+| Backup | C/R | Diário + manual pré-apresentação; duas cópias criptografadas, local e Drive; rclone crypt recomendado |
+| Demonstração | C/V | Integrantes autorizados, ensaio prévio; ciência não equivale a autorização para pesquisa ou calibração |
 
-Os nomes “janela” ou “sessão de presença” representam uma autorização temporal de registro; não uma chamada de vídeo. O link não dá acesso direto ao PostgreSQL nem contém credenciais do banco.
+Recomendações permitem decompor futuras tarefas; não devem aparecer como
+implementações já existentes. Pendências específicas estão no roadmap.
 
-## Captura recente e identidade
+## 3. Inspeção do repositório e reaproveitamento
 
-HTTPS e permissão do navegador são necessários para acessar a câmera na web. Não é possível ativá-la silenciosamente. Captura automática significa automatizar o fluxo **depois** da permissão necessária.
+Análise estática em 17/10/2026, partindo de `02611f3` em `main`. Foram lidos
+AGENTS.md, CLAUDE.md, instruções de orquestração/arquitetura, planejamento
+anterior, arquitetura, privacidade, dependências e módulos abaixo. Nenhum banco,
+arquivo biométrico, segredo ou ambiente de produção foi acessado.
 
-Abrir a câmera na interface, ocultar seleção de arquivos ou receber uma imagem dentro do horário não comprova, por si só, que a imagem foi produzida naquele instante. O cliente pode ser modificado e requisições podem ser repetidas.
-
-Proposta a desenhar: tentativa com identificador/desafio emitido pelo servidor, expiração curta, consumo controlado e proteção contra reenvio. Avaliar prova de vida adequada ao fluxo remoto, sem afirmar que token ou MiniFASNet isoladamente comprovam frescor/autenticidade. Não prometer segurança absoluta ou resultados biométricos não medidos.
-
-O horário do servidor deve ser a referência. Ainda definir se a tentativa precisa ser iniciada, recebida ou concluída antes do encerramento, incluindo tratamento de rede lenta e processamento em fila. Não confiar em timestamp enviado pelo celular para autorizar presença.
-
-Separar **cadastro facial inicial** de **verificação de presença**. Ambos os fluxos web foram confirmados pelo usuário. Link de presença não pode permitir substituir a face de uma matrícula. Ainda definir como validar a identidade informada no cadastro remoto e autorizar o vínculo de matrícula existente.
-
-## Arquitetura sugerida
-
-### Hospedagem principal: Hostinger KVM 2
-
-**Opção principal escolhida pelo usuário em 17/10/2026, com oferta de um mês
-verificada por ele no carrinho.** Planejar frontend, API Python, processamento
-facial e PostgreSQL na mesma VPS, compartilhando CPU, RAM e disco. Fotos
-autorizadas ficam em armazenamento privado persistente; o banco guarda dados,
-embeddings e referências aos arquivos. Não é necessário contratar PostgreSQL
-gerenciado separado nessa opção.
-
-Configuração proposta, ainda não executada:
-
-1. Selecionar localização do servidor e instalar Ubuntu com Docker/Compose.
-2. Preparar serviços da aplicação e PostgreSQL, com volumes persistentes,
-   segredos fora do repositório e banco acessível somente pelo backend.
-3. Apontar o domínio para a VPS e configurar proxy reverso com HTTPS.
-4. Configurar acesso administrativo por SSH, firewall, reinício automático,
-   logs, atualizações e backups com procedimento de restauração.
-5. Medir memória, latência e concorrência do reconhecimento com antispoofing;
-   controlar inferências simultâneas e validar o fluxo antes da apresentação.
-
-Professor e aluno acessam pelo navegador de notebook, desktop ou celular,
-inclusive em redes diferentes. Professor faz login no painel para gerenciar
-turmas, compartilhar links e exportar relatórios. Aluno abre o link de cadastro
-ou presença e autoriza a câmera do próprio dispositivo; a VPS recebe a captura
-e valida identidade, horário e demais regras. Não precisam acessar o painel
-da Hostinger nem instalar Python. O serviço funciona com o notebook do
-administrador desligado. A adaptação web do aplicativo atual continua pendente.
-
-### Alternativa: hospedagem do frontend no Render
-
-Confirmado na documentação oficial consultada em 17/10/2026: Render hospeda
-também a página acessada pelos alunos, com URL onrender.com e HTTPS.
-Há duas alternativas, ainda não contratadas:
-
-- **Frontend servido pela própria API:** proposta inicial para simplificar
-  este projeto pequeno, com páginas/arquivos estáticos e endpoints no mesmo
-  Web Service e domínio. Não exige outra instância de compute; compartilha
-  os recursos e limites já orçados.
-- **Static Site separado:** frontend HTML/CSS/JavaScript ou build estático
-  de React, servido por CDN, chamando a API paga. Sem custo de compute do
-  frontend, mas sujeito às franquias/custos de tráfego e build do workspace.
-  Configurar origens permitidas e autenticação adequadamente. Renderização
-  dinâmica no servidor não se enquadra como Static Site gratuito.
-
-Para o escopo proposto, não é necessário contratar um segundo servidor
-apenas para exibir a página. Links de cadastro/presença são rotas da mesma
-aplicação, não sites ou serviços separados para cada aluno/turma.
-Fontes: [Static Sites](https://render.com/docs/static-sites) e
-[Web Services](https://render.com/docs/web-services).
-
-| Componente | Papel |
+| Evidência atual | Reutilização e adaptação futura |
 |---|---|
-| Frontend responsivo | Formulário, permissão da câmera, orientação e confirmação, em diferentes dispositivos |
-| API Python | Autenticação/autorização, links/tentativas, horário, turmas e orquestração dos casos de uso |
-| Processamento facial | Reaproveitar reconhecimento e antispoofing com limites de concorrência; medir compatibilidade e recursos no ambiente hospedado |
-| PostgreSQL | Alunos, vínculos, turmas, janelas/tentativas e presenças conforme modelo futuro |
-| Armazenamento privado | Somente artefatos cuja persistência for necessária e autorizada; definir retenção e acesso |
+| `src/main.py`, `src/presentation/cli/` | Composition root e CLI local; criar entrada web separada, sem instanciar câmera ou janela OpenCV na VPS |
+| `src/domain/entities/face_embedding.py`, `services/matcher.py` | Normalização, serialização, coerência de modelo/dimensão e distância cosseno; novo verificador 1:1 explícito |
+| `src/infrastructure/face_recognition/deepface_adapter.py` | Extração de face única, alinhamento, embeddings, rejeição por antispoofing e qualidade optativa; adaptar execução controlada/headless |
+| `src/application/use_cases/cadastrar_aluno.py` | Validação de nome/matrícula, consentimento, preparação e compensação de arquivo; hoje grava uma referência e ativa vínculo diretamente, incompatível com aprovação pendente |
+| `src/application/use_cases/reconhecer_aluno.py` | Atual identificação 1:N e galeria mutável por turma; não compartilhar essa instância entre requisições web nem usar busca global como fallback |
+| `src/application/use_cases/registrar_presenca.py` | Regra atual por dia; novo caso de uso por sessão e transação idempotente |
+| `src/application/use_cases/gerenciar_turmas.py` e repositórios PostgreSQL | Validações de matéria/período, vínculo N:N, turma ativa e exclusão lógica; acrescentar proprietário, autorização e auditoria |
+| `src/infrastructure/database/models.py` | Matrícula UK, embedding único em aluno, FK de vínculo e `uq_presencas_turma_aluno_dia`; requer expansão deliberada do schema |
+| `src/infrastructure/repositories/postgres_presenca_repository.py` | Bloqueios de turma/vínculo e `ON CONFLICT`; adaptar para sessão e evitar competição com correções manuais |
+| `src/infrastructure/storage/local_image_storage.py` | Nomes relativos, gravação/remoção; acrescentar permissões, referências versionadas e limpeza reconciliada |
+| `src/domain/services/captura_automatica.py`, `consistencia_temporal.py`, `qualidade_captura.py` | Regras puras e testes como base; relógio local e estabilidade não comprovam captura recente remota |
+| `src/presentation/cli/captura_automatica.py` | Orquestra câmera/janela local; UX precisa de implementação no navegador |
+| `mediapipe_landmarks.py`, worker/protocolo e `facial_landmarks.py` | Landmarks visuais opcionais em processo isolado; não existe validação de desafio de movimento pronta |
+| `requirements.txt`, `requirements-landmarks.txt`, `pyproject.toml` | Python 3.12/3.13 declarado, DeepFace/TensorFlow/tf-keras/PyTorch/NumPy/OpenCV; MediaPipe isolado; FastAPI não é dependência direta atual |
+| `tests/unit/`, `tests/integration/`, `tests/features/` | Reutilizar fakes e testes de regras; integração só em banco descartável autorizado |
 
-Framework web e estratégia de execução ainda não escolhidos. Docker foi sugerido para empacotar a API e suas dependências. Não assumir que o programa CLI/OpenCV e o worker Windows atuais podem ser hospedados sem adaptação.
+Observações concretas para futuras tarefas:
 
-Acesso ao banco somente pelo backend. Reaproveitar regras de negócio existentes, preservando limiar operacional e separação entre funcionalidade, desempenho computacional e desempenho biométrico.
+- O caminho padrão do Python de landmarks em `settings.py` usa
+  `.venv-landmarks/Scripts/python.exe`; configurar caminho Linux no futuro.
+- O worker atual desliga saída de matrizes de transformação facial. Overlay
+  de pontos não implementa pose nem prova de vida por desafio.
+- `preaquecer()` carrega FaceNet, mas não comprova aquecimento de MiniFASNet.
+- O adaptador usa `face.get("is_real", True)`: ausência de evidência pode ser
+  aceita hoje. A versão web deve falhar de forma fechada se a validação exigida
+  faltar, sem desligar antispoofing para contornar erro.
+- Há logging de exceção externa no adaptador: revisar mensagens antes de
+  exposição pública para impedir conteúdo de requisição/segredos em logs.
+- `ExcluirAluno` e cascatas atuais podem apagar histórico; não expor diretamente
+  exclusão global ao professor de uma única turma.
 
-Limitar inferências simultâneas e sinalizar “validando” pode evitar multiplicar cópias dos modelos na memória. Fila é proposta técnica, não infraestrutura adicional já aprovada; medir se uma implementação simples é suficiente para a apresentação. Definir capacidade máxima, timeout e resposta em sobrecarga.
+### Framework recomendado
 
-## Modelo de dados: decisões pendentes
+FastAPI + Uvicorn é recomendado porque a base já separa casos de uso,
+repositórios e adaptadores Python, e utiliza configuração Pydantic. Criar
+adaptadores HTTP tipados e injeção explícita, mantendo as regras fora das rotas.
+Frontend inicial com HTML/CSS/JavaScript e templates simples evita uma segunda
+stack de build sem necessidade demonstrada. Flask seria possível, mas não há
+aplicação Flask existente a preservar; Django imporia mais convenções e ORM
+paralelo ao SQLAlchemy existente. Isso é uma adição web, não reescrita da CLI.
 
-- Relacionar link/janela à turma e ao professor autorizado; definir revogação e expiração.
-- Decidir link compartilhado por turma/janela ou individual por aluno. Link compartilhado precisa admitir vários alunos, enquanto cada tentativa deve ter controle próprio contra reutilização.
-- Definir se matrícula/login é informado antes da captura. Isso influencia identificação 1:N versus verificação 1:1; nenhuma mudança do problema operacional foi aprovada ainda.
-- Hoje a presença é contextualizada por turma/aluno/dia. Foi sugerida presença por janela/sessão para suportar mais de uma atividade da mesma turma no dia, **mas essa alteração ainda não foi confirmada pelo usuário**.
-- Nome, matrícula e captura facial foram confirmados para o link de cadastro. Ainda definir identificação solicitada no link de presença e autorização de matrícula existente.
-- Não pressupor armazenamento permanente de todas as imagens de verificação. Preferir descarte após processamento quando não houver finalidade aprovada de retenção.
+Fixação de versões e compatibilidade são trabalho da primeira tarefa técnica.
+Não instalar nada nesta consolidação. Consultar a
+[documentação de implantação FastAPI](https://fastapi.tiangolo.com/deployment/docker/).
 
-## Hospedagem e estimativas discutidas
+## 4. Professores, administração e autorização
 
-**Opção principal atual: Hostinger KVM 2, verificada pelo usuário.** Render
-pago passa a alternativa; os valores anteriores são mantidos para comparação.
-Neon foi mencionado como alternativa de PostgreSQL, sem escolha ou migração.
-Preferência de hospedagem não significa contratação, provisionamento ou
-capacidade já validada.
+- Administrador inicial provisionado por comando explícito, executado no
+  ambiente autorizado, com senha recebida de modo seguro, sem senha padrão,
+  segredo em argumentos/logs ou bootstrap público permanente.
+- Admin cria/desativa professores e redefine senha após verificar identidade;
+  credencial temporária deve expirar e exigir troca; invalidar sessões antigas.
+- Turma possui um professor responsável. Transferência de responsabilidade é
+  administrativa e auditada. Toda consulta/mutação/exportação verifica dono no
+  servidor, inclusive ao final de processamento assíncrono.
+- Professor gerencia matéria/período e alunos de suas turmas; desvincular não
+  exclui o aluno de outras turmas. Alterações de dados globais que afetam outras
+  turmas e exclusão global passam pelo administrador, com justificativa.
+- Atualização de biometria pode ser solicitada por professor responsável ou
+  admin; nova coleta autorizada e aprovação administrativa substituem um
+  conjunto versionado, nunca uma imagem enviada livremente ao CRUD comum.
+- Professor vê nome, matrícula, estados, justificativas e resultados necessários,
+  não fotos, embeddings ou links de download biométrico. Admin autorizado tem
+  acesso excepcional auditado; contas técnicas acessam apenas o necessário.
 
-### Hostinger KVM 2 — opção principal verificada pelo usuário
+## 5. Cadastro por link e três referências
 
-Recursos: **2 vCPU, 8 GB RAM e 100 GB SSD NVMe**, conforme a página do
-provedor consultada na conversa. Condições comerciais abaixo verificadas
-**pelo usuário no carrinho de contratação de 1 mês**, em 17/10/2026:
+1. Professor autenticado gera convite de cadastro para sua turma ativa. Token
+   aleatório de alta entropia, finalidade cadastro, criado/expira em 7 dias,
+   revogável; convite pode receber várias solicitações enquanto válido.
+2. Aluno informa nome/matrícula. Exibir aviso e coletar autorização específica
+   antes de enviar biometria; permissão da câmera não é consentimento LGPD.
+3. Após permissão, orientar três capturas automáticas: frontal e pequenas
+   variações confortáveis. Backend exige uma face, qualidade e antispoofing em
+   cada captura; valida coerência de identidade entre elas antes de ativar.
+4. Processar as referências e registrar solicitação pendente. Solicitação não
+   é cadastro ativo, não reserva definitivamente matrícula nem permite presença.
+   Reenvio idempotente não cria três conjuntos diferentes.
+5. Professor confirma identidade por procedimento independente: encontro
+   presencial com o integrante conhecido ou conferência por canal institucional
+   previamente conhecido e registro institucional autorizado. Não basta declarar
+   matrícula, olhar status biométrico ou aprovar automaticamente.
+6. Registrar método, responsável, data e justificativa da aprovação; não copiar
+   documentos pessoais. Aprovar atomicamente cadastro/vínculo/auditoria após
+   revalidar turma, dono, consentimento e unicidade global.
 
-| Item | Condição exibida |
+Professor não vê fotos armazenadas para aprovar. Se não puder confirmar a
+identidade pelo procedimento independente, rejeita ou mantém pendente até
+resolução; não contorna o requisito para a demonstração.
+
+```mermaid
+flowchart TD
+    A[Convite valido e consentimento] --> B[Tres capturas guiadas]
+    B --> C[Validacao tecnica no backend]
+    C -->|Falha| D[Orientacao ou revisao acessivel]
+    C -->|Valido| E[Solicitacao pendente]
+    E --> F[Professor verifica identidade por canal independente]
+    F -->|Nao confirmado| G[Rejeitar ou aguardar]
+    F -->|Confirmado| H{Matricula ja existe?}
+    H -->|Nao| I[Criar cadastro global e referencias]
+    H -->|Sim| J[Preservar cadastro e autorizar apenas novo vinculo]
+    I --> K[Vinculo ativo e auditoria na transacao]
+    J --> K
+```
+
+**Matrícula existente:** não revelar nome, turma ou biometria global ao portador
+do link. A solicitação fica separada, sem sobrescrever o aluno. As três capturas
+da solicitação não viram novas referências globais; eventual comparação com
+referências existentes é sinal auxiliar, nunca autorização suficiente. Após
+decisão, apagar o material provisório que não tiver finalidade de retenção.
+Se houver divergência, revisão administrativa e confirmação independente.
+Corrida entre duas aprovações: matrícula UK decide; a segunda aprovação deve
+ser reavaliada como vínculo existente, nunca mesclar silenciosamente cadastros.
+
+Estados da solicitação: `em_coleta`, `em_validacao`, `pendente_aprovacao`,
+`aprovada`, `rejeitada`, `cancelada`, `expirada`. Recomendação: material incompleto
+é temporário; pendências expiram no menor prazo entre 7 dias da submissão e o
+encerramento operacional. Expiração natural do link impede novas submissões,
+mas não apaga solicitação já recebida. Revogação bloqueia coletas não submetidas;
+propor invalidar também pendências ligadas ao convite, registrando auditoria.
+
+## 6. Presença por sessão: contrato de execução
+
+Professor cria sessão com turma, início e fim; link compartilhado tem finalidade
+presença e só vale para aquela sessão. Matrícula identifica a referência a
+verificar, não autentica por si só. Antes da tentativa, validar vínculo ativo,
+cadastro aprovado e referências compatíveis sem enumerar cadastros publicamente.
+
+1. Com janela aberta, servidor cria tentativa vinculada a aluno/sessão e a uma
+   credencial efêmera do navegador; emite desafio imprevisível.
+2. Navegador pede câmera, orienta movimento curto e captura automaticamente.
+3. Envia sequência limitada e ordenada de frames e identificadores do desafio.
+   Landmarks do cliente e timestamps do cliente não são evidência confiável.
+4. Servidor recebe todo o corpo no prazo, valida protocolo e admite na fila.
+5. Worker verifica desafio, continuidade de uma face, qualidade, antispoofing
+   e identidade 1:1. Referências de outras matrículas não participam da decisão.
+6. Transação final revalida sessão não revogada, turma, vínculo, referência ativa,
+   autorização e estado da tentativa; insere presença única aluno/sessão.
+7. Só depois do commit retorna confirmação. Falha de commit não é presença.
+   Painel consulta resultados a cada 15 segundos; interface mostra última
+   atualização e falhas de conexão, sem requisições sobrepostas.
+
+### Janela e relógio
+
+Recomendação de bordas: `inicio <= inicio_tentativa < fim`. Recepção integral
+deve ocorrer até `prazo_envio` inclusive; `prazo_envio` nunca excede `fim + 120s`.
+Recomendação para validade curta: validade de tentativa de 120 segundos desde
+a emissão; `prazo_envio = min(inicio_tentativa + 120s, fim + 120s)`. Isso limita
+tentativas antigas; os dois minutos após fim são teto, não prorrogação de toda
+tentativa vencida. Não criar nova tentativa após `fim`.
+
+Registrar `iniciada_em`, `prazo_envio`, `recebida_em` (corpo integral recebido),
+`processamento_iniciado_em` e `concluida_em` no servidor. Abrir upload antes do
+prazo e terminá-lo depois não basta. Processamento pode terminar depois do
+prazo de envio; timeout de processamento/fila é separado e depende de benchmark.
+UTC no banco, apresentação e filtros em `America/Sao_Paulo`.
+
+O servidor consegue comprovar o recebimento dentro do prazo, não o instante
+físico de exposição da câmera. Desafio emitido após início, sequência validada
+e envio tempestivo são o protocolo adotado para obter evidência de captura
+recente, com risco residual declarado. Não usar EXIF/relógio do aluno como prova.
+
+```mermaid
+stateDiagram-v2
+    [*] --> iniciada
+    iniciada --> recebida: envio integral no prazo
+    iniciada --> expirada: prazo excedido
+    recebida --> enfileirada: vaga disponivel
+    recebida --> rejeitada: protocolo invalido ou sobrecarga
+    enfileirada --> processando: worker unico
+    processando --> concluida: presenca persistida ou duplicidade confirmada
+    processando --> rejeitada: falha biometrica ou tecnica
+    enfileirada --> rejeitada: reinicio ou timeout tecnico
+    concluida --> [*]
+    rejeitada --> [*]
+    expirada --> [*]
+```
+
+`iniciada/recebida/enfileirada/processando` são estados pendentes; terminais
+guardam resultado e motivo. Revogação cancela pendências e impede commit de
+resultado tardio. Não reabrir tentativa terminal. A mesma chave idempotente
+retorna o resultado existente; payload diferente na mesma tentativa é rejeitado.
+
+### Três tentativas, abuso e revisão
+
+Recomendação: reservar ordinal 1–3 atomicamente por aluno/sessão ao emitir
+desafio; permitir somente uma tentativa ativa por par. Falha biométrica,
+desafio inválido ou abandono/expiração consomem a tentativa. Câmera recusada
+antes de emitir desafio e requisição rejeitada antes da emissão não consomem.
+Sobrecarga ou falha exclusivamente do servidor usa motivo técnico; restauração
+de quota exige ação administrativa auditada, não retry público ilimitado.
+
+Token compartilhado e matrícula não impedem alguém de tentar consumir a quota
+de outra pessoa. Mitigar com limites por link, IP e credencial efêmera, limites
+globais, respostas genéricas e recuperação pelo professor; não penalizar toda
+uma rede escolar por um único limite agressivo. Não há eliminação desse risco
+sem autenticação adicional do aluno. Após três tentativas, oferecer revisão
+com justificativa e protocolo de acompanhamento, sem divulgar dados alheios.
+
+Professor pode corrigir/inserir presença manual ou marcá-la como anulada após
+revisão. Justificativa obrigatória, identidade verificada por procedimento
+independente, ator/antes/depois/horário auditados na mesma transação. Revisão
+manual é resultado distinto de validação biométrica. Worker tardio não pode
+sobrescrever uma correção; usar versão/bloqueio da presença e pedido de revisão.
+Alternativa acessível pode encaminhar revisão antes de esgotar a quota.
+
+## 7. Desafio facial e decisão 1:1
+
+Desafio proposto: pose frontal inicial, movimento leve para direção sorteada
+pelo servidor e retorno confortável. Número de etapas, amplitude e duração
+dependem da prova técnica e acessibilidade. Indicação visual/textual simples,
+sem CAPTCHA, áudio obrigatório ou movimentos amplos.
+
+Backend valida sequência de evidências, ordem, nonce, estado/validade e
+continuidade de identidade; não aceitar apenas booleano `desafio_ok` enviado
+pelo JavaScript. Recomendação: amostrar poucos frames com limites de tamanho,
+emitindo a próxima orientação após recebimento da etapa anterior. Landmarks
+calculados no servidor podem validar trajetória; backend de pose ainda requer
+prova técnica Linux. Isso não é transmissão de aula nem gravação permanente.
+
+MiniFASNet permanece habilitado no cadastro e presença. Protocolo não protege
+absolutamente contra câmera virtual, replay sofisticado, deepfake ou cliente
+modificado. Ausência de pontuação/resultado esperado deve impedir aprovação.
+Falha técnica ou de movimento gera orientação/revisão, não desativação automática.
+
+Para três referências válidas da mesma pessoa, recomendar **mediana das três
+distâncias cosseno <= 0,30** em cada frame de decisão exigido; é uma política
+de engenharia proposta, não calibrada. Não usar mínimo entre identidades nem
+afirmar melhoria de acurácia. Validar normalização, FaceNet512/512D, versão do
+conjunto e coerência das três referências. A política e o threshold usados
+ficam versionados nos metadados restritos. Não adotar o limiar experimental
+histórico 0,428179... nem ajustar `FACE_THRESHOLD` automaticamente.
+
+## 8. Modelo de dados proposto
+
+Nomes abaixo são propostas para futuras migrations, não tabelas existentes.
+
+| Entidade | Campos/regras principais |
 |---|---|
-| Primeiro mês | **R$ 70,99 no total** |
-| Renovação | **R$ 108,99 a cada mês** |
-| Domínio | Grátis por 1 ano nessa oferta; renovação futura não cotada |
-| Proteção de privacidade WHOIS e impostos | R$ 0 no carrinho apresentado |
-| Backup automático diário opcional | R$ 32,99/mês; desmarcado, não incluído no total |
+| Conta / Professor | id, usuário normalizado UK, hash de senha, papel admin/professor, ativo, troca obrigatória, versão de credencial; Professor referencia conta |
+| Turma | id, professor responsável FK obrigatório, matéria, período, excluída_em; um responsável por vez |
+| Aluno | id, matrícula UK global preservando zeros, nome, estado, consentimento/versão do aviso; não armazenar senha de aluno |
+| AlunoTurma | PK aluno/turma, ativo, datas de vínculo/desvínculo, aprovação que originou vínculo |
+| SolicitaçãoCadastro | id, turma, convite, matrícula declarada, nome declarado, estado, finalidade novo/vínculo/atualização, consentimento, expiração, decisão/método/responsável |
+| ConjuntoReferencia | id, aluno ou solicitação pendente, versão, estado pendente/ativo/substituído, modelo, política de coleta; no máximo um conjunto ativo por aluno |
+| ReferenciaFacial | id, conjunto, ordinal 1–3 UK no conjunto, caminho privado relativo, embedding BYTEA normalizado, dimensão/modelo, criada_em; ativação exige três válidas |
+| Link | id, finalidade, hash de token, turma, sessão opcional, emissor, criado/expira/revogado_em; presença exige sessão da mesma turma |
+| SessaoPresenca | id, turma, criador, título, início/fim UTC, estado/revogação, versão; início anterior ao fim |
+| Tentativa | UUID, aluno, sessão, ordinal UK aluno/sessão/ordinal, estado, desafio/nonce protegido, prazos do servidor, motivo/resultado, referência/política utilizadas, chave idempotente hash |
+| Presenca | id, aluno, sessão, status presente/anulada, origem biométrica/manual, horário de evidência/registro, tentativa opcional, versão; UK aluno/sessão |
+| RevisaoManual | id, aluno/sessão, motivo, estado, solicitada/decidida_em, professor, justificativa da decisão; no máximo uma aberta por par |
+| Auditoria | id, ator/papel, ação, alvo interno, instante, justificativa e antes/depois mínimos; sem imagem/embedding/token/senha |
+| SessaoAutenticacao | identificador aleatório com hash persistido, conta, expiração, revogação; separado de SessaoPresenca |
 
-Para usar durante **10 dias**, reservar os **R$ 70,99 do primeiro mês**:
-essa oferta é mensal, sem evidência de cobrança proporcional por dia.
-Não aplicar o cálculo de 10/30 do Render à Hostinger. Planejar o encerramento
-ou a desativação da renovação conforme as regras do provedor, preservando
-dados autorizados antes de remover recursos. O domínio gratuito por um ano
-não estende a duração da VPS.
+```mermaid
+erDiagram
+    PROFESSOR ||--o{ TURMA : responsavel
+    ALUNO ||--o{ ALUNO_TURMA : participa
+    TURMA ||--o{ ALUNO_TURMA : possui
+    TURMA ||--o{ SOLICITACAO_CADASTRO : recebe
+    ALUNO ||--o{ CONJUNTO_REFERENCIA : possui
+    CONJUNTO_REFERENCIA ||--|{ REFERENCIA_FACIAL : contem
+    TURMA ||--o{ SESSAO_PRESENCA : organiza
+    TURMA ||--o{ LINK : compartilha
+    SESSAO_PRESENCA ||--o{ TENTATIVA : recebe
+    ALUNO ||--o{ TENTATIVA : declara
+    SESSAO_PRESENCA ||--o{ PRESENCA : registra
+    ALUNO ||--o{ PRESENCA : possui
+    SESSAO_PRESENCA ||--o{ REVISAO_MANUAL : recebe
+    PROFESSOR ||--o{ AUDITORIA : realiza
+```
 
-Os 100 GB são compartilhados pelo sistema operacional, imagens de contêiner,
-modelos, PostgreSQL, fotos e logs; não são 100 GB exclusivos do banco.
-O backup diário opcional não substitui a definição da política de backup e
-retenção. Administração do sistema, HTTPS, atualizações, banco e recuperação
-ficam sob responsabilidade do projeto. Os 8 GB oferecem mais margem que as
-opções de 2 GB discutidas, mas ainda não foram validados com a aplicação
-hospedada nem com acessos simultâneos.
+FKs e transações devem impedir sessão de turma diferente, presença sem vínculo
+válido no momento da decisão e referências de outra identidade. Constraint
+aluno/sessão resolve duplicidade concorrente; validação apenas em Python não basta.
 
-### Render — alternativa e referência de orçamento
+**Evolução compatível:** expandir schema antes de migrar caminhos de leitura.
+Não inventar sessões para presenças históricas: manter ramo legado separado,
+com `sessao_id` nulo e índices parciais correspondentes; nova web exige sessão.
+Substituir a constraint de dia no ramo web, preservando o ramo legado/CLI
+até decisão específica de retirada. Cadastros legados com uma referência não
+ganham três por duplicação: nova coleta autorizada ou ficam inelegíveis à web.
+Turmas legadas exigem responsável atribuído explicitamente antes de exposição.
+Usar base de demonstração nova é a recomendação inicial, sem importar dados reais
+locais. Migrations e compatibilidade terão revisão própria e banco descartável.
 
-Preços consultados em **17/10/2026**, para uma instância de aplicação e uma instância básica de PostgreSQL durante um mês inteiro:
+## 9. Relatórios e auditoria
 
-| Aplicação | Aplicação/mês | PostgreSQL básico/mês | Total base/mês |
-|---|---:|---:|---:|
-| 512 MB RAM / 0,5 CPU | US$ 7 | US$ 6 | US$ 13 |
-| 2 GB RAM / 1 CPU | US$ 25 | US$ 6 | US$ 31 |
-| 4 GB RAM / 2 CPUs | US$ 85 | US$ 6 | US$ 91 |
+CSV UTF-8 sob autorização do dono da turma, filtros por dia, intervalo inclusivo
+ou mês no fuso definido. Campos: turma (identificador legível), matéria, sessão,
+data, horário, matrícula, nome, status, indicação de correção manual; preservar
+período da turma como coluna adicional já prevista. Separar horário de evidência
+do horário da correção no modelo; o CSV deve rotular o horário exibido.
 
-Referência de workspace Hobby sem mensalidade adicional de workspace; não confundir plano de workspace com tamanho de instância. Valores não incluem armazenamento, eventuais excedentes, serviços extras, domínio próprio, tributos ou conversão/tarifas do cartão. Consultar preços novamente antes de contratar.
+Exportar presenças e anulações registradas; não deduzir faltas sem lista histórica
+de alunos esperados na sessão. Escapar CSV e neutralizar fórmulas, sem imagens,
+embeddings, tokens, scores biométricos ou justificativas sensíveis. Gerar sob
+demanda, sem cópia permanente do relatório no servidor por padrão.
 
-Foi proposto **orçamento inicial aproximado de US$ 35/mês** para o cenário de 2 GB, condicionado à medição de memória e pequenos custos adicionais. Se for necessário o cenário de 4 GB, a estimativa discutida foi aproximadamente **US$ 95/mês**. Esses valores são reservas estimadas, não cotação final nem comprovação de capacidade.
+Auditar aprovação, vínculo existente, troca de referência, correção, exclusão,
+desvínculo, revogação, redefinição de senha, transferência de turma e acessos
+administrativos sensíveis. Auditoria de sucesso deve acompanhar atomicamente a
+mutação; separar eventos operacionais de falha. Evitar texto livre com dados
+desnecessários. Acesso à auditoria restrito e sujeito à retenção, não eterno.
 
-512 MB não foi recomendado para a stack atual de modelos. **2 GB e 4 GB também não foram validados** por execução hospedada. O baixo número de imagens não elimina a necessidade de memória para manter modelos carregados. O tamanho necessário depende do pico de RAM, cold start, duração da inferência e concorrência.
+## 10. Conflitos resolvidos e decisões preservadas
 
-30 links/50 imagens sugerem tráfego pequeno, mas o número de frames por validação, tamanho dos uploads e concentração das solicitações permanecem desconhecidos. Não garantir atendimento simultâneo nem latência “instantânea”. Se a validação exigir sequência de frames, 50 imagens podem não representar o volume real.
+| Planejamento/código anterior | Consolidação |
+|---|---|
+| Render principal, depois alternativa; Neon mencionado | KVM 2 definitiva. Orçamentos antigos permanecem apenas no histórico Git, não compõem arquitetura ativa |
+| Framework em aberto | FastAPI recomendado após inspeção; sem migração da CLI nem troca de ORM |
+| Professor/turma e polling indefinidos | Um professor responsável; usuário/senha; polling de 15s |
+| Cadastro imediato e uma referência | Solicitação aprovada explicitamente e três referências, com controles para matrícula existente |
+| Identificação aberta 1:N | Web passa explicitamente a verificação 1:1; CLI e experimentos 1:N não são reclassificados |
+| Presença única no dia | Web única aluno/sessão; legado preservado com estratégia explícita |
+| Horário/desafio/retry pendentes | Início dentro da janela, envio com teto fim+120s, desafio curto e três tentativas |
+| Retenção operacional histórica de 1825 dias | Não aplicável à demonstração web: finalidade de aproximadamente 10 dias e encerramento documentado |
+| `docs/lgpd.md` sugere desligar antispoofing em situação histórica | Não adotado na web; falha exige orientação/revisão, sem presença automática |
+| `docs/lgpd.md` diz ausência de compartilhamento | Hostinger e Google processam armazenamento/backup; registrar operadores, contratos e transferência pertinente |
+| `CLAUDE.md` diz migration 0004 não aplicada | AGENTS/ARCHITECTURE registram aplicação local; sem consulta ao banco nesta tarefa, não atestar outros ambientes |
 
-Não foi feita conversão para reais. Não foi executado benchmark de hospedagem, teste de carga, deploy, compra ou criação de conta.
+Preservados: matrícula UK, N:N, períodos, matéria, CRUD, captura automática após
+permissão, consentimento, threshold 0,30, separação arquitetural, proibição de
+datasets externos sem autorização e distinção entre testes funcionais,
+benchmark computacional e acurácia biométrica. QR Code continua conveniência
+opcional; importação em lote não foi adicionada.
 
-### Render: estimativa alternativa para 10 dias disponíveis 24/7
+## 11. Registro e limites desta consolidação
 
-Consulta em 17/10/2026: Render informa cobrança de compute proporcional ao tempo, por segundo. Para estimativa simples, usar **preço mensal × 10/30**, mês de referência de 30 dias. Esta conta é aproximação orçamentária; a fatura depende das taxas e segundos efetivos do provedor, e não da suposição de que qualquer mês tem 30 dias.
+- 17/10/2026: gerados pacotes009–020 para Luna6High, somente documentação;
+  interface movida para a última task por solicitação do usuário, após gate019.
 
-| Instância da aplicação | Aplicação por 10 dias | PostgreSQL básico por 10 dias | Total base estimado |
-|---|---:|---:|---:|
-| 512 MB / 0,5 CPU | US$ 2,33 | US$ 2,00 | **US$ 4,33** |
-| 2 GB / 1 CPU | US$ 8,33 | US$ 2,00 | **US$ 10,33** |
-| 4 GB / 2 CPUs | US$ 28,33 | US$ 2,00 | **US$ 30,33** |
+- 17/10/2026: proposta inicial de presença remota, cadastro, CSV e 10 dias.
+- 17/10/2026: usuário verificou oferta KVM 2 de um mês e escolheu opção principal.
+- 17/10/2026: requisitos completos acima consolidam KVM 2 definitiva, aprovação,
+  1:1, três referências, sessão, desafios, auditoria e backup local/Drive.
+- Verificações desta tarefa: leitura estática, consulta a documentação oficial,
+  revisão de consistência, links locais e diff documental. Não houve teste da
+  aplicação, benchmark, autenticação externa, migração ou uso de biometria real.
 
-Hipóteses: uma aplicação incluindo API/processamento, um PostgreSQL básico, workspace Hobby sem taxa adicional, sem worker pago separado e sem serviços de notificação pagos. CRUD, geração dos links e exportação CSV simples compartilham essa aplicação; não existe custo fixo por link nesta estimativa.
-
-Reserva sugerida **US$ 12–15 para 10 dias no cenário 2 GB**, condicionada à medição, ou **US$ 32–35 no cenário 4 GB**, também não validado. Reservas não são teto contratual; não incluem impostos/câmbio/cartão, excedentes relevantes, domínio próprio ou serviços adicionais. O cenário512 MB continua não recomendado para a stack atual.
-
-Armazenamento é separado: a tabela pública consultada indica 1 GB incluído no PostgreSQL e expansão a US$0,30/GB; discos persistentes da aplicação custam US$0,25/GB/mês. Confirmar franquias e cobrança efetiva na contratação. Para a foto de referência persistir entre deploys, planejar disco ou armazenamento privado apropriado; filesystem efêmero não atende essa necessidade. Número/tamanho das imagens e espaço dos modelos ainda precisam ser medidos.
-
-Os 10 dias são **tempo total dos recursos cobrados**, não apenas dias com acessos. Criação para ensaios antes da apresentação também conta. Manter recursos após esse prazo continua podendo gerar cobrança; exportar um relatório não desliga a hospedagem. Antes de encerrar recursos, definir preservação autorizada de dados e backup, e conferir separadamente cobranças de aplicação, banco e armazenamento. Não apagar banco automaticamente para economizar.
-
-O novo escopo de cadastro+presença+relatórios não altera a aritmética da instância fixa; pode alterar a instância necessária. Cinquenta imagens e trinta links não demonstram capacidade para cinquenta inferências simultâneas. Não assumir que 2 GB bastam sem teste.
-
-## Próximas decisões antes de uma task de implementação
-
-1. Detalhar os dois fluxos confirmados (cadastro e presença), autenticação/autorização de professor/aluno, matrícula existente e relação professor–turma.
-2. Definir semântica do prazo, expiração/revogação e presença única por dia ou por janela.
-3. Definir protocolo de captura recente e seus limites, sem reutilizar dados operacionais para pesquisa por suposição.
-4. Inspecionar código atual e planejar adaptação web sem perder regras de turmas/captura e consentimento.
-5. Medir memória e latência dos modelos e estimar pico de concorrência com testes adequados; validação biométrica real exige autorização específica.
-6. Validar a opção principal Hostinger KVM 2 com medições, detalhar armazenamento/backups e revisar a oferta antes da contratação; manter Render como alternativa.
-7. Só então preparar pacote de task com desenho, plano, testes, migração se necessária e prompt de execução. Este documento não concede autorização para implementar, migrar, publicar ou contratar.
-
-## Referências consultadas na conversa
-
-- [Hostinger VPS](https://www.hostinger.com/br/servidor-vps): recursos da KVM 2. Preço de um mês registrado a partir do carrinho apresentado e verificado pelo usuário em 17/10/2026; não confundir com promoções de contratos longos da página pública.
-- [Câmera no navegador — getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia): contexto seguro e permissão.
-- [Render Web Services](https://render.com/docs/web-services): hospedagem de serviços.
-- [Render Docker](https://render.com/docs/docker): implantação em contêiner.
-- [Render Pricing](https://render.com/pricing): planos e preços, verificar novamente antes da contratação.
-- [Render Compute Plans](https://render.com/docs/compute-plans): correspondência entre CPU/RAM e planos.
-- [Render Persistent Disks](https://render.com/docs/disks): persistência de arquivos.
-- [Render Free](https://render.com/docs/free): limitações e suspensão do serviço gratuito.
-- [Render Scaling — billing](https://render.com/docs/scaling): compute proporcional por segundo.
-
-## Registro de evolução
-
-- **17/10/2026 — escolha de hospedagem:** usuário definiu Hostinger KVM 2 como opção principal, com oferta verificada por ele: 1 mês por R$ 70,99, renovação por R$ 108,99/mês, domínio grátis por um ano e backup diário opcional desmarcado. Registrada proposta de serviços na mesma VPS e acesso pelo navegador. Render mantido como alternativa; nenhuma contratação ou implantação executada.
-- **17/10/2026:** consolidada proposta de acesso por link/câmera e janela de horário; incorporada correção do usuário de que presença física e videoconferência não são necessárias; registrados volume estimado, custos consultados e limitações de captura recente/hospedagem. Nenhuma implementação iniciada.
-- **17/10/2026 — atualização:** confirmado link separado para cadastro com nome/matrícula/foto, confirmação para professor, relatório por turma e dia/intervalo de dias/meses e manutenção do CRUD. Prazo orçado mudou de um mês para 10 dias 24/7; tabelas e hipóteses atualizadas. Cadastro remoto deixa de ser dúvida de escopo; sua autorização detalhada continua pendente. Nenhuma implementação ou contratação iniciada.
+Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
+Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;
+domínio, autorização dos participantes, política institucional e restauração
+bloqueiam dados reais/deploy. Ver a ordem e os gates no roadmap.

@@ -1,5 +1,16 @@
 # Tratamento de dados pessoais e biométricos
 
+> **Escopo e atualização de 17/10/2026:** o conteúdo abaixo registra o sistema
+> local e decisões históricas; não é atestado de conformidade nem política da
+> futura web. Para FaceDiff web, consultar [privacidade, retenção e backups na
+> KVM 2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md). A demonstração prevê cerca de
+> 10 dias, aprovação de cadastro, autenticação/auditoria e armazenamento na
+> Hostinger com backup cifrado no Google Drive. Não herdar automaticamente
+> retenção de cinco anos, ausência de compartilhamento ou sugestão histórica
+> de desligar antispoofing. Exclusão de vínculo no banco não torna um arquivo
+> facial residual anônimo. Base aplicável e responsabilidades devem ser
+> documentadas; consentimento não é a única hipótese prevista no art. 11.
+
 Documento de conformidade do projeto. Descreve **o que** o sistema coleta,
 **por quê**, **por quanto tempo** e **como** o titular pode sair.
 
