@@ -61,7 +61,35 @@ Separar **cadastro facial inicial** de **verificação de presença**. Ambos os 
 
 ## Arquitetura sugerida
 
-### Hospedagem do frontend no Render
+### Hospedagem principal: Hostinger KVM 2
+
+**Opção principal escolhida pelo usuário em 17/10/2026, com oferta de um mês
+verificada por ele no carrinho.** Planejar frontend, API Python, processamento
+facial e PostgreSQL na mesma VPS, compartilhando CPU, RAM e disco. Fotos
+autorizadas ficam em armazenamento privado persistente; o banco guarda dados,
+embeddings e referências aos arquivos. Não é necessário contratar PostgreSQL
+gerenciado separado nessa opção.
+
+Configuração proposta, ainda não executada:
+
+1. Selecionar localização do servidor e instalar Ubuntu com Docker/Compose.
+2. Preparar serviços da aplicação e PostgreSQL, com volumes persistentes,
+   segredos fora do repositório e banco acessível somente pelo backend.
+3. Apontar o domínio para a VPS e configurar proxy reverso com HTTPS.
+4. Configurar acesso administrativo por SSH, firewall, reinício automático,
+   logs, atualizações e backups com procedimento de restauração.
+5. Medir memória, latência e concorrência do reconhecimento com antispoofing;
+   controlar inferências simultâneas e validar o fluxo antes da apresentação.
+
+Professor e aluno acessam pelo navegador de notebook, desktop ou celular,
+inclusive em redes diferentes. Professor faz login no painel para gerenciar
+turmas, compartilhar links e exportar relatórios. Aluno abre o link de cadastro
+ou presença e autoriza a câmera do próprio dispositivo; a VPS recebe a captura
+e valida identidade, horário e demais regras. Não precisam acessar o painel
+da Hostinger nem instalar Python. O serviço funciona com o notebook do
+administrador desligado. A adaptação web do aplicativo atual continua pendente.
+
+### Alternativa: hospedagem do frontend no Render
 
 Confirmado na documentação oficial consultada em 17/10/2026: Render hospeda
 também a página acessada pelos alunos, com URL onrender.com e HTTPS.
@@ -108,7 +136,42 @@ Limitar inferências simultâneas e sinalizar “validando” pode evitar multip
 
 ## Hospedagem e estimativas discutidas
 
-Opção inicial sugerida: **Render pago**, API em Docker e PostgreSQL gerenciado. Neon foi mencionado anteriormente como alternativa de PostgreSQL; não foi escolhido nem migrado nesta conversa. Hospedagem definitiva ainda depende de orçamento e medição.
+**Opção principal atual: Hostinger KVM 2, verificada pelo usuário.** Render
+pago passa a alternativa; os valores anteriores são mantidos para comparação.
+Neon foi mencionado como alternativa de PostgreSQL, sem escolha ou migração.
+Preferência de hospedagem não significa contratação, provisionamento ou
+capacidade já validada.
+
+### Hostinger KVM 2 — opção principal verificada pelo usuário
+
+Recursos: **2 vCPU, 8 GB RAM e 100 GB SSD NVMe**, conforme a página do
+provedor consultada na conversa. Condições comerciais abaixo verificadas
+**pelo usuário no carrinho de contratação de 1 mês**, em 17/10/2026:
+
+| Item | Condição exibida |
+|---|---|
+| Primeiro mês | **R$ 70,99 no total** |
+| Renovação | **R$ 108,99 a cada mês** |
+| Domínio | Grátis por 1 ano nessa oferta; renovação futura não cotada |
+| Proteção de privacidade WHOIS e impostos | R$ 0 no carrinho apresentado |
+| Backup automático diário opcional | R$ 32,99/mês; desmarcado, não incluído no total |
+
+Para usar durante **10 dias**, reservar os **R$ 70,99 do primeiro mês**:
+essa oferta é mensal, sem evidência de cobrança proporcional por dia.
+Não aplicar o cálculo de 10/30 do Render à Hostinger. Planejar o encerramento
+ou a desativação da renovação conforme as regras do provedor, preservando
+dados autorizados antes de remover recursos. O domínio gratuito por um ano
+não estende a duração da VPS.
+
+Os 100 GB são compartilhados pelo sistema operacional, imagens de contêiner,
+modelos, PostgreSQL, fotos e logs; não são 100 GB exclusivos do banco.
+O backup diário opcional não substitui a definição da política de backup e
+retenção. Administração do sistema, HTTPS, atualizações, banco e recuperação
+ficam sob responsabilidade do projeto. Os 8 GB oferecem mais margem que as
+opções de 2 GB discutidas, mas ainda não foram validados com a aplicação
+hospedada nem com acessos simultâneos.
+
+### Render — alternativa e referência de orçamento
 
 Preços consultados em **17/10/2026**, para uma instância de aplicação e uma instância básica de PostgreSQL durante um mês inteiro:
 
@@ -128,7 +191,7 @@ Foi proposto **orçamento inicial aproximado de US$ 35/mês** para o cenário de
 
 Não foi feita conversão para reais. Não foi executado benchmark de hospedagem, teste de carga, deploy, compra ou criação de conta.
 
-### Orçamento atualizado: 10 dias disponíveis 24/7
+### Render: estimativa alternativa para 10 dias disponíveis 24/7
 
 Consulta em 17/10/2026: Render informa cobrança de compute proporcional ao tempo, por segundo. Para estimativa simples, usar **preço mensal × 10/30**, mês de referência de 30 dias. Esta conta é aproximação orçamentária; a fatura depende das taxas e segundos efetivos do provedor, e não da suposição de que qualquer mês tem 30 dias.
 
@@ -155,11 +218,12 @@ O novo escopo de cadastro+presença+relatórios não altera a aritmética da ins
 3. Definir protocolo de captura recente e seus limites, sem reutilizar dados operacionais para pesquisa por suposição.
 4. Inspecionar código atual e planejar adaptação web sem perder regras de turmas/captura e consentimento.
 5. Medir memória e latência dos modelos e estimar pico de concorrência com testes adequados; validação biométrica real exige autorização específica.
-6. Escolher hospedagem/armazenamento a partir das medições e orçamento; revisar valores antes da contratação.
+6. Validar a opção principal Hostinger KVM 2 com medições, detalhar armazenamento/backups e revisar a oferta antes da contratação; manter Render como alternativa.
 7. Só então preparar pacote de task com desenho, plano, testes, migração se necessária e prompt de execução. Este documento não concede autorização para implementar, migrar, publicar ou contratar.
 
 ## Referências consultadas na conversa
 
+- [Hostinger VPS](https://www.hostinger.com/br/servidor-vps): recursos da KVM 2. Preço de um mês registrado a partir do carrinho apresentado e verificado pelo usuário em 17/10/2026; não confundir com promoções de contratos longos da página pública.
 - [Câmera no navegador — getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia): contexto seguro e permissão.
 - [Render Web Services](https://render.com/docs/web-services): hospedagem de serviços.
 - [Render Docker](https://render.com/docs/docker): implantação em contêiner.
@@ -171,5 +235,6 @@ O novo escopo de cadastro+presença+relatórios não altera a aritmética da ins
 
 ## Registro de evolução
 
+- **17/10/2026 — escolha de hospedagem:** usuário definiu Hostinger KVM 2 como opção principal, com oferta verificada por ele: 1 mês por R$ 70,99, renovação por R$ 108,99/mês, domínio grátis por um ano e backup diário opcional desmarcado. Registrada proposta de serviços na mesma VPS e acesso pelo navegador. Render mantido como alternativa; nenhuma contratação ou implantação executada.
 - **17/10/2026:** consolidada proposta de acesso por link/câmera e janela de horário; incorporada correção do usuário de que presença física e videoconferência não são necessárias; registrados volume estimado, custos consultados e limitações de captura recente/hospedagem. Nenhuma implementação iniciada.
 - **17/10/2026 — atualização:** confirmado link separado para cadastro com nome/matrícula/foto, confirmação para professor, relatório por turma e dia/intervalo de dias/meses e manutenção do CRUD. Prazo orçado mudou de um mês para 10 dias 24/7; tabelas e hipóteses atualizadas. Cadastro remoto deixa de ser dúvida de escopo; sua autorização detalhada continua pendente. Nenhuma implementação ou contratação iniciada.
