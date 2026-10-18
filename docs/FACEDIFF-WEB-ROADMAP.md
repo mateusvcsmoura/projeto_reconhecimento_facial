@@ -1,6 +1,6 @@
 # FaceDiff web — roadmap e plano de validação
 
-Data: 18/10/2026. **Tarefa 009 validada; tarefa 010 publicada na `main`.**
+Data: 18/10/2026. **Tarefa 009 validada; tarefa 010 publicada na `main`; task012 implementada no workspace.**
 O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
 24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
 futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
@@ -109,7 +109,7 @@ tarefa autoriza contratar ou configurar conta pessoal para superar bloqueio.
 
 | Área | Prova mínima | Task |
 |---|---|---|
-| Runtime | API isolada, saúde sem dados; instalação/imports ML Linux passaram; inferência/worker pendem |009/019|
+| Runtime | API isolada; worker/fila e smoke com pesos locais passaram em Windows; tmpfs Linux, handlers e validação da VPS pendem |009/012/019|
 | Auth | ProfessorA não acessaB, conta inativa, expiração/reset/CSRF, admin seguro |010|
 | Referências | Três ordinais, versão, matrículaUK, corrida de aprovação, compensação de arquivo |011|
 | Fila | Um ativo, dez aguardando/reservados, lease/restart/timeout, resposta tardia |012|

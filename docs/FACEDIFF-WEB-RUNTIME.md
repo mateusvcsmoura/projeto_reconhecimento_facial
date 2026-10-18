@@ -1,10 +1,12 @@
 # Runtime web e compatibilidade Linux
 
 Atualizado em 18/10/2026 pelas tarefas
-[009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md) e
-[010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
+[009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md),
+[010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md) e
+[012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md).
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
-nem validação biométrica. A migration `0005` foi aplicada ao banco local `escola`.
+nem validação biométrica. A migration `0005` foi aplicada ao banco local
+`escola`; `0007` e a fila foram validadas em banco descartável, não em `escola`.
 
 ## Isolamento e dependências
 
@@ -33,12 +35,14 @@ psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
 | OpenCV | 4.13.0.92 importado; único fornecedor de `cv2` é `opencv-python` | Exigiu `libgl1`, `libglib2.0-0`, `libxcb1`, `libxkbcommon0`, `libxkbcommon-x11-0`, `libxcb-cursor0`, `libxcb-xinerama0`; sem câmera/display |
 | DeepFace / RetinaFace | 0.0.92 / 0.0.18 importados | Sem construção de modelo ou download de pesos |
 | MediaPipe 0.10.35 | Mantido no ambiente isolado documentado | Não é dependência do serviço web nem foi importado nesta tarefa |
+| Worker task012 | Quatro testes PostgreSQL descartáveis cobrem fila/locks; pesos locais FaceNet512 e MiniFASNet carregados em smoke sintético no Windows | Sem handlers de cadastro/presença, tmpfs Linux ou medição na VPS |
 
 O primeiro smoke em Ubuntu mínimo falhou ao carregar `cv2` porque faltava
 `libxcb.so.1`; com as bibliotecas de runtime listadas acima, a stack importou.
 Isso prova compatibilidade das dependências e dos binários nesse container, não
-funcionamento biométrico. Inferência com pesos, pipeline/worker, recursos do
-host e validação integrada permanecem para a task019.
+funcionamento biométrico. O smoke com pesos da task012 foi sintético e executado
+no Windows; pipeline completo, worker Linux, recursos do host e validação
+integrada permanecem para a task019.
 
 `retina-face==0.0.18` foi fixado porque DeepFace 0.0.92 aceita
 `retina-face>=0.0.1` e os metadados oficiais da versão 0.0.18 declaram
@@ -99,6 +103,24 @@ ocorre somente em `/health/ready`. O exemplo não provisiona PostgreSQL nem
 constitui instrução de deploy; o proxy e a infraestrutura ainda pertencem à
 task018.
 
+O worker roda em processo separado, sem porta HTTP e com as dependências faciais
+de `requirements.txt`; a API permanece no ambiente leve `requirements-web.txt`.
+Crie `.venv-worker` e instale `requirements.txt` antes de iniciá-lo. Em Linux,
+API e worker precisam compartilhar a mesma montagem tmpfs privada. Configure
+`WEB_CAPTURE_TEMP_DIR` para essa raiz; os limites iniciais são
+`WEB_CAPTURE_MAX_BYTES_PER_CAPTURE=8388608`, `WEB_CAPTURE_MAX_FRAMES=3`,
+`WEB_CAPTURE_STORAGE_QUOTA_BYTES=314572800`, `WEB_JOB_RESERVATION_SECONDS=300`,
+`WEB_JOB_DEADLINE_SECONDS=900` e `WEB_JOB_LEASE_SECONDS=120`. São parâmetros de
+laboratório, não capacidade aprovada para produção. Com as mesmas variáveis
+`WEB_*` do serviço, inicie o processo separado por
+`.venv-worker/bin/python -m src.face_worker_main`. Em produção, o startup exige
+tmpfs e pesos locais, sem download automático. Até as tasks 014/015 registrarem
+handlers e rotas de submissão, não há jobs biométricos válidos para completar.
+Se uma inferência nativa ficar bloqueada indefinidamente, esta implementação
+não encerra o processo por watchdog: mantém o slot ocupado até o executor
+retornar ou um reinício controlado invalidar o job. A supervisão automática
+precisa ser definida/validada antes da operação na task019/018.
+
 ## Contratos expostos
 
 | Rota | Resultado |
@@ -110,7 +132,14 @@ task018.
 | `GET /api/v1/auth/csrf`, `/api/v1/me` | Token CSRF recuperável e estado mínimo da conta |
 | `/api/v1/admin/contas` e operações de redefinição/desativação | Gestão auditada; credencial temporária entregue uma vez |
 | `GET /api/v1/turmas/{id}`, `POST /api/v1/admin/turmas/{id}/responsavel` | Ownership por professor e transferência administrativa auditada |
+| `GET /api/v1/operacoes/{id}` | Status autenticado por `Authorization: Bearer <credencial>`; credencial incorreta recebe 404 genérico |
 | `/docs`, `/redoc` | Desabilitadas; nenhuma interface web foi criada |
+
+A task012 não criou rotas públicas de reserva, upload ou cancelamento. As
+integrações e handlers de cadastro/presença pertencem às tasks 014/015. Jobs
+sem handler habilitado são recusados com segurança. A consulta de status usa
+`Cache-Control: no-store`; limite de requisições e proteção contra abuso das
+rotas públicas de submissão ainda não estão implementados nesta etapa.
 
 Os erros têm `{codigo, mensagem, request_id}` e o mesmo identificador no header
 `X-Request-ID`. Erros HTTP, validação e falhas internas não retornam detalhes
@@ -133,8 +162,11 @@ validação não acessou banco, webcam, imagem ou peso de modelo. A task010 usou
 somente o banco local de desenvolvimento e um PostgreSQL descartável, conforme
 o [resultado 010](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
 
-Para parar o runtime, encerre o processo Uvicorn e deixe de iniciar
-`src.web_main:create_web_app`. A CLI continua iniciada por `python -m src.main`
-com `requirements.txt`. Para reverter a implementação, revise e reverta apenas
-os arquivos da tarefa009; preserve os diretórios temporários e qualquer outro
-trabalho local. Não remova `.venv-app`, `.venv-landmarks` nem modelos locais.
+Para parar o runtime, encerre Uvicorn e o worker; deixe de iniciar
+`src.web_main:create_web_app` e `src.face_worker_main`. A CLI continua iniciada
+por `python -m src.main` com `requirements.txt`. Para reverter a fundação/runtime
+web ou a task012, reverta os commits correspondentes após revisar dependências e
+parar ambos os processos. A migration `0007` precisa ser revertida separadamente
+e somente quando não houver jobs a preservar; consulte o resultado da task012.
+Preserve os diretórios temporários preexistentes e outros trabalhos locais. Não
+remova `.venv-app`, `.venv-landmarks` nem modelos locais.

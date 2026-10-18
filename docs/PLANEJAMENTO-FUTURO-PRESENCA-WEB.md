@@ -2,13 +2,16 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009 e 011 foram implementadas no
-workspace e a 010 foi publicada na `main`; implantação web não executada.** Este
+**Status: planejamento consolidado; as tarefas 009, 011 e 012 foram
+implementadas no workspace e a 010 foi publicada na `main`; implantação web não
+executada.** Este
 documento substitui as propostas conflitantes das versões anteriores. A revisão
-`0006` da task 011 foi validada em banco PostgreSQL descartável, sem aplicação ao
-banco local `escola`. API de convite, worker, inferência e interface continuam
+`0006` e `0007` das tasks 011/012 foram validadas em banco PostgreSQL descartável,
+sem aplicação ao banco local `escola`. O worker/fila da 012 está implementado;
+convites, rotas de submissão, handlers de cadastro/presença e interface continuam
 pendentes. A stack ML foi instalada e importada em Ubuntu 24.04/Python 3.12.3;
-a inferência com pesos e a validação integrada seguem pendentes.
+os pesos locais foram carregados em smoke sintético Windows; validação integrada
+Linux e medição de capacidade seguem pendentes.
 
 Documentos complementares:
 
@@ -440,6 +443,13 @@ opcional; importação em lote não foi adicionada.
   passaram; não há API de convite, worker/fila, inferência ou ativação em runtime.
   Evidências e limitações estão em
   [RESULTADO 011](../tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
+- 18/10/2026: tarefa 012 adicionou a revisão `0007`, fila PostgreSQL com admissão
+  atômica e limite 10+1, idempotência, worker serial com lease, storage temporário
+  e consulta autenticada de status. Quatro testes PostgreSQL passaram em banco
+  descartável; suíte completa, verificações estáticas e smoke dos pesos locais
+  passaram no workspace. Ainda faltam handlers/rotas de submissão das tasks
+  014/015, tmpfs Linux e medição da VPS. Consulte
+  [RESULTADO 012](../tasks/012-web-worker-fila/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;

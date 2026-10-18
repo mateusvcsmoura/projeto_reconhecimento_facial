@@ -35,8 +35,10 @@ na tarefa 020**, após aprovação do backend na tarefa 019. API/testes HTTP nã
 provisórias. A tarefa 009 foi implementada no workspace; runtime web e stack ML
 instalada/importada passaram em Ubuntu 24.04/Python 3.12. Inferência com pesos e
 validação integrada continuam pendentes. A tarefa 011 foi implementada no
-workspace e validada em PostgreSQL descartável; as tarefas 012–020 seguem
-planejadas. A tarefa 011 ainda não foi publicada nem implantada.
+workspace e validada em PostgreSQL descartável. A tarefa 012 foi implementada
+no workspace, com migration 0007 validada em banco descartável; veja
+[RESULTADO.md](012-web-worker-fila/RESULTADO.md). As tarefas 013–020 seguem
+planejadas. A tarefa 012 não foi implantada.
 Tarefa 010 foi implementada e publicada na `main`; revisão `0005` aplicada ao
 banco local `escola`, 3 testes PostgreSQL descartáveis aprovados e
 `alembic check` limpo; sem deploy; veja
@@ -46,16 +48,16 @@ locais de desenvolvimento/teste do projeto, inclusive reset/seed sintético;
 consulte o [contrato de migrations](WEB-MIGRACOES.md) para os limites.
 
 Ler o [contrato comum de execução](WEB-CONTRATO-EXECUCAO.md) e o
-[contrato de migrations](WEB-MIGRACOES.md). A autorização de commit/push dos
-pacotes antigos não se estende automaticamente aos novos; publicação e ações
-de infraestrutura dependem de autorização explícita vigente.
+[contrato de migrations](WEB-MIGRACOES.md). A autorização permanente registrada
+no `AGENTS.md` cobre commits organizados e push para `main` quando o usuário pede
+a implementação de uma tarefa; não cobre deploy ou operações de infraestrutura.
 
 | ID | Tarefa / desenho | Executor previsto | Estado |
 |---|---|---|---|
 | 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | API e instalação/importação ML Linux concluídas; inferência com pesos pendente; veja [RESULTADO.md](009-web-fundacao-linux/RESULTADO.md) |
 | 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Concluída e publicada na `main`; migration local e integração PostgreSQL validadas; sem deploy; veja [RESULTADO.md](010-web-autenticacao-autorizacao/RESULTADO.md) |
 | 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Backend e migration 0006 implementados; 1011 unitários, PostgreSQL, Ruff e mypy aprovados no workspace; sem API de convite, worker, interface ou deploy; veja [RESULTADO.md](011-web-referencias-cadastro-pendente/RESULTADO.md) |
-| 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Implementada e validada no workspace; migration 0007 somente em banco descartável; processadores e envio HTTP ficam para 014/015; sem deploy; veja [RESULTADO.md](012-web-worker-fila/RESULTADO.md) |
 | 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 014 | [API de cadastro por link e aprovação](014-web-api-cadastro-aprovacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 015 | [Sessões, tentativas e presença por API](015-web-api-sessoes-presencas/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |

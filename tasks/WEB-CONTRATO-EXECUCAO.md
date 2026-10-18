@@ -1,9 +1,10 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
 Data: 18/10/2026. **As tarefas 009 e 010 foram implementadas; a 010 foi
-publicada na `main` após autorização explícita. A tarefa 011 foi implementada
-no workspace e validada com PostgreSQL descartável; não foi publicada nem
-implantada. As tarefas 012–020 continuam pendentes.** O runtime web separado passou em testes no
+publicada na `main` após autorização explícita. As tarefas 011 e 012 foram
+implementadas no workspace; `0006` e `0007` foram validadas em PostgreSQL
+descartável. A 012 ainda não foi implantada. As tarefas 013–020
+continuam pendentes.** O runtime web separado passou em testes no
 Ubuntu 24.04. A stack ML completa ainda não foi validada em Linux; consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
 [runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve deploy.
@@ -135,12 +136,37 @@ dependem da medição019 e do gate operacional.
   internas de galeria retornam somente conjuntos ativos. Falha SQL na troca
   descarta o candidato e tenta remover seus arquivos; limpeza expirada/rejeitada
   registra estado e pode ser repetida.
-- O armazenamento requer root privado injetado e ACL restrita no Windows; não há
-  configuração de runtime ou montagem para web ainda. A tarefa não criou rotas,
-  convites, DTO HTTP, worker/inferência nem interface. Como a fila da tarefa 012
-  ainda não existe, a invalidação de jobs antigos será integrada quando esses
-  jobs forem implementados; consumidores futuros devem persistir a versão do
-  conjunto usado e revalidá-la antes de gravar resultado.
+- Na task011, o armazenamento passou a exigir root privado injetado e ACL
+  restrita no Windows. A integração de referências com jobs e a revalidação da
+  versão antes de persistir continuam a cargo dos consumidores futuros; a
+  infraestrutura de fila/lease foi criada na task012. A task011 não criou rotas,
+  convites, DTO HTTP ou interface.
+
+### Contratos estabelecidos na tarefa 012
+
+- A revisão `0007` cria `jobs_faciais_web` para reservas, estado, idempotência,
+  prazo e hash de lease/credencial. A admissão e o claim serializam no
+  PostgreSQL; o índice parcial protege um job `processando`, com até dez
+  aguardando/reservados e um ativo adicional. Migração e quatro testes passaram
+  somente no banco descartável `task012_web_worker_test_20261018`; `escola` não
+  recebeu `0007`.
+- `FilaFacial` limita capturas a três e 8 MiB cada por padrão de laboratório,
+  com quota padrão de 300 MiB. Credenciais de operação são opacas; `GET
+  /api/v1/operacoes/{id}` exige `Authorization: Bearer ...` e responde 404
+  genérico para credencial incorreta. Fila cheia retorna 503 com `Retry-After`.
+- `src.face_worker_main` mantém processo único por lock local e advisory lock
+  PostgreSQL, aquece FaceNet512/MiniFASNet somente com pesos locais e processa
+  jobs sequencialmente. Temporários ficam em raiz privada; o ambiente de
+  produção exige tmpfs compartilhado e quota suficiente. Reinício invalida
+  jobs ativos sem replay; resultado após lease/prazo não é aceito. O worker
+  mantém o slot até o executor retornar. Não há watchdog para encerrar uma
+  inferência nativa bloqueada indefinidamente; o slot permanece ocupado até
+  retorno ou reinício controlado, com invalidação antes do próximo claim.
+- Esta entrega não inclui rotas de upload/reserva/cancelamento nem handlers
+  biométricos habilitados; sem handler o job é recusado. Tasks 014/015 conectam
+  cadastro e presença. Rate limit de abuso nas rotas públicas de submissão
+  pertence a essas integrações; esta tarefa não declara limite de requisições
+  para a consulta de status. Não houve validação de tmpfs Linux ou VPS.
 
 ## 5. Permissões para futuras execuções
 

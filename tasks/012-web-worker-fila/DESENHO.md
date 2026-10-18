@@ -1,6 +1,6 @@
 # Desenho — 012: Worker facial único, fila limitada e temporários
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
+**Executor: Luna 6, esforço High. Estado: implementada no workspace em 18/10/2026; veja [RESULTADO.md](RESULTADO.md).**
 Data: 17/10/2026. Dependências: **011 e runtime009 validado para a parte executada**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.

@@ -8,8 +8,8 @@ na geração dos pacotes.** Escrever revision/testes é diferente de executar SQ
 Em 18/10/2026, o usuário autorizou executar migrations e testes que escrevam em
 bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
 quando necessário. O projeto ainda não está em uso e não há dados importantes.
-Esta autorização cobre a validação da migration `0005` da task 010 e da
-migration `0006` da task 011 em banco descartável. Antes de cada escrita,
+Esta autorização cobre a validação das migrations `0005` da task 010, `0006` da
+task 011 e `0007` da task 012 em bancos descartáveis. Antes de cada escrita,
 confirmar host, nome e marcador do destino; preferir banco
 descartável para testes. Ela não abrange produção, banco remoto/compartilhado
 ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
@@ -19,7 +19,7 @@ exibir credenciais.
 
 ## Estado confirmado por inspeção
 
-O repositório contém as revisões 0001–0006. A revisão `0005` da task 010 foi
+O repositório contém as revisões 0001–0007. A revisão `0005` da task 010 foi
 compilada offline e aplicada ao banco local `escola` em 18/10/2026; `alembic
 check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes no
 banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
@@ -32,6 +32,12 @@ turmas, vínculos N:N e presença única turma/aluno/dia. `AGENTS.md` e
 `0005` acrescenta contas/perfis, sessões, rate limit, auditoria e responsável
 nullable por turma legada; consulte `docs/FACEDIFF-WEB-AUTH.md`.
 CLAUDE contém trechos históricos divergentes; não presumir estado de outro banco.
+
+A revisão `0007` da task 012 foi migrada até `head`, verificada com `alembic
+check` e revertida a `base` pela fixture PostgreSQL no banco descartável local
+`task012_web_worker_test_20261018`, identificado pelo comentário
+`projeto_reconhecimento_facial: task 012 disposable worker database`. Quatro
+testes PostgreSQL passaram. O banco `escola` não recebeu `0006` nem `0007`.
 
 ## Donos das expansões
 

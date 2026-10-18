@@ -39,6 +39,14 @@ conjuntos versionados com três referências privadas e casos de uso de aprovaç
 atualização e limpeza. Isso não ativa convite, API, worker ou interface. Consulte
 [`tasks/011-web-referencias-cadastro-pendente/RESULTADO.md`](tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
 
+A tarefa 012 implementa fila PostgreSQL limitada, reserva idempotente, leases,
+storage temporário privado, worker serial e consulta autenticada do status. A
+migration `0007` foi validada somente no banco descartável
+`task012_web_worker_test_20261018`; não foi aplicada a `escola`. Os fluxos HTTP
+de envio e os processadores de cadastro/presença ficam para as tasks 014/015;
+worker, runtime Linux e implantação ainda precisam de validação integrada na
+task 019. Consulte [`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
+
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
