@@ -1,6 +1,6 @@
 # Desenho — 009: Fundação web e compatibilidade Linux
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
+**Executor: Luna 6, esforço High. Estado: implementada; validação visual/inferência real permanece pendente.**
 Data: 17/10/2026. Dependências: **008 como referência histórica; planejamento consolidado**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.

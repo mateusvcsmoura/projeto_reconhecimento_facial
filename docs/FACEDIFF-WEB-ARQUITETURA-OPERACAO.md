@@ -88,10 +88,16 @@ broker dedicado adicionaria operação desnecessária à escala acadêmica.
 
 ## 2. Compatibilidade e recursos
 
-O repositório fixa `deepface==0.0.92`, `tensorflow==2.21.0`, `tf-keras==2.21.0`,
-`torch==2.14.0`, `numpy==2.5.3`, `opencv-python==4.13.0.92`; landmarks isolados
-usam MediaPipe 0.10.35 e OpenCV contrib. São versões declaradas no repositório,
-não instalação Linux validada nesta tarefa.
+O repositório fixa `deepface==0.0.92`, `retina-face==0.0.18`,
+`tensorflow==2.21.0`, `tf-keras==2.21.0`, `torch==2.14.0`, `numpy==2.5.3` e
+`opencv-python==4.13.0.92`; landmarks isolados usam MediaPipe 0.10.35 e OpenCV
+contrib. A task009 instalou a stack completa em Ubuntu 24.04/Python 3.12.3:
+`pip check` e imports nativos de OpenCV, NumPy, PyTorch CPU, TensorFlow, DeepFace
+e RetinaFace passaram com apenas `opencv-python` como fornecedor de `cv2`.
+OpenCV exigiu bibliotecas de runtime do sistema, incluindo `libxcb1`; a API web
+isolada não importa nem instala OpenCV. Inferência com pesos, worker, desempenho
+e fluxo completo permanecem para gates posteriores. Consulte o
+[runtime e matriz da task009](FACEDIFF-WEB-RUNTIME.md).
 
 Prova técnica futura, primeiro sem dados reais:
 
@@ -101,8 +107,8 @@ Prova técnica futura, primeiro sem dados reais:
 - Validar OpenCV sem display, câmera local ou X11. Avaliar pacote headless em
   imagem web dedicada, sem instalar simultaneamente várias distribuições de cv2
   nem alterar dependências da CLI sem necessidade.
-- Confirmar bibliotecas nativas, permissões dos volumes, cache e origem/licença
-  dos pesos; registrar hashes e evitar segredos no build.
+- Para a stack CPU Linux, confirmar bibliotecas nativas, permissões dos volumes,
+  cache e origem/licença dos pesos; registrar hashes e evitar segredos no build.
 - Preservar isolamento do MediaPipe se houver conflito de dependências; usar
   caminho Linux configurável, IPC local limitado e timeout. A decisão de usar
   esse backend para pose depende de prova técnica, não do overlay existente.

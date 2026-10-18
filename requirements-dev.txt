@@ -7,11 +7,13 @@
 #
 # Instalar com:  pip install -r requirements-dev.txt
 
-# Persistencia
-SQLAlchemy==2.0.52
+# Contratos e testes HTTP; o ambiente de desenvolvimento continua sem a stack
+# pesada de visao computacional da aplicacao.
+-r requirements-web.txt
+httpx2==2.13.1
+
+# Ferramentas de migration continuam disponiveis para a suite existente.
 alembic==1.19.2
-psycopg[binary]==3.3.5
-pydantic-settings==2.15.0
 
 # Comparacao de embeddings
 numpy==2.5.3

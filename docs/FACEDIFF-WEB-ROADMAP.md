@@ -1,6 +1,9 @@
 # FaceDiff web — roadmap e plano de validação
 
-Data: 17/10/2026. **Pacotes preparados; implementações não iniciadas.**
+Data: 18/10/2026. **Tarefa 009 implementada e validada no escopo desta etapa.**
+O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
+24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
+futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
 Especificação: [planejamento principal](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Arquitetura: [operação KVM2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
 
@@ -102,7 +105,7 @@ tarefa autoriza contratar ou configurar conta pessoal para superar bloqueio.
 
 | Área | Prova mínima | Task |
 |---|---|---|
-| Runtime | API importa semML, headless, configuração isolada, saúde sem dados |009|
+| Runtime | API isolada, saúde sem dados; instalação/imports ML Linux passaram; inferência/worker pendem |009/019|
 | Auth | ProfessorA não acessaB, conta inativa, expiração/reset/CSRF, admin seguro |010|
 | Referências | Três ordinais, versão, matrículaUK, corrida de aprovação, compensação de arquivo |011|
 | Fila | Um ativo, dez aguardando/reservados, lease/restart/timeout, resposta tardia |012|
@@ -121,10 +124,11 @@ local operacional. Testes funcionais não são avaliação de acurácia biométr
 
 ## 6. Permissões, conclusão e evidências
 
-A solicitação atual autoriza **criar os pacotes documentais**, não executá-los.
-Código, banco, infraestrutura, dependências e dados pessoais permanecem intocados.
-Não há commit/push automático; os prompts novos respeitam a restrição recente,
-mesmo que os prompts001–008 tenham autorização histórica diferente.
+A execução da tarefa009 criou código e dependências web isoladas e executou
+testes com dados sintéticos em container descartável. Banco real, infraestrutura,
+modelos e dados pessoais permaneceram intocados. Não há commit/push automático;
+os prompts novos respeitam a restrição recente, mesmo que os prompts001–008
+tenham autorização histórica diferente.
 
 Verificação da preparação: formato DESENHO/PLANO/PROMPT, dependências e ordem,
 links locais, consistência de gates e diff documental. Os resultados de testes

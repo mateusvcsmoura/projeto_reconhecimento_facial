@@ -1,0 +1,8 @@
+# Ambiente HTTP separado: não instalar OpenCV, DeepFace, TensorFlow, PyTorch ou MediaPipe.
+fastapi==0.144.0
+uvicorn==0.54.0
+
+# Persistencia e configuracao do runtime web.
+SQLAlchemy==2.0.52
+psycopg[binary]==3.3.5
+pydantic-settings==2.15.0

@@ -19,8 +19,9 @@ Cada pasta contém um desenho aprovado internamente, um plano executável e um p
 
 Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
 na020**, após aprovação do backend na019. API/testes HTTP não incluem telas
-provisórias. Todos os novos pacotes contêm DESENHO.md, PLANO.md e PROMPT.md
-para Luna 6 High. Nenhuma dessas implementações foi iniciada.
+provisórias. A tarefa 009 foi implementada no workspace; runtime web e stack ML
+instalada/importada passaram em Ubuntu 24.04/Python 3.12. Inferência com pesos e
+validação integrada continuam pendentes. As tarefas 010–020 seguem planejadas.
 
 Ler o [contrato comum de execução](WEB-CONTRATO-EXECUCAO.md) e o
 [contrato de migrations](WEB-MIGRACOES.md). A autorização de commit/push dos
@@ -29,7 +30,7 @@ de infraestrutura dependem de autorização explícita vigente.
 
 | ID | Tarefa / desenho | Executor previsto | Estado |
 |---|---|---|---|
-| 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | API e instalação/importação ML Linux concluídas; inferência com pesos pendente; veja [RESULTADO.md](009-web-fundacao-linux/RESULTADO.md) |
 | 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |

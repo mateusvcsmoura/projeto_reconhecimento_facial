@@ -5,8 +5,17 @@
 #   piso 3.12: numpy 2.5.3 nao publica wheel para versoes anteriores;
 #   teto 3.13: o TensorFlow (via DeepFace) nao publica wheel para 3.14.
 # Verificado por resolucao de dependencias, nao por suposicao.
+# PyTorch CPU e distribuido pelo indice oficial, sem trazer runtimes CUDA.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 opencv-python==4.13.0.92
 deepface==0.0.92
+
+# DeepFace declara retina-face sem teto superior. A versao 0.0.19 passou a
+# requerer opencv-contrib-python-headless, que instala o mesmo namespace cv2
+# de opencv-python. Manter a versao 0.0.18, cuja metadata declara o fornecedor
+# opencv-python ja usado pela aplicacao.
+retina-face==0.0.18
 
 # Backend de ML, fixado explicitamente.
 #

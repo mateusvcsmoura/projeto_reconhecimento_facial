@@ -1,9 +1,11 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 17/10/2026. **Todos os pacotes estão planejados, não implementados.**
-Executor previsto: Luna 6, esforço High, execução inline sem delegação.
-O usuário solicitou a geração dos pacotes; esta preparação não implementa nem
-publica a aplicação. Executar cada pacote somente quando enviado/autorizado.
+Data: 18/10/2026. **A tarefa 009 implementou a fundação HTTP no workspace; as
+010–020 continuam planejadas.** O runtime web separado passou em testes no
+Ubuntu 24.04. A stack ML completa ainda não foi validada em Linux; consulte
+[resultado 009](009-web-fundacao-linux/RESULTADO.md) e
+[runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve publicação nem deploy.
+Executor previsto para as próximas tasks: Luna 6, esforço High, execução inline.
 
 ## 1. Ordem e interface por último
 
@@ -78,6 +80,25 @@ dependem da medição019 e do gate operacional.
   consumidora. Não renomear endpoint silenciosamente na interface020.
 - Testes podem usar fakes paraML; não usar mocks para alegar prova de constraint,
   lock ou migrationPostgreSQL. Dados sintéticos não provam acurácia.
+
+### Contratos estabelecidos na tarefa 009
+
+- `GET /health/live` retorna `{"status":"live"}` sem consultar dependências.
+- `GET /health/ready` retorna `{"status":"ready|not_ready","componentes":{...}}`;
+  indisponibilidade resulta em HTTP 503 e não inclui exceções.
+- OpenAPI JSON fica em `/api/v1/openapi.json`; páginas `/docs` e `/redoc` ficam
+  desabilitadas até a task de interface.
+- Erros HTTP seguem `{"codigo":"...","mensagem":"...","request_id":"..."}`;
+  o mesmo identificador aparece em `X-Request-ID`. Mensagens de validação e
+  exceções internas não são encaminhadas ao cliente.
+- A API é criada por `create_app(settings, services)` e não importa `src.main`,
+  OpenCV, DeepFace, TensorFlow, PyTorch ou MediaPipe. `src.web_main` cria uma
+  engine SQLAlchemy lazy; conexão ocorre somente no probe de readiness.
+- `WebSettings` lê somente `WEB_*`, não carrega `.env`, exige ambiente, URL do
+  banco, segredo e retenção. Testes exigem opt-in `WEB_DATABASE_DISPOSABLE=true`
+  e marcador no nome do banco; produção rejeita loopback e banco descartável.
+- O ambiente HTTP usa `requirements-web.txt`, sem fornecedor de `cv2` ou modelos.
+  A CLI e seus requisitos permanecem separados.
 
 ## 5. Permissões para futuras execuções
 

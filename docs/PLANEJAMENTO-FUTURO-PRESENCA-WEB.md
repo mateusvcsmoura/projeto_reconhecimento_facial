@@ -2,10 +2,12 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; implementação e implantação não executadas.**
-Este documento substitui as propostas conflitantes das versões anteriores.
-Não autoriza alteração de código, migrations, contratação, conexão ao Google
-Drive, deploy, testes biométricos reais, commit ou push.
+**Status: planejamento consolidado; a fundação web da tarefa 009 foi implementada
+no workspace; implantação não executada.** Este documento substitui as propostas
+conflitantes das versões anteriores. A tarefa 009 não autoriza migrations,
+contratação, conexão ao Google Drive, deploy, testes biométricos reais, commit ou
+push. A stack ML foi instalada e importada em Ubuntu 24.04/Python 3.12.3; a
+inferência com pesos e a validação integrada seguem pendentes.
 
 Documentos complementares:
 
@@ -96,7 +98,7 @@ arquivo biométrico, segredo ou ambiente de produção foi acessado.
 | `src/domain/services/captura_automatica.py`, `consistencia_temporal.py`, `qualidade_captura.py` | Regras puras e testes como base; relógio local e estabilidade não comprovam captura recente remota |
 | `src/presentation/cli/captura_automatica.py` | Orquestra câmera/janela local; UX precisa de implementação no navegador |
 | `mediapipe_landmarks.py`, worker/protocolo e `facial_landmarks.py` | Landmarks visuais opcionais em processo isolado; não existe validação de desafio de movimento pronta |
-| `requirements.txt`, `requirements-landmarks.txt`, `pyproject.toml` | Python 3.12/3.13 declarado, DeepFace/TensorFlow/tf-keras/PyTorch/NumPy/OpenCV; MediaPipe isolado; FastAPI não é dependência direta atual |
+| `requirements.txt`, `requirements-landmarks.txt`, `requirements-web.txt`, `pyproject.toml` | Python 3.12/3.13 declarado; DeepFace/TensorFlow/tf-keras/PyTorch/NumPy/OpenCV; MediaPipe isolado; FastAPI fica separado em `requirements-web.txt` e `requirements-dev.txt` |
 | `tests/unit/`, `tests/integration/`, `tests/features/` | Reutilizar fakes e testes de regras; integração só em banco descartável autorizado |
 
 Observações concretas para futuras tarefas:
@@ -422,6 +424,12 @@ opcional; importação em lote não foi adicionada.
 - Verificações desta tarefa: leitura estática, consulta a documentação oficial,
   revisão de consistência, links locais e diff documental. Não houve teste da
   aplicação, benchmark, autenticação externa, migração ou uso de biometria real.
+- 18/10/2026: tarefa 009 adicionou a fábrica FastAPI e configuração exclusiva
+  WEB_*, com runtime HTTP separado; testes e smoke HTTP passaram em Ubuntu
+  24.04/Python 3.12.3. A stack `requirements.txt` também foi instalada e passou
+  em `pip check` e imports de OpenCV/NumPy/PyTorch CPU/TensorFlow/DeepFace/RetinaFace;
+  a inferência com pesos continua pendente, sem download automático. Evidências e
+  comandos estão em [RESULTADO 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;
