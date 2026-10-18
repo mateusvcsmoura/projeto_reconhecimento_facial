@@ -584,6 +584,73 @@ class JobFacialWeb(Base):
     )
 
 
+class DesafioVerificacaoWeb(Base):
+    """Estado efêmero, sem frames, landmarks ou embeddings do desafio 1:1."""
+
+    __tablename__ = "desafios_verificacao_web"
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("jobs_faciais_web.id", name="fk_desafio_job", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    aluno_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("alunos.id", name="fk_desafio_aluno", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    conjunto_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "conjuntos_referencias_web.id",
+            name="fk_desafio_conjunto",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+    versao_referencia: Mapped[int] = mapped_column(Integer, nullable=False)
+    nonce_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    direcao: Mapped[str] = mapped_column(String(12), nullable=False)
+    expira_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    etapa_validada: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+    etapa_recebida: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    atualizada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    motivo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("aluno_id > 0", name="aluno_positivo"),
+        CheckConstraint("conjunto_id > 0", name="conjunto_positivo"),
+        CheckConstraint("versao_referencia > 0", name="versao_positiva"),
+        CheckConstraint("length(nonce_hash) = 64", name="nonce_hash_valido"),
+        CheckConstraint("direcao IN ('esquerda', 'direita')", name="direcao_valida"),
+        CheckConstraint(
+            "etapa_validada BETWEEN 0 AND 3 AND etapa_recebida BETWEEN 0 AND 3",
+            name="etapas_validas",
+        ),
+        CheckConstraint(
+            "estado IN ('aguardando_etapa', 'etapa_recebida', 'concluido', "
+            "'rejeitado', 'expirado')",
+            name="estado_valido",
+        ),
+        CheckConstraint(
+            "etapa_recebida = etapa_validada OR "
+            "(estado IN ('etapa_recebida', 'rejeitado', 'expirado') "
+            "AND etapa_recebida = etapa_validada + 1)",
+            name="sequencia_coerente",
+        ),
+        Index("ix_desafios_verificacao_web_estado_expira", "estado", "expira_em"),
+    )
+
+
 class AlunoTurma(Base):
     __tablename__ = "aluno_turma"
 

@@ -149,6 +149,10 @@ class RepositorioFilaFacial(Protocol):
         agora: datetime,
     ) -> bool: ...
 
+    def aguardar_proxima_etapa(
+        self, *, job_id: UUID, lease: str, agora: datetime
+    ) -> bool: ...
+
     def invalidar_apos_execucao(
         self, *, job_id: UUID, lease: str, agora: datetime
     ) -> bool: ...
@@ -256,6 +260,13 @@ class FilaFacial:
             expira_em=job.prazo,
         )
 
+    def limitar_prazo_reserva(self, prazo: datetime, *, agora: datetime) -> datetime:
+        """Corta o prazo externo ao limite da fila sem jamais ampliá-lo."""
+        instante = _normalizar_instante(agora)
+        limite_solicitado = _normalizar_instante(prazo)
+        limite_fila = instante + self._prazo_maximo_reserva
+        return min(limite_solicitado, limite_fila)
+
     def submeter(
         self, reserva_id: UUID, manifesto_temporario: ManifestoTemporario
     ) -> JobFacial:
@@ -300,6 +311,16 @@ class FilaFacial:
             lease=job.lease,
             sucesso=sucesso,
             codigo=codigo,
+            agora=_normalizar_instante(self._relogio()),
+        )
+
+    def aguardar_proxima_etapa(self, job: JobFacial) -> bool:
+        """Libera o slot ativo, mantendo reserva e temporários do desafio."""
+        if job.lease is None or job.tipo is not TipoJobFacial.PRESENCA:
+            raise LeaseInvalida()
+        return self._repositorio.aguardar_proxima_etapa(
+            job_id=job.id,
+            lease=job.lease,
             agora=_normalizar_instante(self._relogio()),
         )
 

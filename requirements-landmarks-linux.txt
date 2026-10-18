@@ -1,0 +1,5 @@
+# Ambiente filho isolado do worker web em Linux x86-64 (glibc >= 2.28).
+# Não instalar junto ao app DeepFace: opencv-contrib-python também fornece cv2.
+mediapipe==0.10.35
+opencv-contrib-python==4.13.0.92
+numpy==2.5.3

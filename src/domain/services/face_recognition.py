@@ -24,6 +24,20 @@ class FacePreparada:
     embedding: FaceEmbedding
 
 
+@dataclass(frozen=True, slots=True)
+class ResultadoFacial:
+    """Decisão interna de verificação sem imagem, embedding ou landmarks."""
+
+    identidade_ok: bool
+    desafio_ok: bool
+    antispoofing_ok: bool
+    qualidade_ok: bool
+    motivo_tecnico: str | None
+    versao_referencia: int
+    politica: str
+    distancia_mediana: float | None = None
+
+
 class FaceRecognition(Protocol):
     def preaquecer(self) -> None:
         """Carrega o modelo antes do primeiro uso.

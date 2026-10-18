@@ -14,6 +14,7 @@ from src.application.services.fila_facial import (
     JobFacial,
     TipoJobFacial,
 )
+from src.domain.services.face_recognition import ResultadoFacial
 from src.infrastructure.storage.temporary_capture_storage import (
     TemporaryCaptureStorage,
 )
@@ -34,6 +35,8 @@ class CodigoResultadoWorker(StrEnum):
 class ResultadoWorker:
     sucesso: bool
     codigo: CodigoResultadoWorker
+    aguardando_etapa: bool = False
+    resultado_facial: ResultadoFacial | None = None
 
 
 class ProcessadorJobFacial(Protocol):
@@ -48,6 +51,8 @@ class FilaWorker(Protocol):
     def heartbeat(self, job: JobFacial) -> bool: ...
 
     def finalizar(self, job: JobFacial, *, sucesso: bool, codigo: str) -> bool: ...
+
+    def aguardar_proxima_etapa(self, job: JobFacial) -> bool: ...
 
     def invalidar_apos_execucao(self, job: JobFacial) -> bool: ...
 
@@ -93,6 +98,20 @@ class WorkerFacial:
         """Apaga arquivos de jobs cancelados/expirados e diretórios órfãos."""
         return self._armazenamento.limpar_orfaos(self._fila.ids_com_temporarios())
 
+    def fechar(self) -> None:
+        """Libera processos auxiliares abertos pelos processadores configurados."""
+        for processador in self._processadores.values():
+            fechar = getattr(processador, "fechar", None)
+            if callable(fechar):
+                fechar()
+
+    def preaquecer(self) -> None:
+        """Carrega dependências opcionais antes de reivindicar o primeiro job."""
+        for processador in self._processadores.values():
+            preaquecer = getattr(processador, "preaquecer", None)
+            if callable(preaquecer):
+                preaquecer()
+
     def executar_um(self) -> bool:
         if not self._inicializado:
             raise RuntimeError("O worker precisa ser inicializado antes do polling.")
@@ -118,6 +137,7 @@ class WorkerFacial:
         )
         thread_heartbeat.start()
         finalizado = False
+        preservar_temporarios = False
         resultado = ResultadoWorker(False, CodigoResultadoWorker.FALHA_TECNICA)
         try:
             if job.manifesto is None:
@@ -148,11 +168,15 @@ class WorkerFacial:
                         )
             if heartbeat_perdido.is_set():
                 resultado = ResultadoWorker(False, CodigoResultadoWorker.FALHA_TECNICA)
-            finalizado = self._fila.finalizar(
-                job,
-                sucesso=resultado.sucesso and not heartbeat_perdido.is_set(),
-                codigo=resultado.codigo.value,
-            )
+            if resultado.aguardando_etapa and not heartbeat_perdido.is_set():
+                finalizado = self._fila.aguardar_proxima_etapa(job)
+                preservar_temporarios = finalizado
+            else:
+                finalizado = self._fila.finalizar(
+                    job,
+                    sucesso=resultado.sucesso and not heartbeat_perdido.is_set(),
+                    codigo=resultado.codigo.value,
+                )
             if not finalizado:
                 self._fila.invalidar_apos_execucao(job)
         except FileNotFoundError:
@@ -175,7 +199,8 @@ class WorkerFacial:
         finally:
             parar_heartbeat.set()
             thread_heartbeat.join()
-            self._remover_temporarios(job.id)
+            if not preservar_temporarios:
+                self._remover_temporarios(job.id)
 
     def _manter_lease(
         self,

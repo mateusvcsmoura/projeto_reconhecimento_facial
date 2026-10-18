@@ -54,6 +54,7 @@ class FilaFake:
     def __init__(self, jobs: list[JobFacial]) -> None:
         self.jobs = jobs
         self.finalizados: list[tuple[uuid.UUID, bool, str]] = []
+        self.etapas_aguardadas: list[tuple[uuid.UUID, str]] = []
         self.invalidacoes: list[uuid.UUID] = []
         self.recuperados: set[uuid.UUID] = set()
         self.lease_valido = True
@@ -79,6 +80,10 @@ class FilaFake:
         self.finalizados.append((job.id, sucesso, codigo))
         return self.lease_valido
 
+    def aguardar_proxima_etapa(self, job: JobFacial) -> bool:
+        self.etapas_aguardadas.append((job.id, "aguardando_etapa"))
+        return self.lease_valido
+
     def invalidar_apos_execucao(self, job: JobFacial) -> bool:
         self.invalidacoes.append(job.id)
         return True
@@ -100,6 +105,7 @@ class ProcessorFake:
         self.entrada: threading.Event | None = None
         self.liberar: threading.Event | None = None
         self.erro: Exception | None = None
+        self.resultado = ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
 
     def processar(
         self, _job: JobFacial, capturas: tuple[bytes, ...]
@@ -111,7 +117,7 @@ class ProcessorFake:
         if self.erro is not None:
             raise self.erro
         self.capturas_recebidas.append(capturas)
-        return ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
+        return self.resultado
 
 
 def _storage(tmp_path: Path, job_id: uuid.UUID) -> TemporaryCaptureStorage:
@@ -171,6 +177,44 @@ def test_worker_mantem_slot_ate_executor_terminar(tmp_path: Path) -> None:
 
     assert not thread.is_alive()
     assert len(queue.finalizados) == 1
+
+
+def test_worker_libera_slot_e_preserva_temporarios_entre_etapas(
+    tmp_path: Path,
+) -> None:
+    job_id = uuid.uuid4()
+    storage = TemporaryCaptureStorage(
+        tmp_path / "capturas",
+        max_bytes_per_capture=16,
+        max_captures=3,
+    )
+    storage.salvar_captura(job_id, 1, b"frame")
+    processor = ProcessorFake()
+    processor.resultado = ResultadoWorker(
+        False,
+        CodigoResultadoWorker.RECUSA_BIOMETRICA,
+        aguardando_etapa=True,
+    )
+    job = replace(
+        _job(job_id, estado=EstadoJobFacial.ENFILEIRADA),
+        tipo=TipoJobFacial.PRESENCA,
+        manifesto=ManifestoTemporario(
+            job_id, (ArquivoTemporario(1, "captura-1.bin", 5),)
+        ),
+    )
+    queue = FilaFake([job])
+    worker = WorkerFacial(
+        queue,
+        storage,
+        processadores={TipoJobFacial.PRESENCA: processor},
+    )
+    worker.inicializar()
+
+    assert worker.executar_um()
+
+    assert queue.etapas_aguardadas == [(job_id, "aguardando_etapa")]
+    assert queue.finalizados == []
+    assert (storage.raiz / str(job_id) / "captura-1.bin").is_file()
 
 
 def test_resultado_tardio_nao_e_aceito_e_falha_sanitizada(

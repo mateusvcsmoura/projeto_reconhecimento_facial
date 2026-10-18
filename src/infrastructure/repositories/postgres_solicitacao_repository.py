@@ -51,6 +51,7 @@ class ReferenciaAtiva:
     conjunto_id: int
     versao: int
     embedding: FaceEmbedding
+    ordinal: int
 
 
 def _para_solicitacao(linha: models.SolicitacaoCadastroWeb) -> SolicitacaoCadastro:
@@ -725,6 +726,7 @@ class PostgresSolicitacaoRepository:
                     embedding=FaceEmbedding.de_bytes(
                         referencia.embedding, referencia.embedding_modelo
                     ),
+                    ordinal=referencia.ordinal,
                 )
                 for conjunto, referencia in linhas
                 if conjunto.aluno_id is not None and conjunto.versao is not None

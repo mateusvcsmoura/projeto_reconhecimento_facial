@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import case, func, select, text, update
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -223,16 +223,26 @@ class PostgresJobRepository:
                 return None
             registro = session.scalar(
                 select(models.JobFacialWeb)
+                .outerjoin(
+                    models.DesafioVerificacaoWeb,
+                    models.DesafioVerificacaoWeb.id == models.JobFacialWeb.id,
+                )
                 .where(
                     models.JobFacialWeb.estado == EstadoJobFacial.ENFILEIRADA.value,
                     models.JobFacialWeb.prazo_execucao > agora,
                 )
                 .order_by(
+                    case(
+                        (models.DesafioVerificacaoWeb.etapa_validada > 0, 0),
+                        else_=1,
+                    ),
                     models.JobFacialWeb.enfileirada_em,
                     models.JobFacialWeb.criada_em,
                     models.JobFacialWeb.id,
                 )
-                .with_for_update(skip_locked=True)
+                # O desafio entra por LEFT JOIN; bloquear todos os alvos faria
+                # o PostgreSQL tentar aplicar FOR UPDATE ao lado anulável.
+                .with_for_update(skip_locked=True, of=models.JobFacialWeb)
                 .limit(1)
             )
             if registro is None:
@@ -302,6 +312,37 @@ class PostgresJobRepository:
             registro.atualizada_em = agora
             registro.finalizada_em = agora
             return True
+
+    def aguardar_proxima_etapa(
+        self, *, job_id: UUID, lease: str, agora: datetime
+    ) -> bool:
+        """Retorna o mesmo job à reserva sem ocupar o slot singleton."""
+        with self.session_factory() as session, session.begin():
+            registro = session.scalar(
+                select(models.JobFacialWeb)
+                .where(models.JobFacialWeb.id == job_id)
+                .with_for_update()
+            )
+            if not self._lease_valida(registro, lease, agora):
+                return False
+            assert registro is not None
+            if registro.cancelamento_solicitado:
+                registro.estado = EstadoJobFacial.CANCELADA.value
+                registro.resultado_codigo = "cancelada"
+                registro.finalizada_em = agora
+            elif registro.prazo_reserva <= agora or registro.prazo_execucao <= agora:
+                registro.estado = EstadoJobFacial.EXPIRADA.value
+                registro.resultado_codigo = "prazo_expirado"
+                registro.finalizada_em = agora
+            else:
+                registro.estado = EstadoJobFacial.RECEBIDA.value
+                registro.resultado_codigo = None
+                registro.finalizada_em = None
+            registro.lease_hash = None
+            registro.lease_expira_em = None
+            registro.manifesto = None
+            registro.atualizada_em = agora
+            return registro.estado == EstadoJobFacial.RECEBIDA.value
 
     def invalidar_apos_execucao(
         self, *, job_id: UUID, lease: str, agora: datetime

@@ -117,6 +117,30 @@ def test_settings_producao_rejeita_banco_local_ou_marcado_descartavel() -> None:
             database_disposable=False,
         )
 
+
+def test_settings_producao_exige_media_pipe_em_ambiente_isolado() -> None:
+    valores: dict[str, object] = {
+        "environment": "production",
+        "database_url": "postgresql+psycopg://u:p@db.example:5432/face_prod",
+        "secret_key": SEGREDO_TESTE,
+        "retention_days": 14,
+        "public_origin": "https://face.example",
+        "database_disposable": False,
+    }
+    with pytest.raises(ValidationError, match="ambiente MediaPipe isolado"):
+        WebSettings(**valores)  # type: ignore[arg-type]
+
+    valores["mediapipe_model_path"] = Path("/opt/facediff/models/face_landmarker.task")
+    valores["mediapipe_python_executable"] = Path(
+        "/opt/facediff/.venv-landmarks/bin/python"
+    )
+    settings = WebSettings(**valores)  # type: ignore[arg-type]
+    assert settings.mediapipe_model_path is not None
+
+    del valores["mediapipe_python_executable"]
+    with pytest.raises(ValidationError, match="configurados juntos"):
+        WebSettings(**valores)  # type: ignore[arg-type]
+
     with pytest.raises(ValidationError, match="descartavel"):
         _settings(
             environment="production",

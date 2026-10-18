@@ -24,7 +24,17 @@ from src.application.services.fila_facial import (
     ManifestoTemporario,
     TipoJobFacial,
 )
+from src.domain.services.desafio_captura import (
+    ContextoDesafio,
+    DesafioCaptura,
+    EstadoDesafio,
+    EvidenciaEtapa,
+    OrientacaoPose,
+)
 from src.infrastructure.database import models
+from src.infrastructure.repositories.postgres_desafio_repository import (
+    PostgresDesafioRepository,
+)
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
 )
@@ -294,3 +304,142 @@ def test_advisory_lock_mantem_um_worker_ativo_por_database(
 
     with segundo.worker_unico() as depois:
         assert depois
+
+
+def test_desafio_verificacao_transiciona_no_postgresql(
+    postgres_engine: Engine,
+    fila: FilaFacial,
+) -> None:
+    factory: sessionmaker[Session] = sessionmaker(
+        bind=postgres_engine, expire_on_commit=False, future=True
+    )
+    job_id: uuid.UUID | None = None
+    aluno_id: int | None = None
+    turma_id: int | None = None
+    solicitacao_id: int | None = None
+    conjunto_id: int | None = None
+    try:
+        reserva = fila.reservar(
+            TipoJobFacial.PRESENCA,
+            "conta:task013",
+            f"desafio:{uuid.uuid4()}",
+            dt.datetime.now(UTC) + dt.timedelta(minutes=4),
+        )
+        job_id = reserva.id
+        agora = dt.datetime.now(UTC)
+        with factory() as session, session.begin():
+            turma = models.Turma(materia="IA de teste", periodo="noturno")
+            session.add(turma)
+            session.flush()
+            turma_id = turma.id
+            aluno = models.Aluno(
+                matricula=f"T013-{uuid.uuid4().hex[:20]}", nome="Aluno sintético"
+            )
+            session.add(aluno)
+            session.flush()
+            aluno_id = aluno.id
+            solicitacao = models.SolicitacaoCadastroWeb(
+                tipo="atualizacao",
+                estado="aprovada",
+                convite_ref=None,
+                turma_id=turma.id,
+                aluno_id=aluno.id,
+                matricula=None,
+                nome=None,
+                consentimento_em=None,
+                consentimento_versao=None,
+                expira_em=agora + dt.timedelta(days=1),
+                criada_em=agora,
+            )
+            session.add(solicitacao)
+            session.flush()
+            solicitacao_id = solicitacao.id
+            conjunto = models.ConjuntoReferenciasWeb(
+                solicitacao_id=solicitacao.id,
+                aluno_id=aluno.id,
+                versao=1,
+                estado="ativo",
+                job_id=str(uuid.uuid4()),
+                embedding_modelo="Facenet512",
+                embedding_dim=512,
+                criado_em=agora,
+                ativado_em=agora,
+            )
+            session.add(conjunto)
+            session.flush()
+            conjunto_id = conjunto.id
+
+        repository = PostgresDesafioRepository(factory)
+        service = DesafioCaptura(
+            repository, segredo=b"task013-synthetic-secret-with-at-least-32-bytes"
+        )
+        desafio = service.emitir(
+            ContextoDesafio(
+                job_id,
+                aluno_id,
+                conjunto_id,
+                1,
+                agora + dt.timedelta(minutes=2),
+            ),
+            agora,
+        )
+        fila.submeter(job_id, _manifesto(job_id))
+        regular = fila.reservar(
+            TipoJobFacial.PRESENCA,
+            "conta:task013-regular",
+            f"regular:{uuid.uuid4()}",
+            agora + dt.timedelta(minutes=4),
+        )
+        fila.submeter(regular.id, _manifesto(regular.id))
+        ativo = fila.reivindicar()
+        assert ativo is not None and ativo.id == job_id
+        recebido = service.registrar_etapa_recebida(desafio.id, desafio.nonce, 1, agora)
+        validado = service.validar_etapa(
+            desafio.id,
+            1,
+            EvidenciaEtapa(1, OrientacaoPose.FRENTE, True, True, True, 1),
+            agora,
+        )
+
+        assert recebido.estado is EstadoDesafio.ETAPA_RECEBIDA
+        assert validado.estado is EstadoDesafio.AGUARDANDO_ETAPA
+        assert fila.aguardar_proxima_etapa(ativo)
+        fila.submeter(
+            job_id,
+            ManifestoTemporario(
+                job_id,
+                (
+                    ArquivoTemporario(1, "captura-1.bin", 4),
+                    ArquivoTemporario(2, "captura-2.bin", 4),
+                ),
+            ),
+        )
+        retomado = fila.reivindicar()
+        assert retomado is not None and retomado.id == job_id
+        assert repository.obter(desafio.id) is not None
+        with pytest.raises(RuntimeError, match="desafios persistidos"):
+            _alembic(
+                postgres_engine.url.render_as_string(hide_password=False),
+                "downgrade",
+                "0007",
+            )
+        assert repository.obter(desafio.id) is not None
+    finally:
+        with factory() as session, session.begin():
+            if job_id is not None:
+                session.query(models.DesafioVerificacaoWeb).filter_by(
+                    id=job_id
+                ).delete()
+                session.query(models.JobFacialWeb).filter_by(id=job_id).delete()
+            if conjunto_id is not None:
+                session.query(models.ConjuntoReferenciasWeb).filter_by(
+                    id=conjunto_id
+                ).delete()
+            if solicitacao_id is not None:
+                session.query(models.SolicitacaoCadastroWeb).filter_by(
+                    id=solicitacao_id
+                ).delete()
+            if aluno_id is not None:
+                session.query(models.Aluno).filter_by(id=aluno_id).delete()
+            if turma_id is not None:
+                session.query(models.Turma).filter_by(id=turma_id).delete()

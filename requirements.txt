@@ -10,6 +10,9 @@
 
 opencv-python==4.13.0.92
 deepface==0.0.92
+# Lê dimensões do cabeçalho antes de decodificar frames não confiáveis no OpenCV.
+Pillow==12.3.0
+Pillow==12.3.0
 
 # DeepFace declara retina-face sem teto superior. A versao 0.0.19 passou a
 # requerer opencv-contrib-python-headless, que instala o mesmo namespace cv2

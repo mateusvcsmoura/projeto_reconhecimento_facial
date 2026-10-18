@@ -36,6 +36,8 @@ class WebSettings(BaseSettings):
     capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
     capture_max_frames: Literal[3] = 3
     capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024
+    mediapipe_model_path: Path | None = None
+    mediapipe_python_executable: Path | None = None
     job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
     job_deadline_seconds: Annotated[int, Field(gt=0)] = 900
     job_lease_seconds: Annotated[int, Field(gt=0)] = 120
@@ -181,6 +183,21 @@ class WebSettings(BaseSettings):
             raise ValueError("WEB_JOB_LEASE_SECONDS deve ser de ao menos 3s.")
         if self.job_deadline_seconds < self.job_lease_seconds:
             raise ValueError("WEB_JOB_DEADLINE_SECONDS não pode ser menor que o lease.")
+        return self
+
+    @model_validator(mode="after")
+    def _validar_landmarks_do_worker(self) -> WebSettings:
+        if (self.mediapipe_model_path is None) != (
+            self.mediapipe_python_executable is None
+        ):
+            raise ValueError(
+                "WEB_MEDIAPIPE_MODEL_PATH e WEB_MEDIAPIPE_PYTHON_EXECUTABLE "
+                "devem ser configurados juntos."
+            )
+        if self.environment == "production" and self.mediapipe_model_path is None:
+            raise ValueError(
+                "A produção exige modelo e ambiente MediaPipe isolado do worker."
+            )
         return self
 
 

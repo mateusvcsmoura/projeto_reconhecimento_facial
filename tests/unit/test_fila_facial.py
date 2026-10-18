@@ -85,6 +85,21 @@ class RepositorioFilaFake:
     def consultar_reserva(self, job_id: uuid.UUID) -> JobFacial | None:
         return self.jobs.get(job_id)
 
+    def aguardar_proxima_etapa(self, **dados: Any) -> bool:
+        job = self.jobs[dados["job_id"]]
+        if job.estado is not EstadoJobFacial.PROCESSANDO:
+            return False
+        self.jobs[job.id] = replace(
+            job,
+            estado=EstadoJobFacial.RECEBIDA,
+            manifesto=None,
+            lease=None,
+            lease_expira_em=None,
+            resultado_codigo=None,
+            atualizada_em=dados["agora"],
+        )
+        return True
+
 
 def _manifesto(job_id: uuid.UUID, total: int = 3) -> ManifestoTemporario:
     return ManifestoTemporario(
@@ -152,3 +167,26 @@ def test_capacidade_cheia_retorna_503_sem_expor_detalhes() -> None:
         queue.reservar("presenca", "conta:13", "idem-2", prazo)
 
     assert erro.value.retry_after_seconds > 0
+
+
+def test_fila_libera_lease_mas_preserva_reserva_entre_etapas() -> None:
+    repository = RepositorioFilaFake()
+    queue = FilaFacial(repository, segredo=b"s" * 32, relogio=lambda: AGORA)
+    reservation = queue.reservar(
+        "presenca", "conta:12", "desafio-1", AGORA + dt.timedelta(minutes=5)
+    )
+    job = replace(
+        repository.jobs[reservation.id],
+        tipo=TipoJobFacial.PRESENCA,
+        estado=EstadoJobFacial.PROCESSANDO,
+        lease="lease-privado",
+        lease_expira_em=AGORA + dt.timedelta(minutes=2),
+        manifesto=_manifesto(reservation.id, total=1),
+    )
+    repository.jobs[job.id] = job
+
+    assert queue.aguardar_proxima_etapa(job)
+    aguardando = repository.jobs[job.id]
+    assert aguardando.estado is EstadoJobFacial.RECEBIDA
+    assert aguardando.lease is None
+    assert aguardando.manifesto is None

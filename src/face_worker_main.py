@@ -18,9 +18,25 @@ from src.application.services.worker_facial import (
     preparar_worker,
 )
 from src.config.web_settings import WebSettings, get_web_settings
+from src.domain.services.desafio_captura import DesafioCaptura
+from src.domain.services.qualidade_captura import ParametrosQualidade
 from src.infrastructure.face_recognition.deepface_adapter import DeepFaceAdapter
+from src.infrastructure.face_recognition.desafio_movimento_adapter import (
+    DesafioMovimentoAdapter,
+)
+from src.infrastructure.face_recognition.mediapipe_landmarks import MediaPipeLandmarks
+from src.infrastructure.face_recognition.processador_desafio_verificacao import (
+    AdaptadorPoseSobDemanda,
+    ProcessadorDesafioVerificacao,
+)
+from src.infrastructure.repositories.postgres_desafio_repository import (
+    PostgresDesafioRepository,
+)
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
+)
+from src.infrastructure.repositories.postgres_solicitacao_repository import (
+    PostgresSolicitacaoRepository,
 )
 from src.infrastructure.storage.temporary_capture_storage import (
     TemporaryCaptureStorage,
@@ -68,13 +84,45 @@ def construir_worker(
         modelo="Facenet512",
         detector="opencv",
         anti_spoofing=True,
+        qualidade=ParametrosQualidade(),
         strict_resultado_antispoofing=True,
         sanitizar_erros=True,
     )
+    processadores_configurados = processadores
+    if processadores_configurados is None:
+        processadores_configurados = {}
+        if settings.mediapipe_model_path is not None:
+            modelo_landmarks = settings.mediapipe_model_path
+            python_landmarks = settings.mediapipe_python_executable
+            assert python_landmarks is not None
+            desafio_repository = PostgresDesafioRepository(session_factory)
+            referencias_repository = PostgresSolicitacaoRepository(engine)
+            desafio = DesafioCaptura(
+                desafio_repository,
+                segredo=settings.secret_key.get_secret_value().encode(),
+            )
+            pose = AdaptadorPoseSobDemanda(
+                lambda: DesafioMovimentoAdapter(
+                    MediaPipeLandmarks(
+                        modelo_landmarks,
+                        python_landmarks,
+                    )
+                )
+            )
+            processadores_configurados[TipoJobFacial.PRESENCA] = (
+                ProcessadorDesafioVerificacao(
+                    desafio_repository,
+                    referencias_repository,
+                    desafio,
+                    adapter,
+                    pose,
+                    relogio=lambda: datetime.now(UTC),
+                )
+            )
     worker = WorkerFacial(
         fila,
         armazenamento,
-        processadores=processadores or {},
+        processadores=processadores_configurados,
         intervalo_heartbeat_segundos=max(1.0, settings.job_lease_seconds / 3),
     )
     return worker, adapter, engine, jobs_repository
@@ -100,7 +148,12 @@ def executar_worker(
                     raise RuntimeError(
                         "Já existe um worker facial ativo no PostgreSQL."
                     )
-                preparar_worker(worker, adapter.preaquecer_para_web)
+
+                def aquecer() -> None:
+                    adapter.preaquecer_para_web()
+                    worker.preaquecer()
+
+                preparar_worker(worker, aquecer)
                 logger.info("Worker facial inicializado.")
                 proxima_limpeza = time.monotonic() + 30
                 while True:
@@ -110,6 +163,7 @@ def executar_worker(
                         worker.reconciliar_temporarios()
                         proxima_limpeza = time.monotonic() + 30
     finally:
+        worker.fechar()
         engine.dispose()
 
 
