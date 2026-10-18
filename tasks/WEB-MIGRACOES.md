@@ -9,7 +9,7 @@ Em 18/10/2026, o usuário autorizou executar migrations e testes que escrevam em
 bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
 quando necessário. O projeto ainda não está em uso e não há dados importantes.
 Esta autorização cobre a validação das migrations `0005` da task 010, `0006` da
-task 011 e `0007` da task 012 em bancos descartáveis. Antes de cada escrita,
+task 011, `0007` da task 012 e `0008` da task 013 em bancos descartáveis. Antes de cada escrita,
 confirmar host, nome e marcador do destino; preferir banco
 descartável para testes. Ela não abrange produção, banco remoto/compartilhado
 ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
@@ -39,6 +39,13 @@ check` e revertida a `base` pela fixture PostgreSQL no banco descartável local
 `projeto_reconhecimento_facial: task 012 disposable worker database`. Quatro
 testes PostgreSQL passaram. O banco `escola` não recebeu `0006` nem `0007`.
 
+A revisão `0008` da task 013 foi aplicada até `head`, validada com `alembic
+check`, exercitada com transições concorrentes e revertida pela fixture no mesmo
+banco descartável local `task012_web_worker_test_20261018`. A tentativa de
+reverter `0008` com um desafio existente foi recusada e preservou a linha e o
+schema. A fixture removeu os dados sintéticos e retornou o banco a `base`; o
+banco local `escola` não recebeu `0008`.
+
 ## Donos das expansões
 
 | Task | Expansão esperada |
@@ -46,7 +53,7 @@ testes PostgreSQL passaram. O banco `escola` não recebeu `0006` nem `0007`.
 | 010 | Conta/professor, sessão de autenticação, auditoria e responsável por turma |
 | 011 | Solicitação, conjunto/referências versionadas e consentimento/estado web (`0006`, validada em banco descartável) |
 | 012 | Jobs/reservas/leases da fila, índices de admissão e idempotência |
-| 013 | Estado persistente de desafio quando não coberto por job/solicitação |
+| 013 | Estado mínimo persistente de desafio 1:1, vinculado ao job, aluno e conjunto/versionamento (`0008`, validada em banco descartável) |
 | 014 | Link/credencial efêmera e associação de solicitações ao convite |
 | 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão |
 | 016 | Revisão/correção/status/versão de presença, se não criados antes |

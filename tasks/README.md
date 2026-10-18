@@ -32,13 +32,12 @@ alheias ou fazer deploy.
 
 Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
 na tarefa 020**, após aprovação do backend na tarefa 019. API/testes HTTP não incluem telas
-provisórias. A tarefa 009 foi implementada no workspace; runtime web e stack ML
-instalada/importada passaram em Ubuntu 24.04/Python 3.12. Inferência com pesos e
-validação integrada continuam pendentes. A tarefa 011 foi implementada no
-workspace e validada em PostgreSQL descartável. A tarefa 012 foi implementada
-no workspace, com migration 0007 validada em banco descartável; veja
-[RESULTADO.md](012-web-worker-fila/RESULTADO.md). As tarefas 013–020 seguem
-planejadas. A tarefa 012 não foi implantada.
+provisórias. As tarefas 009–013 foram implementadas no workspace. A stack ML foi
+instalada/importada em Ubuntu 24.04/Python 3.12; a tarefa 013 também validou o
+provider MediaPipe Linux com modelo local e entrada sintética em WSL/Python 3.14.
+As migrations 0006–0008 foram verificadas em PostgreSQL descartável e revertidas
+pela fixture. Nenhuma validação biométrica com pessoas nem deploy foi executado.
+As tarefas 014–020 seguem planejadas. Consulte os resultados 012 e 013.
 Tarefa 010 foi implementada e publicada na `main`; revisão `0005` aplicada ao
 banco local `escola`, 3 testes PostgreSQL descartáveis aprovados e
 `alembic check` limpo; sem deploy; veja
@@ -58,7 +57,7 @@ a implementação de uma tarefa; não cobre deploy ou operações de infraestrut
 | 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Concluída e publicada na `main`; migration local e integração PostgreSQL validadas; sem deploy; veja [RESULTADO.md](010-web-autenticacao-autorizacao/RESULTADO.md) |
 | 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Backend e migration 0006 implementados; 1011 unitários, PostgreSQL, Ruff e mypy aprovados no workspace; sem API de convite, worker, interface ou deploy; veja [RESULTADO.md](011-web-referencias-cadastro-pendente/RESULTADO.md) |
 | 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Implementada e validada no workspace; migration 0007 somente em banco descartável; processadores e envio HTTP ficam para 014/015; sem deploy; veja [RESULTADO.md](012-web-worker-fila/RESULTADO.md) |
-| 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Implementada e publicada na `main`; migration 0008 e worker validados em banco descartável, 1084 unitários e 5 testes PostgreSQL aprovados; sem rotas/UI nem validação biométrica real; veja [RESULTADO.md](013-web-desafio-verificacao-1a1/RESULTADO.md) |
 | 014 | [API de cadastro por link e aprovação](014-web-api-cadastro-aprovacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 015 | [Sessões, tentativas e presença por API](015-web-api-sessoes-presencas/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 016 | [CRUD autorizado, revisão manual, auditoria e CSV](016-web-gestao-revisao-relatorios/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |

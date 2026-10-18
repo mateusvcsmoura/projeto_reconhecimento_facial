@@ -2,16 +2,16 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009, 011 e 012 foram
-implementadas no workspace e a 010 foi publicada na `main`; implantação web não
-executada.** Este
-documento substitui as propostas conflitantes das versões anteriores. A revisão
-`0006` e `0007` das tasks 011/012 foram validadas em banco PostgreSQL descartável,
-sem aplicação ao banco local `escola`. O worker/fila da 012 está implementado;
-convites, rotas de submissão, handlers de cadastro/presença e interface continuam
-pendentes. A stack ML foi instalada e importada em Ubuntu 24.04/Python 3.12.3;
-os pesos locais foram carregados em smoke sintético Windows; validação integrada
-Linux e medição de capacidade seguem pendentes.
+**Status: planejamento consolidado; as tarefas 009–013 foram implementadas no
+workspace e as tarefas 010 e 013 foram publicadas na `main`; implantação web não
+executada.** Este documento substitui as propostas conflitantes das versões
+anteriores. As revisões `0006` a `0008` foram validadas em PostgreSQL descartável;
+`escola` não recebeu `0006` a `0008`. O worker/fila e o processador de desafio 1:1
+estão implementados; convites e rotas de submissão, integração HTTP e interface
+continuam pendentes. A stack ML foi instalada/importada em Ubuntu 24.04/Python
+3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
+e entrada sintética. Isso não valida biometria real. Capacidade, operação e
+validação com pessoas autorizadas seguem pendentes.
 
 Documentos complementares:
 
@@ -326,8 +326,9 @@ histórico 0,428179... nem ajustar `FACE_THRESHOLD` automaticamente.
 
 Nomes abaixo são propostas para futuras migrations, não tabelas existentes,
 exceto `SolicitacaoCadastro`, `ConjuntoReferencia` e `ReferenciaFacial`, criadas
-pela revisão `0006` no código. A migration permanece aplicada somente nos testes
-descartáveis da tarefa 011.
+pela revisão `0006`, e `DesafioVerificacaoWeb`, criada pela revisão `0008`. As
+migrations web `0006` a `0008` foram aplicadas e revertidas em bancos descartáveis;
+não foram aplicadas ao banco local `escola`.
 
 | Entidade | Campos/regras principais |
 |---|---|
@@ -341,6 +342,7 @@ descartáveis da tarefa 011.
 | Link | id, finalidade, hash de token, turma, sessão opcional, emissor, criado/expira/revogado_em; presença exige sessão da mesma turma |
 | SessaoPresenca | id, turma, criador, título, início/fim UTC, estado/revogação, versão; início anterior ao fim |
 | Tentativa | UUID, aluno, sessão, ordinal UK aluno/sessão/ordinal, estado, desafio/nonce protegido, prazos do servidor, motivo/resultado, referência/política utilizadas, chave idempotente hash |
+| DesafioVerificacaoWeb (`0008`) | Job, aluno, conjunto/versão, hash do nonce, direção aleatória, etapas, prazo/estado e motivo técnico; sem frames, landmarks ou embeddings |
 | Presenca | id, aluno, sessão, status presente/anulada, origem biométrica/manual, horário de evidência/registro, tentativa opcional, versão; UK aluno/sessão |
 | RevisaoManual | id, aluno/sessão, motivo, estado, solicitada/decidida_em, professor, justificativa da decisão; no máximo uma aberta por par |
 | Auditoria | id, ator/papel, ação, alvo interno, instante, justificativa e antes/depois mínimos; sem imagem/embedding/token/senha |
@@ -450,6 +452,12 @@ opcional; importação em lote não foi adicionada.
   passaram no workspace. Ainda faltam handlers/rotas de submissão das tasks
   014/015, tmpfs Linux e medição da VPS. Consulte
   [RESULTADO 012](../tasks/012-web-worker-fila/RESULTADO.md).
+- 18/10/2026: tarefa 013 adicionou a revisão `0008`, verificação fechada 1:1
+   com três referências, desafio servidor frente/virada/retorno, anti-spoofing,
+   qualidade, continuidade e provider MediaPipe isolado. Cinco testes PostgreSQL,
+   suíte unitária e verificações estáticas passaram. O smoke Linux usou modelo
+   local e imagem sintética; não há validação biométrica real, rotas HTTP,
+   interface ou deploy. Veja [RESULTADO 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;

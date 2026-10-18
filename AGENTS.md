@@ -47,6 +47,13 @@ de envio e os processadores de cadastro/presença ficam para as tasks 014/015;
 worker, runtime Linux e implantação ainda precisam de validação integrada na
 task 019. Consulte [`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
 
+A tarefa 013 implementa no worker a verificação web fechada 1:1 com três
+referências e desafio facial ordenado; a migration `0008` foi validada somente
+no banco descartável task012, não em `escola`. Não há rotas HTTP de submissão,
+interface, deploy ou validação biométrica com pessoas. Consulte
+[`tasks/013-web-desafio-verificacao-1a1/RESULTADO.md`](tasks/013-web-desafio-verificacao-1a1/RESULTADO.md)
+antes de integrar ou implantar.
+
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
@@ -138,4 +145,4 @@ navegador, janela de horário e hospedagem está em
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
 não autorização para implementar, migrar, contratar hospedagem ou publicar.
 
-Manter o registro atual e as limitações das tarefas 001–008 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; os testes de integração em banco descartável continuam pendentes. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–013 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; os testes de integração em banco descartável continuam pendentes. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

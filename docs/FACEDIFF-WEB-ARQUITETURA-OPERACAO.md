@@ -6,19 +6,23 @@ Execução depende de tarefas e autorização futuras; os procedimentos abaixo n
 foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa.
 
 Estado do código em 18/10/2026: a fundação da task 009, autenticação da 010,
-backend de referências da 011 e fila/worker da 012 existem no workspace. As
-migrations `0006` e `0007` só foram validadas em PostgreSQL descartável; convite,
-rotas de submissão e processadores de cadastro/presença, tmpfs compartilhado de
-produção, validação integrada, interface e deploy continuam pendentes. O
+backend de referências da 011, fila/worker da 012 e desafio com verificação 1:1
+da 013 existem no workspace. As migrations `0006` a `0008` foram validadas em
+PostgreSQL descartável; convite, rotas de submissão, processador de cadastro,
+integração HTTP, tmpfs compartilhado de produção, validação com pessoas,
+interface e deploy continuam pendentes. O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
 
-A task012 valida o contrato técnico da fila, não a capacidade da VPS. O processo
+A task012 valida o contrato técnico da fila, não a capacidade da VPS. A task013
+acrescenta desafio servidor de frente/virada/retorno e verificação 1:1 com três
+referências; limiar e geometria de pose são heurísticas sem calibração. O processo
 worker serializa execução por lock local e lock advisory de sessão, invalida jobs
 ativos no reinício e aceita resultado somente sob lease/prazo válido. O smoke
 com pesos locais ocorreu em Windows com entrada sintética; não prova desempenho
 ou inferência operacional em Linux. Veja [runtime web](FACEDIFF-WEB-RUNTIME.md)
 e [resultado 012](../tasks/012-web-worker-fila/RESULTADO.md).
+Veja também o [resultado 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
 
 ## 1. Topologia proposta
 

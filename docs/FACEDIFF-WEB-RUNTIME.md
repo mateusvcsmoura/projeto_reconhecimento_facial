@@ -3,10 +3,11 @@
 Atualizado em 18/10/2026 pelas tarefas
 [009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md),
 [010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md) e
-[012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md).
+[012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md) e
+[013 — desafio e verificação 1:1](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
-nem validação biométrica. A migration `0005` foi aplicada ao banco local
-`escola`; `0007` e a fila foram validadas em banco descartável, não em `escola`.
+nem validação biométrica real. A migration `0005` foi aplicada ao banco local
+`escola`; `0007` e `0008` foram validadas em banco descartável, não em `escola`.
 
 ## Isolamento e dependências
 
@@ -34,15 +35,17 @@ psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
 | PyTorch CPU / NumPy | 2.14.0+cpu (`torch.version.cuda is None`) / 2.5.3 importados | Sem MiniFASNet ou inferência |
 | OpenCV | 4.13.0.92 importado; único fornecedor de `cv2` é `opencv-python` | Exigiu `libgl1`, `libglib2.0-0`, `libxcb1`, `libxkbcommon0`, `libxkbcommon-x11-0`, `libxcb-cursor0`, `libxcb-xinerama0`; sem câmera/display |
 | DeepFace / RetinaFace | 0.0.92 / 0.0.18 importados | Sem construção de modelo ou download de pesos |
-| MediaPipe 0.10.35 | Mantido no ambiente isolado documentado | Não é dependência do serviço web nem foi importado nesta tarefa |
-| Worker task012 | Quatro testes PostgreSQL descartáveis cobrem fila/locks; pesos locais FaceNet512 e MiniFASNet carregados em smoke sintético no Windows | Sem handlers de cadastro/presença, tmpfs Linux ou medição na VPS |
+| MediaPipe 0.10.35 | Ambiente filho Linux isolado; `pip check` limpo; modelo local iniciou e inferiu em entrada sintética | Python 3.14.4/WSL; `libGLESv2.so.2` foi disponibilizada em diretório temporário; sem validação de pose com pessoa |
+| Worker task012/013 | Cinco testes PostgreSQL descartáveis cobrem fila, prioridade, retomada e migration 0008; pesos FaceNet512/MiniFASNet carregados em smoke sintético Windows | Sem rotas biométricas públicas, cadastro, tmpfs de produção ou medição na VPS |
 
 O primeiro smoke em Ubuntu mínimo falhou ao carregar `cv2` porque faltava
 `libxcb.so.1`; com as bibliotecas de runtime listadas acima, a stack importou.
 Isso prova compatibilidade das dependências e dos binários nesse container, não
 funcionamento biométrico. O smoke com pesos da task012 foi sintético e executado
-no Windows; pipeline completo, worker Linux, recursos do host e validação
-integrada permanecem para a task019.
+no Windows. A task013 também carregou o modelo real do Face Landmarker no Linux
+e recebeu uma imagem sintética; isso não comprova pose nem comportamento com uma
+pessoa. O pipeline HTTP ponta a ponta, worker em host de produção, recursos do
+host e validação integrada permanecem para tasks futuras.
 
 `retina-face==0.0.18` foi fixado porque DeepFace 0.0.92 aceita
 `retina-face>=0.0.1` e os metadados oficiais da versão 0.0.18 declaram
@@ -105,7 +108,12 @@ task018.
 
 O worker roda em processo separado, sem porta HTTP e com as dependências faciais
 de `requirements.txt`; a API permanece no ambiente leve `requirements-web.txt`.
-Crie `.venv-worker` e instale `requirements.txt` antes de iniciá-lo. Em Linux,
+Crie `.venv-worker` e instale `requirements.txt` antes de iniciá-lo. Para a pose,
+crie também um ambiente filho Linux e instale `requirements-landmarks-linux.txt`;
+configure `WEB_MEDIAPIPE_MODEL_PATH` e `WEB_MEDIAPIPE_PYTHON_EXECUTABLE` para o
+modelo local e o interpretador filho. O processo principal usa `opencv-python`;
+o filho usa `opencv-contrib-python`, sem instalar ambos no mesmo ambiente. Em
+Ubuntu mínimo o runtime filho precisa de `libgles2` (`libGLESv2.so.2`). Em Linux,
 API e worker precisam compartilhar a mesma montagem tmpfs privada. Configure
 `WEB_CAPTURE_TEMP_DIR` para essa raiz; os limites iniciais são
 `WEB_CAPTURE_MAX_BYTES_PER_CAPTURE=8388608`, `WEB_CAPTURE_MAX_FRAMES=3`,
@@ -114,8 +122,9 @@ API e worker precisam compartilhar a mesma montagem tmpfs privada. Configure
 laboratório, não capacidade aprovada para produção. Com as mesmas variáveis
 `WEB_*` do serviço, inicie o processo separado por
 `.venv-worker/bin/python -m src.face_worker_main`. Em produção, o startup exige
-tmpfs e pesos locais, sem download automático. Até as tasks 014/015 registrarem
-handlers e rotas de submissão, não há jobs biométricos válidos para completar.
+tmpfs e pesos locais, sem download automático. A task013 fornece o processador
+de desafio 1:1, mas ainda não há rotas HTTP de reserva/upload; as tasks 014/015
+fazem a integração e autorização do fluxo.
 Se uma inferência nativa ficar bloqueada indefinidamente, esta implementação
 não encerra o processo por watchdog: mantém o slot ocupado até o executor
 retornar ou um reinício controlado invalidar o job. A supervisão automática

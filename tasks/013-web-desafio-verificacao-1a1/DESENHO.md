@@ -1,6 +1,6 @@
 # Desenho — 013: Desafio facial no servidor e verificação 1:1
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
+**Executor: Luna 6, esforço High. Estado: implementada e publicada na `main` nesta execução.**
 Data: 17/10/2026. Dependências: **012**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.

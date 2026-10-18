@@ -1,11 +1,11 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **As tarefas 009 e 010 foram implementadas; a 010 foi
-publicada na `main` após autorização explícita. As tarefas 011 e 012 foram
-implementadas no workspace; `0006` e `0007` foram validadas em PostgreSQL
-descartável. A 012 ainda não foi implantada. As tarefas 013–020
-continuam pendentes.** O runtime web separado passou em testes no
-Ubuntu 24.04. A stack ML completa ainda não foi validada em Linux; consulte
+Data: 18/10/2026. **As tarefas 009–013 foram implementadas no workspace; 010 e
+013 foram publicadas na `main` após autorização explícita. As migrations 0006,
+0007 e 0008 foram validadas em PostgreSQL descartável. A web não foi implantada.
+As tarefas 014–020 continuam pendentes.** O runtime web passou em testes no
+Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
+imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
 [runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve deploy.
 Executor previsto para as próximas tasks: Luna 6, esforço High, execução inline.
@@ -167,6 +167,42 @@ dependem da medição019 e do gate operacional.
   cadastro e presença. Rate limit de abuso nas rotas públicas de submissão
   pertence a essas integrações; esta tarefa não declara limite de requisições
   para a consulta de status. Não houve validação de tmpfs Linux ou VPS.
+
+### Contratos estabelecidos na tarefa 013
+
+- A revisão `0008` cria `desafios_verificacao_web`, estado mínimo vinculado ao
+  mesmo job, aluno e conjunto de referências: hash do nonce, direção, prazo,
+  estado/etapas e motivo técnico. Não armazena frames, landmarks ou embeddings.
+  Foi migrada, verificada com `alembic check`, exercitada e revertida no banco
+  descartável task012; `escola` não recebeu `0008`. O downgrade recusa remover
+  a tabela enquanto houver desafios persistidos.
+- `VerificarIdentidade` compara exclusivamente três referências ativas,
+  ordinais 1–3, da matrícula autorizada e do conjunto/versão selecionados. Exige
+  vetores Facenet512/512D normalizados e finitos e usa a mediana das três
+  distâncias cosseno `<= 0,30`. Esta política não foi calibrada; não altera o
+  pipeline CLI, o threshold histórico nem o matching 1:N.
+- `DesafioCaptura` emite nonce HMAC ligado ao UUID da reserva, persiste somente o
+  hash e exige frente, virada aleatória e retorno, na ordem, dentro de até 120s
+  limitados pelo prazo da reserva. O serviço reutiliza um job `presenca` e a fila
+  única da 012; etapas validadas liberam o slot ativo, preservam quota e
+  temporários, e retomadas recebem prioridade. Reenvio da mesma etapa com nonce
+  válido é idempotente e não cancela uma tentativa concorrente.
+- O worker valida rosto único, qualidade, anti-spoofing estrito, identidade 1:1,
+  continuidade entre embeddings e pose calculada no backend. O provider de pose
+  MediaPipe roda em processo/ambiente Linux separado por pipes locais; o app usa
+  `opencv-python` e o ambiente filho usa `opencv-contrib-python`, sem coexistirem
+  no mesmo ambiente. `requirements-landmarks-linux.txt` fixa MediaPipe 0.10.35;
+  Ubuntu mínimo precisa disponibilizar `libGLESv2.so.2` (`libgles2`). A geometria
+  de pose é heurística não calibrada.
+- Antes do `cv2.imdecode`, Pillow lê apenas o cabeçalho e rejeita imagens acima
+  de 4.194.304 pixels ou 8192 pixels por lado. A validação sintética confirmou
+  que esse limite evita entregar imagens superdimensionadas ao decodificador.
+  O worker retorna `ResultadoFacial` restrito ao backend e não grava presença.
+- A task 013 não cria rotas HTTP, autenticação de aluno nem interface. O futuro
+  consumidor precisa passar `aluno_id_autorizado` somente após aplicar a
+  autorização correspondente. Testes não usaram pessoas ou dados biométricos
+  reais; movimentos, acessibilidade, eficácia anti-spoofing e desempenho real
+  permanecem sem validação.
 
 ## 5. Permissões para futuras execuções
 
