@@ -13,6 +13,7 @@ import importlib
 import sys
 import types
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -41,6 +42,14 @@ class DeepFaceDuble:
         self.extracoes = 0
         self.representacoes_chamadas = 0
         self.argumentos_represent: dict[str, Any] | None = None
+        self.modelos_aquecidos: list[str] = []
+        self.erro_build: Exception | None = None
+
+    def build_model(self, model_name: str) -> object:
+        self.modelos_aquecidos.append(model_name)
+        if self.erro_build is not None:
+            raise self.erro_build
+        return object()
 
     def extract_faces(self, **_kwargs: Any) -> list[dict[str, Any]]:
         self.extracoes += 1
@@ -79,6 +88,9 @@ def montar(
     duble: DeepFaceDuble,
     anti_spoofing: bool = True,
     qualidade: ParametrosQualidade | None = None,
+    *,
+    strict: bool = False,
+    sanitizar: bool = False,
 ) -> Any:
     modulo = importlib.import_module(CAMINHO)
     return modulo.DeepFaceAdapter(
@@ -86,6 +98,8 @@ def montar(
         detector="opencv",
         anti_spoofing=anti_spoofing,
         qualidade=qualidade,
+        strict_resultado_antispoofing=strict,
+        sanitizar_erros=sanitizar,
     )
 
 
@@ -274,6 +288,74 @@ def test_rosto_real_passa(duble: DeepFaceDuble) -> None:
     recorte = montar(duble).extrair_face_unica(object())
 
     assert recorte.dtype == np.uint8
+
+
+def test_resultado_antispoofing_ausente_falha_fechado_no_worker_web(
+    duble: DeepFaceDuble,
+) -> None:
+    face = face_sintetica()
+    face.pop("is_real")
+    duble.faces = [face]
+
+    with pytest.raises(ModeloIndisponivel, match="anti-spoofing"):
+        montar(duble, strict=True).extrair_face_unica(object())
+
+
+def test_resultado_antispoofing_invalido_falha_fechado_no_worker_web(
+    duble: DeepFaceDuble,
+) -> None:
+    face = face_sintetica()
+    face["is_real"] = "true"
+    duble.faces = [face]
+
+    with pytest.raises(ModeloIndisponivel, match="anti-spoofing"):
+        montar(duble, strict=True).extrair_face_unica(object())
+
+
+def test_cli_preserva_resultado_legado_quando_is_real_estiver_ausente(
+    duble: DeepFaceDuble,
+) -> None:
+    face = face_sintetica()
+    face.pop("is_real")
+    duble.faces = [face]
+
+    assert montar(duble).extrair_face_unica(object()).dtype == np.uint8
+
+
+def test_preaquecer_web_exige_pesos_locais_antes_de_carregar_modelos(
+    duble: DeepFaceDuble, tmp_path: Path
+) -> None:
+    with pytest.raises(ModeloIndisponivel, match="ausentes"):
+        montar(duble, strict=True, sanitizar=True).preaquecer_para_web(tmp_path)
+
+    assert duble.modelos_aquecidos == []
+
+
+def test_preaquecer_web_carrega_facetnet_e_minifasnet_sem_download(
+    duble: DeepFaceDuble, tmp_path: Path
+) -> None:
+    for nome in (
+        "facenet512_weights.h5",
+        "2.7_80x80_MiniFASNetV2.pth",
+        "4_0_0_80x80_MiniFASNetV1SE.pth",
+    ):
+        (tmp_path / nome).write_bytes(b"synthetic model sentinel")
+
+    montar(duble, strict=True, sanitizar=True).preaquecer_para_web(tmp_path)
+
+    assert duble.modelos_aquecidos == ["Facenet512", "Fasnet"]
+
+
+def test_worker_nao_expoe_detalhe_de_falha_do_deepface(
+    duble: DeepFaceDuble, caplog: pytest.LogCaptureFixture
+) -> None:
+    duble.erro_extract = RuntimeError("private-image-path-and-runtime-secret")
+
+    with pytest.raises(ModeloIndisponivel, match="Falha técnica") as erro:
+        montar(duble, sanitizar=True).extrair_face_unica(object())
+
+    assert "private-image-path-and-runtime-secret" not in str(erro.value)
+    assert "private-image-path-and-runtime-secret" not in caplog.text
 
 
 def test_com_anti_spoofing_desligado_a_verificacao_nao_ocorre(

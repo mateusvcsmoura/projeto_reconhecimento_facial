@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 from numbers import Integral
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -74,11 +75,15 @@ class DeepFaceAdapter:
         detector: str,
         anti_spoofing: bool = True,
         qualidade: ParametrosQualidade | None = None,
+        strict_resultado_antispoofing: bool = False,
+        sanitizar_erros: bool = False,
     ) -> None:
         self._modelo = modelo
         self._detector = detector
         self._anti_spoofing = anti_spoofing
         self._qualidade = qualidade
+        self._strict_resultado_antispoofing = strict_resultado_antispoofing
+        self._sanitizar_erros = sanitizar_erros
 
     @property
     def modelo(self) -> str:
@@ -100,7 +105,7 @@ class DeepFaceAdapter:
                 anti_spoofing=self._anti_spoofing,
             )
         except Exception as exc:
-            raise _traduzir(exc, "detectar rosto") from exc
+            raise self._traduzir_falha(exc, "detectar rosto") from exc
 
         if not faces:
             raise NenhumRostoDetectado("O detector nao devolveu nenhum rosto.")
@@ -109,27 +114,78 @@ class DeepFaceAdapter:
 
         face = faces[0]
 
-        if self._anti_spoofing and not face.get("is_real", True):
-            pontuacao = face.get("antispoof_score")
-            # A pontuacao e a confianca NA CLASSIFICACAO ESCOLHIDA, e nao
-            # a probabilidade de ser real. Aqui a escolhida foi "fraude",
-            # entao 0.96 significa "96% confiante de que e uma foto" -- o
-            # oposto do que o numero sugere a quem le o log.
-            logger.warning(
-                "Frame recusado por anti-spoofing: modelo %.0f%% confiante "
-                "de que NAO e uma pessoa ao vivo",
-                (pontuacao or 0.0) * 100,
-            )
-            raise PossivelFraude(pontuacao)
+        if self._anti_spoofing and self._strict_resultado_antispoofing:
+            resultado_real = face.get("is_real")
+            if not isinstance(resultado_real, (bool, np.bool_)):
+                raise ModeloIndisponivel(
+                    "O anti-spoofing não devolveu um resultado válido."
+                )
+            if not resultado_real:
+                self._recusar_fraude(face)
+        elif self._anti_spoofing and not face.get("is_real", True):
+            self._recusar_fraude(face)
 
         return face
+
+    def _recusar_fraude(self, face: dict[str, Any]) -> None:
+        pontuacao = face.get("antispoof_score")
+        if self._sanitizar_erros:
+            logger.warning("Captura recusada pelo anti-spoofing; score suprimido.")
+            raise PossivelFraude()
+        # A pontuacao e a confianca NA CLASSIFICACAO ESCOLHIDA, e nao
+        # a probabilidade de ser real. Aqui a escolhida foi "fraude",
+        # entao 0.96 significa "96% confiante de que e uma foto" -- o
+        # oposto do que o numero sugere a quem le o log.
+        logger.warning(
+            "Frame recusado por anti-spoofing: modelo %.0f%% confiante "
+            "de que NAO e uma pessoa ao vivo",
+            (pontuacao or 0.0) * 100,
+        )
+        raise PossivelFraude(pontuacao)
 
     def preaquecer(self) -> None:
         """Forca a carga do modelo agora, e nao no meio do fluxo de camera."""
         try:
             DeepFace.build_model(self._modelo)
         except Exception as exc:
-            raise _traduzir(exc, "carregar o modelo") from exc
+            raise self._traduzir_falha(exc, "carregar o modelo") from exc
+
+    def preaquecer_para_web(self, diretorio_pesos: Path | None = None) -> None:
+        """Carrega FaceNet512 e MiniFASNet sem permitir download implícito."""
+        if self._modelo != "Facenet512" or not self._anti_spoofing:
+            raise ModeloIndisponivel(
+                "O worker web exige FaceNet512 e anti-spoofing habilitado."
+            )
+        if diretorio_pesos is None:
+            try:
+                from deepface.commons.folder_utils import get_deepface_home
+
+                diretorio_pesos = (
+                    Path(get_deepface_home()).expanduser() / ".deepface" / "weights"
+                )
+            except Exception as exc:
+                raise self._traduzir_falha(exc, "localizar pesos locais") from exc
+
+        pesos_necessarios = (
+            "facenet512_weights.h5",
+            "2.7_80x80_MiniFASNetV2.pth",
+            "4_0_0_80x80_MiniFASNetV1SE.pth",
+        )
+        if any(not (diretorio_pesos / nome).is_file() for nome in pesos_necessarios):
+            raise ModeloIndisponivel("Pesos locais do worker web estão ausentes.")
+        try:
+            DeepFace.build_model("Facenet512")
+            DeepFace.build_model("Fasnet")
+        except Exception as exc:
+            raise self._traduzir_falha(exc, "aquecer o pipeline web") from exc
+
+    def _traduzir_falha(self, exc: Exception, acao: str) -> Exception:
+        if not self._sanitizar_erros:
+            return _traduzir(exc, acao)
+        if isinstance(exc, ValueError) and _MARCA_SEM_ROSTO in str(exc).lower():
+            return NenhumRostoDetectado("Nenhum rosto foi detectado.")
+        logger.error("Falha no provider facial ao %s; detalhes suprimidos.", acao)
+        return ModeloIndisponivel("Falha técnica do provider facial.")
 
     def extrair_face_unica(self, imagem: Any) -> Any:
         return self._preparar_recorte(imagem)
@@ -182,7 +238,7 @@ class DeepFaceAdapter:
                 align=False,
             )
         except Exception as exc:
-            raise _traduzir(exc, "gerar embedding") from exc
+            raise self._traduzir_falha(exc, "gerar embedding") from exc
 
         if not representacoes:
             raise NenhumRostoDetectado("O modelo nao devolveu nenhum vetor.")

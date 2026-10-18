@@ -1,0 +1,121 @@
+"""Composition root do worker facial, separado do runtime HTTP."""
+
+from __future__ import annotations
+
+import logging
+import time
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from src.application.services.fila_facial import FilaFacial, TipoJobFacial
+from src.application.services.worker_facial import (
+    ProcessadorJobFacial,
+    WorkerFacial,
+    preparar_worker,
+)
+from src.config.web_settings import WebSettings, get_web_settings
+from src.infrastructure.face_recognition.deepface_adapter import DeepFaceAdapter
+from src.infrastructure.repositories.postgres_job_repository import (
+    PostgresJobRepository,
+)
+from src.infrastructure.storage.temporary_capture_storage import (
+    TemporaryCaptureStorage,
+)
+from src.infrastructure.workers.singleton_process_lock import SingletonProcessLock
+
+logger = logging.getLogger(__name__)
+
+
+def construir_worker(
+    settings: WebSettings,
+    *,
+    processadores: Mapping[TipoJobFacial, ProcessadorJobFacial] | None = None,
+) -> tuple[WorkerFacial, DeepFaceAdapter, Engine, PostgresJobRepository]:
+    """Constrói worker e engine sem carregar modelos até a fase de aquecimento."""
+    if settings.capture_temp_dir is None:
+        raise RuntimeError("WEB_CAPTURE_TEMP_DIR é obrigatório no processo worker.")
+    armazenamento = TemporaryCaptureStorage(
+        settings.capture_temp_dir,
+        max_bytes_per_capture=settings.capture_max_bytes_per_capture,
+        max_captures=settings.capture_max_frames,
+        quota_bytes=settings.capture_storage_quota_bytes,
+        require_memory_fs=settings.environment == "production",
+    )
+    engine = create_engine(
+        settings.database_url.get_secret_value(), future=True, pool_pre_ping=True
+    )
+    session_factory: sessionmaker[Session] = sessionmaker(
+        bind=engine, expire_on_commit=False, future=True
+    )
+    jobs_repository = PostgresJobRepository(session_factory)
+    fila = FilaFacial(
+        jobs_repository,
+        segredo=settings.secret_key.get_secret_value().encode(),
+        relogio=lambda: datetime.now(UTC),
+        limite_aguardando=10,
+        quota_temporaria_bytes=settings.capture_storage_quota_bytes,
+        max_bytes_por_captura=settings.capture_max_bytes_per_capture,
+        max_capturas=settings.capture_max_frames,
+        prazo_maximo_reserva=timedelta(seconds=settings.job_reservation_seconds),
+        prazo_maximo_execucao=timedelta(seconds=settings.job_deadline_seconds),
+        duracao_lease=timedelta(seconds=settings.job_lease_seconds),
+    )
+    adapter = DeepFaceAdapter(
+        modelo="Facenet512",
+        detector="opencv",
+        anti_spoofing=True,
+        strict_resultado_antispoofing=True,
+        sanitizar_erros=True,
+    )
+    worker = WorkerFacial(
+        fila,
+        armazenamento,
+        processadores=processadores or {},
+        intervalo_heartbeat_segundos=max(1.0, settings.job_lease_seconds / 3),
+    )
+    return worker, adapter, engine, jobs_repository
+
+
+def executar_worker(
+    settings: WebSettings | None = None,
+    *,
+    processadores: Mapping[TipoJobFacial, ProcessadorJobFacial] | None = None,
+) -> None:
+    configuracao = settings or get_web_settings()
+    worker, adapter, engine, repository = construir_worker(
+        configuracao, processadores=processadores
+    )
+    assert configuracao.capture_temp_dir is not None
+    lock_path = Path(configuracao.capture_temp_dir).expanduser() / ".worker.lock"
+    try:
+        with SingletonProcessLock(lock_path) as lock:
+            if not lock.adquirido:
+                raise RuntimeError("Já existe um worker facial ativo nesta máquina.")
+            with repository.worker_unico() as lock_database:
+                if not lock_database:
+                    raise RuntimeError(
+                        "Já existe um worker facial ativo no PostgreSQL."
+                    )
+                preparar_worker(worker, adapter.preaquecer_para_web)
+                logger.info("Worker facial inicializado.")
+                proxima_limpeza = time.monotonic() + 30
+                while True:
+                    if not worker.executar_um():
+                        time.sleep(0.5)
+                    if time.monotonic() >= proxima_limpeza:
+                        worker.reconciliar_temporarios()
+                        proxima_limpeza = time.monotonic() + 30
+    finally:
+        engine.dispose()
+
+
+def main() -> None:
+    executar_worker()
+
+
+if __name__ == "__main__":
+    main()
