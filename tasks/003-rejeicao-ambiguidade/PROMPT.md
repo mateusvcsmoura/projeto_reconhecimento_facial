@@ -42,3 +42,11 @@ Falha relevante de teste bloqueia publicação. Corrija regressões da tarefa. S
 Informar: comportamento implementado, como habilitar e distinção entre margem zero/positiva, testes/resultados reais, limitações, caminho do RESULTADO.md, hash e confirmação do push (ou impedimento concreto).
 
 Comece pela inspeção e prossiga até a entrega. Não responda apenas com intenção/plano.
+
+## Regra obrigatória de commit e push
+
+Antes de qualquer commit ou push, leia ou releia o arquivo AGENTS.md na raiz do repositório e siga suas instruções vigentes. A autorização desta tarefa pode limitar ou proibir a publicação; esta regra não amplia autorizações.
+
+- Mensagens de commit sempre em PT-BR. Não se identifique como Co Author nem adicione Co-authored-by; use somente a identidade e as credenciais Git já configuradas do solicitante, sem reconfigurar autoria.
+- Se a entrega envolver muitos arquivos ou unidades lógicas distintas, divida-a em commits separados e organizados por escopo; não agrupe mudanças independentes em um commit monolítico.
+- Adicione ao staging apenas caminhos explícitos e revise git diff --cached --stat, git diff --cached --check e o conteúdo staged antes de cada commit. Faça push somente para o branch/remoto autorizado e sem force.
