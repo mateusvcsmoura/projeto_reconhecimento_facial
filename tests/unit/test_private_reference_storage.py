@@ -27,7 +27,17 @@ def test_storage_usa_caminho_relativo_opaco_e_remove_idempotentemente(
     assert not arquivo.exists()
 
 
-@pytest.mark.parametrize("caminho", ["../fora.bin", "C:/fora.bin", ""])
+@pytest.mark.parametrize(
+    "caminho",
+    [
+        "../fora.bin",
+        "C:/fora.bin",
+        "C:fora.bin",
+        r"..\fora.bin",
+        r"\\servidor\compartilhamento\fora.bin",
+        "",
+    ],
+)
 def test_storage_nao_remove_fora_da_raiz_privada(tmp_path: Path, caminho: str) -> None:
     storage = PrivateReferenceStorageLocal(tmp_path / "privado")
 

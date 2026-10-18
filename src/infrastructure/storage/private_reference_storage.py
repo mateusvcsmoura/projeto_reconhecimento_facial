@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 MAX_REFERENCE_BYTES = 10 * 1024 * 1024
 
@@ -48,7 +48,16 @@ class PrivateReferenceStorageLocal:
 
     def remover(self, caminho_relativo: str) -> None:
         caminho = Path(caminho_relativo)
-        if caminho.is_absolute() or not caminho.parts or ".." in caminho.parts:
+        caminho_windows = PureWindowsPath(caminho_relativo)
+        if (
+            caminho.is_absolute()
+            or caminho_windows.is_absolute()
+            or caminho_windows.drive
+            or caminho_windows.root
+            or "\\" in caminho_relativo
+            or not caminho.parts
+            or ".." in caminho.parts
+        ):
             raise ValueError("Caminho de referência deve ser relativo e seguro.")
         destino = (self._raiz / caminho).resolve()
         self._exigir_dentro_da_raiz(destino)
