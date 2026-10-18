@@ -52,7 +52,7 @@ BIGINT_ID = BigInteger().with_variant(Integer, "sqlite")
 class Aluno(Base):
     __tablename__ = "alunos"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
 
     # Chave de negocio, vinda de fora do sistema. Separada da PK interna
     # porque no SQLite `id` acumulava PK + matricula + biometria_id.
@@ -305,6 +305,179 @@ class EventoAuditoriaWeb(Base):
         Index(
             "ix_eventos_auditoria_web_alvo_instante", "alvo_tipo", "alvo_id", "instante"
         ),
+    )
+
+
+class SolicitacaoCadastroWeb(Base):
+    """Pedido isolado de cadastro/troca; nao e um Aluno ativo."""
+
+    __tablename__ = "solicitacoes_cadastro_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(16), nullable=False)
+    estado: Mapped[str] = mapped_column(String(24), nullable=False)
+    convite_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    turma_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("turmas.id", ondelete="RESTRICT"), nullable=False
+    )
+    aluno_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("alunos.id", ondelete="RESTRICT"), nullable=True
+    )
+    matricula: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    nome: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    consentimento_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consentimento_versao: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expira_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    criada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    decidida_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decidida_por_conta_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    metodo_identidade: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    justificativa: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    limpa_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("tipo IN ('cadastro', 'atualizacao')", name="tipo_valido"),
+        CheckConstraint(
+            "estado IN ('em_coleta', 'em_validacao', 'pendente_aprovacao', "
+            "'aprovada', 'rejeitada', 'cancelada', 'expirada')",
+            name="estado_valido",
+        ),
+        CheckConstraint(
+            "(tipo = 'cadastro' AND aluno_id IS NULL AND matricula IS NOT NULL "
+            "AND nome IS NOT NULL AND convite_ref IS NOT NULL) OR "
+            "(tipo = 'atualizacao' AND aluno_id IS NOT NULL AND matricula IS NULL "
+            "AND nome IS NULL AND convite_ref IS NULL)",
+            name="identificacao_coerente",
+        ),
+        CheckConstraint(
+            "(consentimento_em IS NULL AND consentimento_versao IS NULL) OR "
+            "(consentimento_em IS NOT NULL AND consentimento_versao IS NOT NULL "
+            "AND length(consentimento_versao) > 0)",
+            name="consentimento_coerente",
+        ),
+        CheckConstraint("expira_em > criada_em", name="expiracao_valida"),
+        Index("ix_solicitacoes_cadastro_web_turma_estado", "turma_id", "estado"),
+        Index("ix_solicitacoes_cadastro_web_estado_expira", "estado", "expira_em"),
+        Index("ix_solicitacoes_cadastro_web_aluno", "aluno_id"),
+    )
+
+
+class ConjuntoReferenciasWeb(Base):
+    """Trinca pertencente a uma solicitação e, após aprovação, a uma versão."""
+
+    __tablename__ = "conjuntos_referencias_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    solicitacao_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    aluno_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("alunos.id", ondelete="RESTRICT"), nullable=True
+    )
+    versao: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estado: Mapped[str] = mapped_column(String(16), nullable=False)
+    job_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    embedding_modelo: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding_dim: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    ativado_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["solicitacao_id"],
+            ["solicitacoes_cadastro_web.id"],
+            name="fk_conj_ref_solicitacao",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "solicitacao_id", name="uq_conjuntos_referencias_web_solicitacao"
+        ),
+        UniqueConstraint("job_id", name="uq_conjuntos_referencias_web_job"),
+        UniqueConstraint(
+            "aluno_id", "versao", name="uq_conjuntos_referencias_web_aluno_versao"
+        ),
+        CheckConstraint(
+            "estado IN ('pendente', 'ativo', 'substituido', 'descartado')",
+            name="estado_valido",
+        ),
+        CheckConstraint(
+            "(estado = 'pendente' AND aluno_id IS NULL AND versao IS NULL) OR "
+            "(estado = 'descartado' AND ((aluno_id IS NULL AND versao IS NULL) OR "
+            "(aluno_id IS NOT NULL AND versao IS NOT NULL AND versao > 0))) OR "
+            "(estado IN ('ativo', 'substituido') AND aluno_id IS NOT NULL "
+            "AND versao IS NOT NULL AND versao > 0)",
+            name="versao_coerente",
+        ),
+        CheckConstraint("embedding_dim = 512", name="embedding_dim_512"),
+        Index(
+            "uq_conjuntos_referencias_web_aluno_ativo",
+            "aluno_id",
+            unique=True,
+            postgresql_where=text("estado = 'ativo'"),
+            sqlite_where=text("estado = 'ativo'"),
+        ),
+        Index(
+            "ix_conjuntos_referencias_web_solicitacao_estado",
+            "solicitacao_id",
+            "estado",
+        ),
+        Index("ix_conjuntos_referencias_web_aluno_estado", "aluno_id", "estado"),
+    )
+
+
+class ReferenciaFacialWeb(Base):
+    """Recorte privado e embedding normalizado; nunca retornado ao professor."""
+
+    __tablename__ = "referencias_faciais_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    conjunto_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ordinal: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    caminho_privado_relativo: Mapped[str] = mapped_column(String(512), nullable=False)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    embedding_modelo: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding_dim: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    consentimento_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    consentimento_versao: Mapped[str] = mapped_column(String(64), nullable=False)
+    capturada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["conjunto_id"],
+            ["conjuntos_referencias_web.id"],
+            name="fk_ref_facial_conjunto",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "conjunto_id", "ordinal", name="uq_referencias_faciais_web_conjunto_ordinal"
+        ),
+        CheckConstraint("ordinal BETWEEN 1 AND 3", name="ordinal_valido"),
+        CheckConstraint("embedding_dim = 512", name="embedding_dim_512"),
+        CheckConstraint("length(embedding) = 2048", name="embedding_float32_512"),
+        CheckConstraint(
+            "length(caminho_privado_relativo) > 0", name="caminho_nao_vazio"
+        ),
+        CheckConstraint("length(embedding_modelo) > 0", name="modelo_nao_vazio"),
+        CheckConstraint(
+            "length(consentimento_versao) > 0", name="consentimento_versao_valida"
+        ),
+        Index("ix_referencias_faciais_web_conjunto", "conjunto_id"),
     )
 
 

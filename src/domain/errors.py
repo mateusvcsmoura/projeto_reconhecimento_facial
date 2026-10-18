@@ -129,3 +129,11 @@ class VinculoInativo(ErroDeDominio):
 
 class ConsentimentoNaoRegistrado(ErroDeDominio):
     """Cadastro biometrico sem consentimento explicito nao pode ocorrer."""
+
+
+class AnexoJaProcessado(Exception):
+    """Sinaliza corrida idempotente para compensar arquivos recém-criados."""
+
+    def __init__(self, estado: str) -> None:
+        super().__init__("O job já anexou referências para esta solicitação.")
+        self.estado = estado
