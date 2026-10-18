@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from typing import Literal
+from pathlib import Path
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,13 @@ class WebSettings(BaseSettings):
     public_origin: str | None = None
     trusted_proxy_cidrs: str | None = None
     database_disposable: bool = False
+    capture_temp_dir: Path | None = None
+    capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
+    capture_max_frames: Literal[3] = 3
+    capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024
+    job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
+    job_deadline_seconds: Annotated[int, Field(gt=0)] = 900
+    job_lease_seconds: Annotated[int, Field(gt=0)] = 120
 
     @field_validator("database_url")
     @classmethod
@@ -161,6 +169,18 @@ class WebSettings(BaseSettings):
                     "Nome do banco de test deve conter marcador descartavel."
                 )
 
+        return self
+
+    @model_validator(mode="after")
+    def _validar_limites_de_captura(self) -> WebSettings:
+        if self.capture_storage_quota_bytes < self.capture_max_bytes_per_capture * 3:
+            raise ValueError(
+                "WEB_CAPTURE_STORAGE_QUOTA_BYTES deve comportar um job completo."
+            )
+        if self.job_lease_seconds < 3:
+            raise ValueError("WEB_JOB_LEASE_SECONDS deve ser de ao menos 3s.")
+        if self.job_deadline_seconds < self.job_lease_seconds:
+            raise ValueError("WEB_JOB_DEADLINE_SECONDS não pode ser menor que o lease.")
         return self
 
 

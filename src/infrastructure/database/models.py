@@ -7,6 +7,7 @@ migration.
 from __future__ import annotations
 
 import datetime as dt
+from uuid import UUID
 
 from sqlalchemy import (
     JSON,
@@ -29,6 +30,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Nomes deterministicos para constraints e indices: sem isso o downgrade
@@ -478,6 +480,107 @@ class ReferenciaFacialWeb(Base):
             "length(consentimento_versao) > 0", name="consentimento_versao_valida"
         ),
         Index("ix_referencias_faciais_web_conjunto", "conjunto_id"),
+    )
+
+
+class JobFacialWeb(Base):
+    """Estado e referência temporária de um trabalho facial web."""
+
+    __tablename__ = "jobs_faciais_web"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    dono_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(16), nullable=False)
+    estado: Mapped[str] = mapped_column(String(16), nullable=False)
+    idempotencia_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    credencial_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifesto: Mapped[dict[str, object] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    bytes_reservados: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    prazo_reserva: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    prazo_execucao: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    criada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    atualizada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    enfileirada_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    iniciada_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finalizada_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    lease_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expira_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancelamento_solicitado: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    resultado_codigo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("length(dono_id) BETWEEN 1 AND 128", name="dono_valido"),
+        CheckConstraint("tipo IN ('cadastro', 'presenca')", name="tipo_valido"),
+        CheckConstraint(
+            "estado IN ('recebida', 'enfileirada', 'processando', 'concluida', "
+            "'rejeitada', 'cancelada', 'expirada')",
+            name="estado_valido",
+        ),
+        CheckConstraint(
+            "length(idempotencia_hash) = 64 AND length(credencial_hash) = 64",
+            name="hashes_validos",
+        ),
+        CheckConstraint("bytes_reservados > 0", name="reserva_bytes_positiva"),
+        CheckConstraint("prazo_reserva > criada_em", name="prazo_reserva_valido"),
+        CheckConstraint("prazo_execucao > criada_em", name="prazo_execucao_valido"),
+        CheckConstraint(
+            "(estado = 'processando' AND lease_hash IS NOT NULL "
+            "AND lease_expira_em IS NOT NULL AND manifesto IS NOT NULL) OR "
+            "(estado <> 'processando' AND lease_hash IS NULL "
+            "AND lease_expira_em IS NULL)",
+            name="lease_coerente",
+        ),
+        CheckConstraint(
+            "(estado IN ('enfileirada', 'processando') AND manifesto IS NOT NULL) "
+            "OR estado IN ('recebida', 'concluida', 'rejeitada', 'cancelada', "
+            "'expirada')",
+            name="manifesto_coerente",
+        ),
+        UniqueConstraint(
+            "dono_id",
+            "tipo",
+            "idempotencia_hash",
+            name="uq_jobs_faciais_web_idempotencia",
+        ),
+        Index(
+            "ix_jobs_faciais_web_fila_fifo",
+            "estado",
+            "enfileirada_em",
+            "id",
+        ),
+        Index(
+            "ix_jobs_faciais_web_prazos",
+            "estado",
+            "prazo_reserva",
+            "prazo_execucao",
+        ),
+        Index(
+            "uq_jobs_faciais_web_ativo",
+            "estado",
+            unique=True,
+            postgresql_where=text("estado = 'processando'"),
+            sqlite_where=text("estado = 'processando'"),
+        ),
     )
 
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -22,3 +24,11 @@ class PublicErrorResponse(BaseModel):
     codigo: str
     mensagem: str
     request_id: str
+
+
+class OperationStatusResponse(BaseModel):
+    id: UUID
+    estado: Literal["recebida", "enfileirada", "processando", "concluida", "rejeitada"]
+    criada_em: datetime
+    atualizada_em: datetime
+    codigo: str | None = None

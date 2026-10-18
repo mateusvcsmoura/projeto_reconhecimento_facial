@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from src.application.services.fila_facial import FilaFacial
 from src.config.web_settings import WebSettings, get_web_settings
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
+)
+from src.infrastructure.repositories.postgres_job_repository import (
+    PostgresJobRepository,
 )
 from src.presentation.web.app import WebServices, create_app
 
@@ -43,9 +48,23 @@ def create_web_app(
         session_factory,
         segredo=configuracao.secret_key.get_secret_value(),
     )
+    jobs_repository = PostgresJobRepository(session_factory)
+    fila_facial = FilaFacial(
+        jobs_repository,
+        segredo=configuracao.secret_key.get_secret_value().encode(),
+        relogio=lambda: datetime.now(UTC),
+        limite_aguardando=10,
+        quota_temporaria_bytes=configuracao.capture_storage_quota_bytes,
+        max_bytes_por_captura=configuracao.capture_max_bytes_per_capture,
+        max_capturas=configuracao.capture_max_frames,
+        prazo_maximo_reserva=timedelta(seconds=configuracao.job_reservation_seconds),
+        prazo_maximo_execucao=timedelta(seconds=configuracao.job_deadline_seconds),
+        duracao_lease=timedelta(seconds=configuracao.job_lease_seconds),
+    )
     services = WebServices(
         readiness_probes={"database": lambda: _database_ready(engine)},
         auth_repository=auth_repository,
+        fila_facial=fila_facial,
         on_shutdown=engine.dispose,
     )
     return create_app(configuracao, services)

@@ -14,11 +14,13 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
+from src.application.services.fila_facial import FilaCheia, FilaFacial
 from src.config.web_settings import WebSettings
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
 )
 from src.presentation.web.routes.auth import criar_rotas_auth
+from src.presentation.web.routes.operations import criar_rotas_operacoes
 from src.presentation.web.schemas import (
     ComponentStatus,
     HealthLiveResponse,
@@ -41,6 +43,7 @@ class WebServices:
 
     readiness_probes: Mapping[str, HealthProbe] = field(default_factory=dict)
     auth_repository: PostgresContaRepository | None = None
+    fila_facial: FilaFacial | None = None
     clock: Callable[[], datetime] = utc_now
     on_shutdown: Callable[[], None] = field(default=lambda: None)
 
@@ -86,6 +89,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     app.state.environment = settings.environment
     app.state.web_services = services
     app.include_router(criar_rotas_auth(settings, services.auth_repository))
+    app.include_router(criar_rotas_operacoes(services.fila_facial))
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -105,7 +109,12 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
             )
         response.headers["X-Request-ID"] = request_id
         if request.url.path.startswith(
-            ("/api/v1/auth/", "/api/v1/admin/", "/api/v1/me")
+            (
+                "/api/v1/auth/",
+                "/api/v1/admin/",
+                "/api/v1/me",
+                "/api/v1/operacoes/",
+            )
         ):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
@@ -130,6 +139,17 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
             mensagem=mensagem,
             status_code=erro.status_code,
         )
+
+    @app.exception_handler(FilaCheia)
+    async def tratar_fila_cheia(request: Request, erro: FilaCheia) -> JSONResponse:
+        resposta = _erro_publico(
+            request,
+            codigo="fila_cheia",
+            mensagem="Não há capacidade de processamento no momento.",
+            status_code=503,
+        )
+        resposta.headers["Retry-After"] = str(erro.retry_after_seconds)
+        return resposta
 
     @app.exception_handler(RequestValidationError)
     async def tratar_validacao(
