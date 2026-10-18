@@ -106,7 +106,7 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 - Não afirmar execução de testes, aprovação ética, licenças ou métricas que não tenham sido verificadas.
 - Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
 - Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
-- Commits sempre em PT-BR, nao se marcar como Co Author, usar apenas as credenciais Git do solicitante. Se o commit contem muitos arquivos, faca commits separados de maneira organizada.
+- Antes de qualquer commit ou push, reler `AGENTS.md` na raiz e seguir suas instruções vigentes. Commits sempre em PT-BR; não se marcar como Co Author nem adicionar `Co-authored-by`; usar somente a identidade e as credenciais Git já configuradas do solicitante, sem reconfigurar autoria. Se a entrega envolver muitos arquivos ou unidades lógicas distintas, dividir em commits separados e organizados por escopo; revisar o staging e seu diff antes de cada commit.
 
 ## 7. Próxima direção sugerida
 

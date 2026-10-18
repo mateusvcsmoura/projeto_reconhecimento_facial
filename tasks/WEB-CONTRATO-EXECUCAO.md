@@ -129,8 +129,11 @@ histórico vira evidência da entrega atual. Não marcar skips como aprovação.
 A restrição explícita da consolidação recente substitui a autorização herdada
 dos prompts001–008. Se o usuário instruir commit+push na execução da task:
 
-1. Usar apenas identidade/credenciaisGit já configuradas; mensagem PT-BR, sem
-   Co-Authored-By, separar commits por escopo quando houver muitos arquivos.
+1. Antes de cada commit e novamente antes do push, reler `AGENTS.md` na raiz e
+   seguir suas instruções. Usar apenas identidade/credenciais Git já
+   configuradas do solicitante; mensagem PT-BR, sem se marcar como Co Author ou
+   incluir `Co-authored-by`. Separar commits por escopo quando houver muitos
+   arquivos ou unidades lógicas distintas.
 2. Conferir branch/status/remoto/divergência e commits locais; publicar na main
    somente o trabalho autorizado. Não publicar commits desconhecidos.
 3. Stage por caminhos explícitos, revisar diff e `git diff --cached --check`;

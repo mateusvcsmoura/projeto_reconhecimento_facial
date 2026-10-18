@@ -2,6 +2,17 @@
 
 Cada pasta contém um desenho aprovado internamente, um plano executável e um prompt para o agente responsável. Estes documentos não significam que a implementação já foi realizada.
 
+## Regra obrigatória para todas as tarefas
+
+Antes de qualquer commit ou push, o executor deve ler ou reler o `AGENTS.md`
+da raiz e seguir as instruções vigentes. Commits devem ser em PT-BR, sem
+`Co-authored-by` ou identificação do executor como Co Author, usando somente a
+identidade e as credenciais Git do solicitante. Quando houver muitos arquivos
+ou unidades lógicas distintas, dividir em commits organizados por escopo e
+revisar o staging antes de cada commit. Esta regra não concede autorização de
+publicação: commit e push dependem da autorização explícita aplicável a cada
+tarefa e execução.
+
 | ID | Tarefa | Executor previsto | Estado |
 |---|---|---|---|
 | 001 | Qualidade de captura: nitidez, iluminação e tamanho da face | Luna 6, esforço High | Concluída; implementação publicada na main |
@@ -64,7 +75,7 @@ Tarefa **006 — landmarks faciais na prévia de cadastro**: [desenho](006-facia
 
 1. Abra uma sessão no repositório com Luna 6 e esforço High.
 2. Envie o prompt da tarefa escolhida: [001 — qualidade](001-qualidade-captura/PROMPT.md), [002 — consistência temporal](002-consistencia-temporal/PROMPT.md), [003 — ambiguidade](003-rejeicao-ambiguidade/PROMPT.md), [004 — benchmark](004-benchmark-matching/PROMPT.md), [005 — consolidação e demonstração](005-consolidacao-demonstracao/PROMPT.md), [006 — landmarks](006-facial-landmarks/PROMPT.md), [007 — captura automática](007-captura-automatica/PROMPT.md) ou [008 — turmas](008-turmas/PROMPT.md).
-3. O executor lê o desenho e o plano, implementa, testa, documenta e faz commit + push na `main`, conforme autorização explícita do usuário registrada no prompt.
+3. O executor lê o desenho e o plano, implementa, testa e documenta. Só publica na `main` quando houver autorização explícita vigente para a execução; antes de qualquer commit ou push, relê `AGENTS.md` e aplica a regra acima.
 
 A tarefa 001 foi implementada, verificada e publicada conforme o resultado registrado em [001-qualidade-captura/RESULTADO.md](001-qualidade-captura/RESULTADO.md). Não há tarefas de datasets externos neste pacote.
 
