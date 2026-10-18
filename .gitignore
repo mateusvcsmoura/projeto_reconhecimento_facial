@@ -281,3 +281,5 @@ escola.db
 
 # Configurações locais do Visual Studio Code
 /.vscode/
+# Temporary Stage 4 test outputs, including manifests and SHA-256 sidecars.
+/.pytest-stage4-tmp-*/
