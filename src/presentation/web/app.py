@@ -15,6 +15,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
 from src.config.web_settings import WebSettings
+from src.infrastructure.repositories.postgres_conta_repository import (
+    PostgresContaRepository,
+)
+from src.presentation.web.routes.auth import criar_rotas_auth
 from src.presentation.web.schemas import (
     ComponentStatus,
     HealthLiveResponse,
@@ -36,6 +40,7 @@ class WebServices:
     """Dependencias substituiveis da API; probes nunca retornam detalhes internos."""
 
     readiness_probes: Mapping[str, HealthProbe] = field(default_factory=dict)
+    auth_repository: PostgresContaRepository | None = None
     clock: Callable[[], datetime] = utc_now
     on_shutdown: Callable[[], None] = field(default=lambda: None)
 
@@ -80,6 +85,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     )
     app.state.environment = settings.environment
     app.state.web_services = services
+    app.include_router(criar_rotas_auth(settings, services.auth_repository))
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -98,6 +104,11 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 status_code=500,
             )
         response.headers["X-Request-ID"] = request_id
+        if request.url.path.startswith(
+            ("/api/v1/auth/", "/api/v1/admin/", "/api/v1/me")
+        ):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
         return response
 
     @app.exception_handler(StarletteHTTPException)

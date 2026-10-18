@@ -28,6 +28,8 @@ class WebSettings(BaseSettings):
     database_url: SecretStr
     secret_key: SecretStr
     retention_days: int
+    public_origin: str | None = None
+    trusted_proxy_cidrs: str | None = None
     database_disposable: bool = False
 
     @field_validator("database_url")
@@ -70,6 +72,53 @@ class WebSettings(BaseSettings):
             raise ValueError("WEB_RETENTION_DAYS deve ser maior que zero.")
         return value
 
+    @field_validator("public_origin")
+    @classmethod
+    def _validar_origem_publica(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            parsed = urlsplit(value)
+            host = parsed.hostname
+            porta = parsed.port
+        except ValueError as exc:
+            raise ValueError(
+                "WEB_PUBLIC_ORIGIN deve ser uma origem HTTP(S) valida."
+            ) from exc
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not host
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "WEB_PUBLIC_ORIGIN deve conter somente esquema, host e porta."
+            )
+        hostname = host.encode("idna").decode("ascii").lower()
+        if ":" in hostname:
+            hostname = f"[{hostname}]"
+        if (parsed.scheme.lower(), porta) in {("http", 80), ("https", 443)}:
+            porta = None
+        netloc = f"{hostname}:{porta}" if porta is not None else hostname
+        return f"{parsed.scheme.lower()}://{netloc}"
+
+    @field_validator("trusted_proxy_cidrs")
+    @classmethod
+    def _validar_proxies_confiaveis(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        for item in value.split(","):
+            try:
+                ipaddress.ip_network(item.strip(), strict=False)
+            except ValueError as exc:
+                raise ValueError(
+                    "WEB_TRUSTED_PROXY_CIDRS contem uma rede invalida."
+                ) from exc
+        return ",".join(item.strip() for item in value.split(","))
+
     @model_validator(mode="after")
     def _proteger_destino_do_banco(self) -> WebSettings:
         parsed = urlsplit(self.database_url.get_secret_value())
@@ -90,6 +139,10 @@ class WebSettings(BaseSettings):
                 )
             if self.database_disposable:
                 raise ValueError("Banco descartavel nao pode ser usado em producao.")
+            if self.public_origin is None or not self.public_origin.startswith(
+                "https://"
+            ):
+                raise ValueError("WEB_PUBLIC_ORIGIN HTTPS e obrigatoria em producao.")
             return self
 
         if host_local and not self.database_disposable:

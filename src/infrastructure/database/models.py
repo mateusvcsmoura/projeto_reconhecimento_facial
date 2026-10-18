@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -18,6 +19,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Identity,
     Index,
+    Integer,
     LargeBinary,
     MetaData,
     SmallInteger,
@@ -26,6 +28,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Nomes deterministicos para constraints e indices: sem isso o downgrade
@@ -41,6 +44,9 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+BIGINT_ID = BigInteger().with_variant(Integer, "sqlite")
 
 
 class Aluno(Base):
@@ -118,15 +124,186 @@ class Turma(Base):
     excluida_em: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    responsavel_professor_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("professores_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
 
     vinculos: Mapped[list[AlunoTurma]] = relationship(
         back_populates="turma", passive_deletes=True
+    )
+    responsavel: Mapped[ProfessorWeb | None] = relationship(
+        back_populates="turmas_responsaveis"
     )
 
     __table_args__ = (
         CheckConstraint("length(btrim(materia)) > 0", name="materia_nao_vazia"),
         CheckConstraint(
             "periodo IN ('matutino', 'diurno', 'noturno')", name="periodo_valido"
+        ),
+        Index("ix_turmas_responsavel_professor_id", "responsavel_professor_id"),
+    )
+
+
+class ContaWeb(Base):
+    """Conta de acesso ao runtime web; nao representa cadastro biometrico."""
+
+    __tablename__ = "contas_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    usuario_normalizado: Mapped[str] = mapped_column(String(80), nullable=False)
+    senha_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    papel: Mapped[str] = mapped_column(String(16), nullable=False)
+    ativa: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+    troca_senha_obrigatoria: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    versao_credencial: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    credencial_temporaria_expira_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    credencial_temporaria_usada_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    professor: Mapped[ProfessorWeb | None] = relationship(
+        back_populates="conta", uselist=False
+    )
+    sessoes: Mapped[list[SessaoAutenticacaoWeb]] = relationship(
+        back_populates="conta", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "usuario_normalizado", name="uq_contas_web_usuario_normalizado"
+        ),
+        CheckConstraint("length(usuario_normalizado) > 0", name="usuario_nao_vazio"),
+        CheckConstraint("papel IN ('professor', 'admin')", name="papel_valido"),
+        CheckConstraint("versao_credencial > 0", name="versao_credencial_positiva"),
+    )
+
+
+class ProfessorWeb(Base):
+    """Perfil de professor que pode ser responsavel por turmas web."""
+
+    __tablename__ = "professores_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    conta_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    conta: Mapped[ContaWeb] = relationship(back_populates="professor")
+    turmas_responsaveis: Mapped[list[Turma]] = relationship(
+        back_populates="responsavel"
+    )
+
+    __table_args__ = (UniqueConstraint("conta_id", name="uq_professores_web_conta_id"),)
+
+
+class SessaoAutenticacaoWeb(Base):
+    """Sessao opaca: so hashes do cookie e token CSRF sao persistidos."""
+
+    __tablename__ = "sessoes_autenticacao_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    csrf_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    conta_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    versao_credencial: Mapped[int] = mapped_column(Integer, nullable=False)
+    criada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    atividade_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    expira_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    conta: Mapped[ContaWeb] = relationship(back_populates="sessoes")
+
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_sessoes_autenticacao_web_token_hash"),
+        CheckConstraint("length(token_hash) = 64", name="token_hash_sha256"),
+        CheckConstraint("length(csrf_hash) = 64", name="csrf_hash_sha256"),
+        CheckConstraint("expira_em > criada_em", name="expiracao_absoluta_valida"),
+        Index("ix_sessoes_autenticacao_web_conta_id", "conta_id"),
+        Index("ix_sessoes_autenticacao_web_expira_em", "expira_em"),
+    )
+
+
+class LimiteLoginWeb(Base):
+    """Buckets de rate limit identificados por HMAC de conta e endereco IP."""
+
+    __tablename__ = "limites_login_web"
+
+    chave_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    janela_iniciada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    falhas: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    bloqueada_ate: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    tentativa_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(chave_hash) = 64", name="chave_hash_sha256"),
+        CheckConstraint("falhas >= 0", name="falhas_nao_negativas"),
+    )
+
+
+class EventoAuditoriaWeb(Base):
+    """Registro append-only sem credenciais, tokens ou dados biometricos."""
+
+    __tablename__ = "eventos_auditoria_web"
+
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
+    ator_conta_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    acao: Mapped[str] = mapped_column(String(100), nullable=False)
+    alvo_tipo: Mapped[str] = mapped_column(String(64), nullable=False)
+    alvo_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    instante: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    justificativa: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    antes: Mapped[dict[str, object] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    depois: Mapped[dict[str, object] | None] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    request_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("length(acao) > 0", name="acao_nao_vazia"),
+        CheckConstraint("length(alvo_tipo) > 0", name="alvo_tipo_nao_vazio"),
+        CheckConstraint("length(alvo_id) > 0", name="alvo_id_nao_vazio"),
+        Index("ix_eventos_auditoria_web_ator_instante", "ator_conta_id", "instante"),
+        Index(
+            "ix_eventos_auditoria_web_alvo_instante", "alvo_tipo", "alvo_id", "instante"
         ),
     )
 

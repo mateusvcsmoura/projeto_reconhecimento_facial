@@ -6,8 +6,12 @@ from collections.abc import Callable
 
 from fastapi import FastAPI
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 from src.config.web_settings import WebSettings, get_web_settings
+from src.infrastructure.repositories.postgres_conta_repository import (
+    PostgresContaRepository,
+)
 from src.presentation.web.app import WebServices, create_app
 
 
@@ -34,8 +38,14 @@ def create_web_app(
         future=True,
         pool_pre_ping=True,
     )
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    auth_repository = PostgresContaRepository(
+        session_factory,
+        segredo=configuracao.secret_key.get_secret_value(),
+    )
     services = WebServices(
         readiness_probes={"database": lambda: _database_ready(engine)},
+        auth_repository=auth_repository,
         on_shutdown=engine.dispose,
     )
     return create_app(configuracao, services)
