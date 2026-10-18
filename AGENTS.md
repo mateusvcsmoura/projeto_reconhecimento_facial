@@ -24,12 +24,20 @@ pendências biométricas.
 
 A tarefa 008 implementa operações com contexto de turma, vínculo N:N e
 presença por turma. A migration `0004` foi aplicada ao PostgreSQL local
-configurado; testes de integração PostgreSQL/BDD permanecem pendentes. O
-código atual requer esse schema para o menu de turmas; outros ambientes devem
-ser verificados separadamente. Consulte
+configurado; a migration `0005` da autenticação web também foi aplicada ao
+banco local `escola`. A migration `0006` de referências web foi validada somente
+em um PostgreSQL descartável e não foi aplicada a `escola`. Testes de integração
+PostgreSQL/BDD da tarefa 008 permanecem pendentes. O código atual requer esse
+schema para o menu de turmas; outros ambientes devem ser verificados
+separadamente. Consulte
 [`docs/TURMAS.md`](docs/TURMAS.md) e
 [`tasks/008-turmas/RESULTADO.md`](tasks/008-turmas/RESULTADO.md) antes de
 qualquer implantação.
+
+A tarefa 011 implementa no workspace solicitações de cadastro pendentes,
+conjuntos versionados com três referências privadas e casos de uso de aprovação,
+atualização e limpeza. Isso não ativa convite, API, worker ou interface. Consulte
+[`tasks/011-web-referencias-cadastro-pendente/RESULTADO.md`](tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
 
 ## 3. Histórico dos experimentos de ML
 
@@ -107,6 +115,12 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 - Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
 - Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
 - Antes de qualquer commit ou push, reler `AGENTS.md` na raiz e seguir suas instruções vigentes. Commits sempre em PT-BR; não se marcar como Co Author nem adicionar `Co-authored-by`; usar somente a identidade e as credenciais Git já configuradas do solicitante, sem reconfigurar autoria. Se a entrega envolver muitos arquivos ou unidades lógicas distintas, dividir em commits separados e organizados por escopo; revisar o staging e seu diff antes de cada commit.
+
+Autorização permanente do solicitante registrada em 18/10/2026: quando pedir a
+implementação de uma tarefa, o usuário autoriza os commits necessários e o push
+para `main` ao concluir. Não pedir nova autorização para essa publicação, salvo
+se o usuário limitar ou revogar a instrução. Esta autorização não cobre force
+push, publicação de trabalho alheio, deploy, nem operações de infraestrutura.
 
 ## 7. Próxima direção sugerida
 

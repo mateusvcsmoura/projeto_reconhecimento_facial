@@ -3,7 +3,8 @@
 > Executor: **Luna 6 High**, inline, sem delegação. Usar
 > `superpowers:executing-plans` quando disponível. Ler [DESENHO.md](DESENHO.md)
 > e [contrato comum](../WEB-CONTRATO-EXECUCAO.md) integralmente.
-> Este arquivo prepara uma execução futura; não a inicia nesta conversa.
+> Execução concluída no workspace em 18/10/2026. Evidências detalhadas em
+> [RESULTADO.md](RESULTADO.md); sem commit, push ou deploy.
 
 **Objetivo:** Três referências, cadastro pendente e versionamento biométrico.
 **Dependências:** 010.
@@ -14,99 +15,100 @@ pela009; acrescentar apenas dependência estritamente necessária ao escopo.
 
 ## 1. Baseline e preparação
 
-- [ ] Ler AGENTS.md, CLAUDE.md, instructions relevantes, docs web, contrato comum,
+- [x] Ler AGENTS.md, CLAUDE.md, instructions relevantes, docs web, contrato comum,
   desenho/plano desta tarefa e RESULTADO das dependências.
-- [ ] Conferir branch, HEAD, status e código real; baseline documental original
+- [x] Conferir branch, HEAD, status e código real; baseline documental original
   `02611f3`, mas executar sobre o estado efetivo após dependências. Preservar
   alterações alheias e arquivos temporários; não fazer reset/clean.
-- [ ] Confirmar se pré-requisitos estão implementados/testados. Documento pronto
+- [x] Confirmar se pré-requisitos estão implementados/testados. Documento pronto
   não é funcionalidade pronta. Registrar impedimento concreto sem simular êxito.
-- [ ] Mapear os arquivos listados no desenho e chamadas atuais antes de mudar
+- [x] Mapear os arquivos listados no desenho e chamadas atuais antes de mudar
   assinaturas. Escolher o menor ponto responsável sem refatoração geral.
 
 ## 2. Passos de implementação e prova
 
-### 1. Mapear armazenamento/cascatas atuais e preparar schema sem remover colunas legadas de aluno.
+### 1. Mapear armazenamento/cascatas atuais e preparar schema sem remover colunas legadas de aluno — concluído
 
-- [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
+- [x] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.
-- [ ] Executar os testes focados no ambiente permitido e registrar falha esperada
+- [x] Executar os testes focados no ambiente permitido e registrar falha esperada
   antes da implementação, quando se tratar de comportamento novo.
-- [ ] Implementar somente esse passo, preservando contratos e regras anteriores.
-- [ ] Reexecutar os testes focados e registrar o resultado; preparar separadamente
+- [x] Implementar somente esse passo, preservando contratos e regras anteriores.
+- [x] Reexecutar os testes focados e registrar o resultado; preparar separadamente
   testes que dependem de autorização de banco/infraestrutura ainda ausente.
 
-### 2. Implementar entidades/contratos e testes de três ordinais, modelo/512D, ownership e estados.
+### 2. Implementar entidades/contratos e testes de três ordinais, modelo/512D, ownership e estados — concluído
 
-- [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
+- [x] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.
-- [ ] Executar os testes focados no ambiente permitido e registrar falha esperada
+- [x] Executar os testes focados no ambiente permitido e registrar falha esperada
   antes da implementação, quando se tratar de comportamento novo.
-- [ ] Implementar somente esse passo, preservando contratos e regras anteriores.
-- [ ] Reexecutar os testes focados e registrar o resultado; preparar separadamente
+- [x] Implementar somente esse passo, preservando contratos e regras anteriores.
+- [x] Reexecutar os testes focados e registrar o resultado; preparar separadamente
   testes que dependem de autorização de banco/infraestrutura ainda ausente.
 
-### 3. Implementar persistência provisória, aprovação/vínculo, substituição versionada e auditoria transacional.
+### 3. Implementar persistência provisória, aprovação/vínculo, substituição versionada e auditoria transacional — concluído
 
-- [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
+- [x] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.
-- [ ] Executar os testes focados no ambiente permitido e registrar falha esperada
+- [x] Executar os testes focados no ambiente permitido e registrar falha esperada
   antes da implementação, quando se tratar de comportamento novo.
-- [ ] Implementar somente esse passo, preservando contratos e regras anteriores.
-- [ ] Reexecutar os testes focados e registrar o resultado; preparar separadamente
+- [x] Implementar somente esse passo, preservando contratos e regras anteriores.
+- [x] Reexecutar os testes focados e registrar o resultado; preparar separadamente
   testes que dependem de autorização de banco/infraestrutura ainda ausente.
 
-### 4. Tratar compensação de arquivos exclusivos, limpeza de órfãos e concorrência de matrícula.
+### 4. Tratar compensação de arquivos exclusivos, limpeza de órfãos e concorrência de matrícula — concluído
 
-- [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
+- [x] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.
-- [ ] Executar os testes focados no ambiente permitido e registrar falha esperada
+- [x] Executar os testes focados no ambiente permitido e registrar falha esperada
   antes da implementação, quando se tratar de comportamento novo.
-- [ ] Implementar somente esse passo, preservando contratos e regras anteriores.
-- [ ] Reexecutar os testes focados e registrar o resultado; preparar separadamente
+- [x] Implementar somente esse passo, preservando contratos e regras anteriores.
+- [x] Reexecutar os testes focados e registrar o resultado; preparar separadamente
   testes que dependem de autorização de banco/infraestrutura ainda ausente.
 
-### 5. Preparar testes PostgreSQL de constraints/locks; documentar novos campos, legado inelegível e coleta autorizada futura.
+### 5. Preparar testes PostgreSQL de constraints/locks; documentar novos campos, legado inelegível e coleta autorizada futura — concluído
 
-- [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
+- [x] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.
-- [ ] Executar os testes focados no ambiente permitido e registrar falha esperada
+- [x] Executar os testes focados no ambiente permitido e registrar falha esperada
   antes da implementação, quando se tratar de comportamento novo.
-- [ ] Implementar somente esse passo, preservando contratos e regras anteriores.
-- [ ] Reexecutar os testes focados e registrar o resultado; preparar separadamente
+- [x] Implementar somente esse passo, preservando contratos e regras anteriores.
+- [x] Reexecutar os testes focados e registrar o resultado; preparar separadamente
   testes que dependem de autorização de banco/infraestrutura ainda ausente.
 
 ## 3. Revisão de aceite específica
 
-- [ ] Provar: Duas referências não ativam; ordinal duplicado ou modelos incompatíveis recusam.
-- [ ] Provar: Matrícula existente e corrida de aprovações não sobrescrevem cadastro global.
-- [ ] Provar: Professor não lê biometria; tentativa de aprovar turma alheia falha.
-- [ ] Provar: Falha SQL remove somente arquivos da própria solicitação; conjunto antigo permanece em falha de troca.
+- [x] Provar: Duas referências não ativam; ordinal duplicado ou modelos incompatíveis recusam.
+- [x] Provar: Matrícula existente e corrida de aprovações não sobrescrevem cadastro global.
+- [x] Provar: Professor não lê biometria; tentativa de aprovar turma alheia falha.
+- [x] Provar: Falha SQL remove somente arquivos da própria solicitação; conjunto antigo permanece em falha de troca.
 
 ## 4. Verificação final da etapa
 
-- [ ] Rodar unitários/HTTP focados e regressões afetadas; depois `python -m pytest
+- [x] Rodar unitários/HTTP focados e regressões afetadas; depois `python -m pytest
   tests/unit -p no:cacheprovider --basetemp <diretorio-temporario-exclusivo>`
   no ambiente de teste correto. Substituir o caminho antes de executar.
-- [ ] Inspecionar conftest/fixtures antes de selecionar integração/BDD. Nunca
+- [x] Inspecionar conftest/fixtures antes de selecionar integração/BDD. Nunca
   executar `pytest` global sem conferir se acessa banco. Integração exige
   ambiente descartável identificado e autorização específica.
-- [ ] Executar `python -m ruff check <arquivos-python-alterados>`,
+- [x] Executar `python -m ruff check <arquivos-python-alterados>`,
   `python -m ruff format --check <arquivos-python-alterados>`,
   `python -m mypy src scripts` e `git diff --check`; registrar comandos
   resolvidos, resultado e limitações do ambiente, sem instalar tooling em
   ambiente de produção para contornar erro.
-- [ ] Verificar ausência de biometria/segredos/arquivos gerados sensíveis no diff;
+- [x] Verificar ausência de biometria/segredos/arquivos gerados sensíveis no diff;
   conferir que não há mudanças de interface antecipadas fora de020.
-- [ ] Se etapa envolver SQL, não considerar metadata/mocks prova de locks ou
+- [x] Se etapa envolver SQL, não considerar metadata/mocks prova de locks ou
   migrations. Distinguir “preparado” de “executado” no resultado.
 
 ## 5. Documentação e encerramento
 
-- [ ] Criar `RESULTADO.md` nesta pasta: HEAD inicial, arquivos, contratos,
+- [x] Criar `RESULTADO.md` nesta pasta: HEAD inicial, arquivos, contratos,
   comandos/resultados efetivos, testes não executados, motivo, riscos e status.
-- [ ] Atualizar o índice e documentos atuais apenas no que foi entregue; não
+- [x] Atualizar o índice e documentos atuais apenas no que foi entregue; não
   marcar deploy, banco aplicado ou avaliação biométrica sem evidência.
-- [ ] Não avançar à próxima task automaticamente. Modelo e casos de uso de cadastro pendente completos com fakes, sem formulário/câmera e sem alunos reais. Ativação exige três referências e aprovação independente.
-- [ ] Commit/push somente se explicitamente autorizados para a execução corrente;
-  observar o contrato comum. Este plano não publica alterações por conta própria.
+- [x] Não avançar à próxima task automaticamente. Modelo e casos de uso de cadastro pendente completos com fakes, sem formulário/câmera e sem alunos reais. Ativação exige três referências e aprovação independente.
+- [x] Commit/push não executados: não houve autorização explícita de publicação
+  nesta execução; observar o contrato comum. Este plano não publica alterações
+  por conta própria.

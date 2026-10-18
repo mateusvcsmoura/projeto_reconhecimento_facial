@@ -2,12 +2,13 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; a fundação web da tarefa 009 foi implementada
-no workspace; implantação não executada.** Este documento substitui as propostas
-conflitantes das versões anteriores. A tarefa 009 não autoriza migrations,
-contratação, conexão ao Google Drive, deploy, testes biométricos reais, commit ou
-push. A stack ML foi instalada e importada em Ubuntu 24.04/Python 3.12.3; a
-inferência com pesos e a validação integrada seguem pendentes.
+**Status: planejamento consolidado; as tarefas 009 e 011 foram implementadas no
+workspace e a 010 foi publicada na `main`; implantação web não executada.** Este
+documento substitui as propostas conflitantes das versões anteriores. A revisão
+`0006` da task 011 foi validada em banco PostgreSQL descartável, sem aplicação ao
+banco local `escola`. API de convite, worker, inferência e interface continuam
+pendentes. A stack ML foi instalada e importada em Ubuntu 24.04/Python 3.12.3;
+a inferência com pesos e a validação integrada seguem pendentes.
 
 Documentos complementares:
 
@@ -320,7 +321,10 @@ histórico 0,428179... nem ajustar `FACE_THRESHOLD` automaticamente.
 
 ## 8. Modelo de dados proposto
 
-Nomes abaixo são propostas para futuras migrations, não tabelas existentes.
+Nomes abaixo são propostas para futuras migrations, não tabelas existentes,
+exceto `SolicitacaoCadastro`, `ConjuntoReferencia` e `ReferenciaFacial`, criadas
+pela revisão `0006` no código. A migration permanece aplicada somente nos testes
+descartáveis da tarefa 011.
 
 | Entidade | Campos/regras principais |
 |---|---|
@@ -430,6 +434,12 @@ opcional; importação em lote não foi adicionada.
   em `pip check` e imports de OpenCV/NumPy/PyTorch CPU/TensorFlow/DeepFace/RetinaFace;
   a inferência com pesos continua pendente, sem download automático. Evidências e
   comandos estão em [RESULTADO 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
+- 18/10/2026: tarefa 011 adicionou a revisão `0006`, armazenamento privado
+  injetável e casos de uso de solicitação, três referências, aprovação,
+  atualização e limpeza. Suíte unitária e integração PostgreSQL descartável
+  passaram; não há API de convite, worker/fila, inferência ou ativação em runtime.
+  Evidências e limitações estão em
+  [RESULTADO 011](../tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;

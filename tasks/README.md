@@ -9,9 +9,11 @@ da raiz e seguir as instruções vigentes. Commits devem ser em PT-BR, sem
 `Co-authored-by` ou identificação do executor como Co Author, usando somente a
 identidade e as credenciais Git do solicitante. Quando houver muitos arquivos
 ou unidades lógicas distintas, dividir em commits organizados por escopo e
-revisar o staging antes de cada commit. Esta regra não concede autorização de
-publicação: commit e push dependem da autorização explícita aplicável a cada
-tarefa e execução.
+revisar o staging antes de cada commit. Em 18/10/2026, o solicitante autorizou
+permanentemente os commits necessários e o push para `main` ao pedir a
+implementação de uma tarefa; não pedir nova autorização, salvo instrução
+posterior em contrário. Isso não autoriza force push, publicar alterações
+alheias ou fazer deploy.
 
 | ID | Tarefa | Executor previsto | Estado |
 |---|---|---|---|
@@ -32,7 +34,9 @@ Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
 na tarefa 020**, após aprovação do backend na tarefa 019. API/testes HTTP não incluem telas
 provisórias. A tarefa 009 foi implementada no workspace; runtime web e stack ML
 instalada/importada passaram em Ubuntu 24.04/Python 3.12. Inferência com pesos e
-validação integrada continuam pendentes. As tarefas 011–020 seguem planejadas.
+validação integrada continuam pendentes. A tarefa 011 foi implementada no
+workspace e validada em PostgreSQL descartável; as tarefas 012–020 seguem
+planejadas. A tarefa 011 ainda não foi publicada nem implantada.
 Tarefa 010 foi implementada e publicada na `main`; revisão `0005` aplicada ao
 banco local `escola`, 3 testes PostgreSQL descartáveis aprovados e
 `alembic check` limpo; sem deploy; veja
@@ -50,7 +54,7 @@ de infraestrutura dependem de autorização explícita vigente.
 |---|---|---|---|
 | 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | API e instalação/importação ML Linux concluídas; inferência com pesos pendente; veja [RESULTADO.md](009-web-fundacao-linux/RESULTADO.md) |
 | 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Concluída e publicada na `main`; migration local e integração PostgreSQL validadas; sem deploy; veja [RESULTADO.md](010-web-autenticacao-autorizacao/RESULTADO.md) |
-| 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Backend e migration 0006 implementados; 1011 unitários, PostgreSQL, Ruff e mypy aprovados no workspace; sem API de convite, worker, interface ou deploy; veja [RESULTADO.md](011-web-referencias-cadastro-pendente/RESULTADO.md) |
 | 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 014 | [API de cadastro por link e aprovação](014-web-api-cadastro-aprovacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |

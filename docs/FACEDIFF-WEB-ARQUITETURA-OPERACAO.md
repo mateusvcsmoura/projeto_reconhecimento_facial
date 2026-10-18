@@ -5,6 +5,13 @@ Requisitos e classificação C/R/V no [planejamento principal](PLANEJAMENTO-FUTU
 Execução depende de tarefas e autorização futuras; os procedimentos abaixo não
 foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa.
 
+Estado do código em 18/10/2026: a fundação da task 009, autenticação da 010 e
+backend de referências da 011 existem no workspace. A migration `0006` só foi
+validada em PostgreSQL descartável; convite/API, fila/worker, inferência,
+interface, configuração do volume privado e deploy continuam pendentes. O
+armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
+precisa de ACL exclusiva. Nenhum root de produção foi configurado.
+
 ## 1. Topologia proposta
 
 Uma VPS x86_64: 2 vCPU, 8 GB RAM, 100 GB NVMe, Ubuntu Server 24.04 LTS.

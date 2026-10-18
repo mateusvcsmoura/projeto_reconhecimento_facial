@@ -1,8 +1,9 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
 Data: 18/10/2026. **As tarefas 009 e 010 foram implementadas; a 010 foi
-publicada na `main` após autorização explícita. A integração PostgreSQL passou;
-as tarefas 011–020 continuam pendentes.** O runtime web separado passou em testes no
+publicada na `main` após autorização explícita. A tarefa 011 foi implementada
+no workspace e validada com PostgreSQL descartável; não foi publicada nem
+implantada. As tarefas 012–020 continuam pendentes.** O runtime web separado passou em testes no
 Ubuntu 24.04. A stack ML completa ainda não foi validada em Linux; consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
 [runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve deploy.
@@ -118,6 +119,29 @@ dependem da medição019 e do gate operacional.
 - Rotas, variáveis `WEB_PUBLIC_ORIGIN`/`WEB_TRUSTED_PROXY_CIDRS`, bootstrap e
   pendências estão em [FACEDIFF-WEB-AUTH.md](../docs/FACEDIFF-WEB-AUTH.md).
 
+### Contratos estabelecidos na tarefa 011
+
+- A revisão `0006` cria solicitações separadas de `Aluno`, conjuntos versionados
+  e três referências por ordinal. Embeddings são persistidos como float32 de
+  dimensão 512; cada captura guarda seu próprio consentimento/versão e caminho
+  relativo privado. A revisão foi testada somente no banco descartável
+  `task011_web_references_test_20261018`; `escola` continua sem `0006`.
+- Cadastro pendente não reserva matrícula. A aprovação exige vínculo de turma
+  autorizado e conferência independente; matrícula existente preserva nome,
+  foto e embedding, adicionando apenas vínculo. Corridas usam unicidade SQL e
+  reavaliação transacional.
+- Atualização biométrica é solicitação separada e aprovação exclusiva de admin;
+  nova versão é ativada atomicamente e a anterior deixa de ser ativa. Consultas
+  internas de galeria retornam somente conjuntos ativos. Falha SQL na troca
+  descarta o candidato e tenta remover seus arquivos; limpeza expirada/rejeitada
+  registra estado e pode ser repetida.
+- O armazenamento requer root privado injetado e ACL restrita no Windows; não há
+  configuração de runtime ou montagem para web ainda. A tarefa não criou rotas,
+  convites, DTO HTTP, worker/inferência nem interface. Como a fila da tarefa 012
+  ainda não existe, a invalidação de jobs antigos será integrada quando esses
+  jobs forem implementados; consumidores futuros devem persistir a versão do
+  conjunto usado e revalidá-la antes de gravar resultado.
+
 ## 5. Permissões para futuras execuções
 
 Ao receber uma task para executar, implementar somente seu código/testes/docs.
@@ -126,10 +150,10 @@ respeitar permissões do ambiente e não modificar ambientes pessoais/produção
 
 **Não há autorização implícita** para banco operacional, migrations online,
 provisionamento/contratação, deploy, GoogleDrive, imagens reais, cadastro de
-participantes, troca de limiar, desligamento de antispoofing ou publicaçãoGit.
-Preparar os artefatos, indicar bloqueio específico e concluir o que independe
-dele. Integração que cria/migra/limpa banco exige autorização explícita de
-ambiente descartável; nunca ler `.env` real como fallback.
+participantes, troca de limiar ou desligamento de antispoofing. Preparar os
+artefatos, indicar bloqueio específico e concluir o que independe dele.
+Integração que cria/migra/limpa banco exige autorização explícita de ambiente
+descartável; nunca ler `.env` real como fallback.
 
 **Autorização explícita registrada em 18/10/2026:** o usuário autorizou
 migrations e testes com escrita em bancos locais de desenvolvimento/teste do
@@ -141,6 +165,12 @@ ou compartilhado, nem imagens biométricas reais. O `DATABASE_URL` local pode
 ser usado somente para identificar/conectar ao banco de desenvolvimento depois
 de validar host e nome; nunca exibir a credencial ou usá-la como fallback para
 as configurações `WEB_*`.
+
+**Autorização permanente de publicação registrada em 18/10/2026:** ao pedir a
+implementação de uma task, o solicitante autoriza criar commits organizados e
+fazer push para `main` ao concluir, sem nova confirmação. Aplicar salvo
+instrução posterior em contrário. Isso não autoriza force push, publicação de
+alterações alheias, deploy ou operações de infraestrutura.
 
 Nenhum teste deve coletar webcam, buscar datasets ou baixar biometria da internet.
 Pesos de modelos não são autorização para usar imagens de terceiros; registrar
@@ -154,9 +184,8 @@ ambiente, testes aprovados/falhos/não executados, migrations só preparadas ou
 aplicadas com autorização, riscos e condição de parada. Nenhum número de teste
 histórico vira evidência da entrega atual. Não marcar skips como aprovação.
 
-**Commit e push não estão automaticamente autorizados nos novos pacotes.**
-A restrição explícita da consolidação recente substitui a autorização herdada
-dos prompts001–008. Se o usuário instruir commit+push na execução da task:
+**A publicação está autorizada para tarefas de implementação pelo registro
+permanente acima.** Ao concluir uma task:
 
 1. Antes de cada commit e novamente antes do push, reler `AGENTS.md` na raiz e
    seguir suas instruções. Usar apenas identidade/credenciais Git já
