@@ -6,6 +6,8 @@
 - [Planejamento futuro de presença pela web](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md)
 - [FaceDiff web: arquitetura e operação na Hostinger KVM 2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md)
 - [FaceDiff web: roadmap e plano de validação](FACEDIFF-WEB-ROADMAP.md)
+- [FaceDiff web: contas, sessões e autorização](FACEDIFF-WEB-AUTH.md)
+- [FaceDiff web: runtime e compatibilidade Linux](FACEDIFF-WEB-RUNTIME.md)
 - [Tarefas: desenhos, planos, prompts e resultados](../tasks/README.md)
 
 ## Arquitetura e privacidade
@@ -44,4 +46,7 @@ Esses arquivos eram ignorados pelo Git, portanto sua remoção é local e não
 aparece como exclusão no histórico versionado. Especificações de arquitetura,
 ADRs, LGPD, evidências, guias operacionais e todos os pacotes de `tasks/`
 foram preservados. O planejamento web foi consolidado em 17/10/2026; sua
-implementação e implantação continuam futuras e dependem de autorização.
+runtime e autenticação foram implementados e publicados na `main`; a revisão
+`0005` foi aplicada ao banco local `escola` e os testes PostgreSQL descartáveis
+passaram. Não houve deploy.
+Implantação e validação operacional continuam pendentes.

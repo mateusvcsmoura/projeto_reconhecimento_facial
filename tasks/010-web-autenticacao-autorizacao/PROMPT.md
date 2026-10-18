@@ -52,6 +52,11 @@ Auditoria.registrar(transacao, evento) compartilha unidade de trabalho; erro de 
 Não executar migration, acessar banco operacional, conectar Google Drive,
 provisionar VPS, realizar deploy ou usar rostos reais sem autorização específica
 vigente. Preparar código/migration/testes não significa autorização para aplicá-los.
+**Aditivo de autorização do usuário (18/10/2026):** migrations e testes que
+escrevam em bancos locais de desenvolvimento/teste do projeto estão autorizados,
+incluindo reset/seed sintético se necessário. Para testes PostgreSQL, ainda
+usar banco descartável identificado e confirmar o destino antes de DDL. A
+autorização não cobre produção, bancos remotos/compartilhados ou rostos reais.
 Não desabilitar antispoofing ou alterar threshold0,30 para fazer testes passarem.
 Não interpretar matrícula informada como autenticação.
 

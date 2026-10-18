@@ -1,30 +1,49 @@
 # FaceDiff web — contrato de transição de schema
 
-Planejamento complementar às tasks009–020. **Nenhuma migration será executada
+Planejamento complementar às tasks 009–020. **Nenhuma migration será executada
 na geração dos pacotes.** Escrever revision/testes é diferente de executar SQL.
+
+## Autorização explícita vigente
+
+Em 18/10/2026, o usuário autorizou executar migrations e testes que escrevam em
+bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
+quando necessário. O projeto ainda não está em uso e não há dados importantes.
+Esta autorização cobre a validação da migration `0005` da task 010. Antes de
+cada escrita, confirmar host, nome e marcador do destino; preferir banco
+descartável para testes. Ela não abrange produção, banco remoto/compartilhado
+ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
+usado apenas para identificar/conectar ao banco de desenvolvimento após
+confirmar host e nome; não usá-lo como fallback para variáveis `WEB_*` nem
+exibir credenciais.
 
 ## Estado confirmado por inspeção
 
-O repositório contém revisions0001–0004. `models.py` tem alunos com embedding
-único, turmas, vínculos N:N e presença única turma/aluno/dia. AGENTS/ARCHITECTURE
-registram0004 aplicada ao banco local; não foi consultado banco nesta tarefa.
+O repositório contém as revisões 0001–0005. A revisão `0005` da task 010 foi
+compilada offline e aplicada ao banco local `escola` em 18/10/2026; `alembic
+check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes no
+banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
+reverteu o schema a `base`. `models.py` mantém alunos com embedding único,
+turmas, vínculos N:N e presença única turma/aluno/dia. `AGENTS.md` e
+`ARCHITECTURE.md` registravam a revisão 0004 antes desta execução.
+`0005` acrescenta contas/perfis, sessões, rate limit, auditoria e responsável
+nullable por turma legada; consulte `docs/FACEDIFF-WEB-AUTH.md`.
 CLAUDE contém trechos históricos divergentes; não presumir estado de outro banco.
 
 ## Donos das expansões
 
 | Task | Expansão esperada |
 |---|---|
-|010|Conta/professor, sessão de autenticação, auditoria e responsável por turma|
-|011|Solicitação, conjunto/referências versionadas e consentimento/estado web|
-|012|Jobs/reservas/leases da fila, índices de admissão e idempotência|
-|013|Estado persistente de desafio quando não coberto por job/solicitação|
-|014|Link/credencial efêmera e associação de solicitações ao convite|
-|015|Sessão de presença, tentativa/quota e novo ramo de presença por sessão|
-|016|Revisão/correção/status/versão de presença, se não criados antes|
+| 010 | Conta/professor, sessão de autenticação, auditoria e responsável por turma |
+| 011 | Solicitação, conjunto/referências versionadas e consentimento/estado web |
+| 012 | Jobs/reservas/leases da fila, índices de admissão e idempotência |
+| 013 | Estado persistente de desafio quando não coberto por job/solicitação |
+| 014 | Link/credencial efêmera e associação de solicitações ao convite |
+| 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão |
+| 016 | Revisão/correção/status/versão de presença, se não criados antes |
 
 Inspecionar head real a cada execução; não criar números fixos conflitantes nem
 uma segunda tabela para entidade já entregue. Não modificar silenciosamente
-revision já aplicada. Documentar relacionamento de campos criados em fases
+revisão já aplicada. Documentar relacionamento de campos criados em fases
 anteriores que só ganham FK/validação completa depois.
 
 ## Preservação e compatibilidade
@@ -47,7 +66,7 @@ anteriores que só ganham FK/validação completa depois.
   vínculo aluno/turma; checagem de vínculo ativo é transacional. Se manter
   turma_id redundante, garantir consistência via FK/constraint, não só UI.
 - `on_conflict` diário atual referencia constraint por nome. Migrar código e
-  índice parcial em conjunto; atualizar caminhoCLI/importador e testes. Não
+  índice parcial em conjunto; atualizar caminho da CLI/importador e testes. Não
   prometer que versões antigas continuam escrevendo com constraint removida.
 - Não fabricar sessões para histórico. Não misturar faltas inferidas, registros
   manuais e confirmações biométricas. Auditoria não deve ser apagada por cascata

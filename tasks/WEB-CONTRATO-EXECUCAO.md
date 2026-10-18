@@ -1,10 +1,11 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **A tarefa 009 implementou a fundação HTTP no workspace; as
-010–020 continuam planejadas.** O runtime web separado passou em testes no
+Data: 18/10/2026. **As tarefas 009 e 010 foram implementadas; a 010 foi
+publicada na `main` após autorização explícita. A integração PostgreSQL passou;
+as tarefas 011–020 continuam pendentes.** O runtime web separado passou em testes no
 Ubuntu 24.04. A stack ML completa ainda não foi validada em Linux; consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
-[runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve publicação nem deploy.
+[runtime web](../docs/FACEDIFF-WEB-RUNTIME.md). Não houve deploy.
 Executor previsto para as próximas tasks: Luna 6, esforço High, execução inline.
 
 ## 1. Ordem e interface por último
@@ -100,6 +101,23 @@ dependem da medição019 e do gate operacional.
 - O ambiente HTTP usa `requirements-web.txt`, sem fornecedor de `cv2` ou modelos.
   A CLI e seus requisitos permanecem separados.
 
+### Contratos estabelecidos na tarefa 010
+
+- Contas web têm usuário NFKC/casefold único, papéis `professor`/`admin`, hash
+  Argon2id, estado ativo, troca obrigatória e versão de credencial.
+- Sessão opaca em cookie `Secure`/`HttpOnly`/`SameSite=Lax`, expiração de 30
+  minutos sem atividade e 8 horas absolutas; o banco guarda somente hashes.
+- `Origin` configurado e token CSRF são exigidos em mutações. Login limita
+  tentativas por conta e IP, com resposta não enumerável.
+- Perfil de professor e responsável nullable para turmas legadas entram na
+  revisão `0005`; sem responsável, turma fica inacessível a professores. A
+  migration `0005` foi aplicada ao banco local `escola`; a integração PostgreSQL
+  passou em banco descartável e `alembic check` não detectou drift.
+- Auditoria de mutação compartilha a transação e trigger PostgreSQL impede
+  atualização/exclusão de eventos. Admin inicial exige comando local explícito.
+- Rotas, variáveis `WEB_PUBLIC_ORIGIN`/`WEB_TRUSTED_PROXY_CIDRS`, bootstrap e
+  pendências estão em [FACEDIFF-WEB-AUTH.md](../docs/FACEDIFF-WEB-AUTH.md).
+
 ## 5. Permissões para futuras execuções
 
 Ao receber uma task para executar, implementar somente seu código/testes/docs.
@@ -112,6 +130,17 @@ participantes, troca de limiar, desligamento de antispoofing ou publicaçãoGit.
 Preparar os artefatos, indicar bloqueio específico e concluir o que independe
 dele. Integração que cria/migra/limpa banco exige autorização explícita de
 ambiente descartável; nunca ler `.env` real como fallback.
+
+**Autorização explícita registrada em 18/10/2026:** o usuário autorizou
+migrations e testes com escrita em bancos locais de desenvolvimento/teste do
+projeto, inclusive reset e seed sintético necessários. Para a task 010, pode-se
+criar e usar banco PostgreSQL descartável identificado e, após validar o alvo,
+aplicar a migration `0005` ao banco local do projeto. Confirmar host e banco
+antes de qualquer escrita; esta autorização não alcança produção, banco remoto
+ou compartilhado, nem imagens biométricas reais. O `DATABASE_URL` local pode
+ser usado somente para identificar/conectar ao banco de desenvolvimento depois
+de validar host e nome; nunca exibir a credencial ou usá-la como fallback para
+as configurações `WEB_*`.
 
 Nenhum teste deve coletar webcam, buscar datasets ou baixar biometria da internet.
 Pesos de modelos não são autorização para usar imagens de terceiros; registrar

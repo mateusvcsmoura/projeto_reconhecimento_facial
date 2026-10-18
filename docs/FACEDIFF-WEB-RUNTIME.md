@@ -1,30 +1,32 @@
 # Runtime web e compatibilidade Linux
 
-Atualizado em 18/10/2026 pela tarefa
-[009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md). Este
-documento descreve o runtime HTTP implementado; não declara deploy, integração
-PostgreSQL real nem validação biométrica.
+Atualizado em 18/10/2026 pelas tarefas
+[009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md) e
+[010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
+Este documento descreve o runtime HTTP e a validação local; não declara deploy
+nem validação biométrica. A migration `0005` foi aplicada ao banco local `escola`.
 
 ## Isolamento e dependências
 
 O novo serviço ASGI usa `src.web_main:create_web_app` e a fábrica
 `src.presentation.web.app:create_app`. A API não importa `src.main`, OpenCV,
-DeepFace, TensorFlow, PyTorch ou MediaPipe. O processo de CLI permanece
-separado. `requirements-web.txt` instala apenas
-FastAPI/Uvicorn, Pydantic Settings e o driver PostgreSQL/SQLAlchemy necessários
-à API e ao probe de prontidão. O ambiente web não tem fornecedor de `cv2`.
+DeepFace, TensorFlow, PyTorch ou MediaPipe; o processo de CLI permanece
+separado. `requirements-web.txt` instala FastAPI/Uvicorn, Pydantic Settings,
+SQLAlchemy/psycopg e Argon2. O ambiente web não tem fornecedor de `cv2`.
 `requirements.txt` mantém a CLI/stack facial e fixa o `retina-face` compatível,
 além de incluir o índice CPU oficial do PyTorch.
 
 Os pins do serviço web são FastAPI 0.144.0, Uvicorn 0.54.0, SQLAlchemy 2.0.52,
-psycopg 3.3.5 e Pydantic Settings 2.15.0. A suíte usa HTTPX2 2.13.1 através de
+psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
+`argon2-cffi-bindings==26.1.0`. A suíte usa HTTPX2 2.13.1 através de
 `requirements-dev.txt`; não é requisito de runtime.
 
 ### Matriz de evidências
 
-| Stack | Evidência desta tarefa | Limite |
+| Stack | Evidências disponíveis | Limite |
 |---|---|---|
-| API web | `requirements-dev.txt`, `pip check`, 970 testes unitários e smoke Uvicorn em Ubuntu 24.04 amd64 / Python 3.12.3 | Não inclui PostgreSQL real, proxy nem implantação |
+| API base (009) | `requirements-dev.txt`, `pip check`, 970 testes unitários e smoke Uvicorn em Ubuntu 24.04 amd64 / Python 3.12.3 | Não inclui PostgreSQL real, proxy nem implantação |
+| Autenticação task010 | Testes HTTP/unitários em SQLite; 3 testes PostgreSQL em banco descartável; `0005` aplicada a `escola`; `alembic check` limpo | Sem deploy, proxy real ou teste de carga concorrente |
 | Stack ML do app | `requirements.txt` instalado em Ubuntu 24.04/Python 3.12.3; `pip check` e imports nativos passaram | Sem pesos, inferência facial ou teste de desempenho |
 | TensorFlow / tf-keras | 2.21.0 / 2.21.0 importados | CPU; sem modelo carregado |
 | PyTorch CPU / NumPy | 2.14.0+cpu (`torch.version.cuda is None`) / 2.5.3 importados | Sem MiniFASNet ou inferência |
@@ -70,6 +72,11 @@ recusados. O código não consulta comentário/identidade do PostgreSQL e não
 executa DDL; um teste que venha a aplicar migrations ainda precisa seguir o
 opt-in, a identificação e a autorização exigidos pelo contrato de migrations.
 
+`WEB_PUBLIC_ORIGIN` é obrigatória em produção e deve usar HTTPS; sem origem
+configurada, a API recusa mutações de autenticação. `WEB_TRUSTED_PROXY_CIDRS`
+deve listar somente redes controladas pelo serviço; sem isso, cabeçalhos
+`X-Forwarded-For` não são confiáveis.
+
 Exemplo para iniciar o serviço atrás de um proxy local. O endereço e as
 credenciais abaixo são marcadores; substitua-os por valores fornecidos por um
 gestor de segredos e banco de produção configurado. Não grave segredos no Git.
@@ -82,6 +89,8 @@ export WEB_DATABASE_URL='postgresql+psycopg://usuario:senha@postgres:5432/facedi
 export WEB_SECRET_KEY="$(.venv-web/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export WEB_RETENTION_DAYS=10
 export WEB_DATABASE_DISPOSABLE=false
+export WEB_PUBLIC_ORIGIN='https://presenca.example.edu'
+# Configure WEB_TRUSTED_PROXY_CIDRS somente com o CIDR exato do proxy controlado.
 .venv-web/bin/uvicorn src.web_main:create_web_app --factory --host 127.0.0.1 --port 8000
 ```
 
@@ -97,6 +106,10 @@ task018.
 | `GET /health/live` | HTTP 200 `{"status":"live"}`; não consulta dependências |
 | `GET /health/ready` | HTTP 200 com status `ready` ou HTTP 503 com `not_ready`; retorna nomes de componentes e estados, sem exceções |
 | `GET /api/v1/openapi.json` | Contrato OpenAPI JSON |
+| `POST /api/v1/auth/login`, `/logout`, `/trocar-senha` | Login, logout e troca de senha com Origin/CSRF |
+| `GET /api/v1/auth/csrf`, `/api/v1/me` | Token CSRF recuperável e estado mínimo da conta |
+| `/api/v1/admin/contas` e operações de redefinição/desativação | Gestão auditada; credencial temporária entregue uma vez |
+| `GET /api/v1/turmas/{id}`, `POST /api/v1/admin/turmas/{id}/responsavel` | Ownership por professor e transferência administrativa auditada |
 | `/docs`, `/redoc` | Desabilitadas; nenhuma interface web foi criada |
 
 Os erros têm `{codigo, mensagem, request_id}` e o mesmo identificador no header
@@ -105,14 +118,20 @@ brutos ou tracebacks. A fábrica recebe settings e serviços por injeção; o
 relógio exige `datetime` com UTC explícito. O probe de banco executa apenas
 `SELECT 1`.
 
+O admin inicial exige `python -m scripts.criar_admin_web`, com senha em prompt
+oculto e sem argumentos de credencial. A revisão `0005` está aplicada ao banco
+local; veja [FACEDIFF-WEB-AUTH.md](FACEDIFF-WEB-AUTH.md) e o resultado da tarefa.
+
 ## Validação e reversão
 
 A validação Linux usa containers descartáveis Ubuntu 24.04 amd64/Python 3.12.3:
 um para `requirements-dev.txt`, testes sintéticos e smoke HTTP; outro para
 `requirements.txt`, `pip check` e imports da stack ML com bibliotecas de sistema.
-Os comandos e números exatos estão em
-[RESULTADO.md da tarefa009](../tasks/009-web-fundacao-linux/RESULTADO.md). Nenhum
-banco real, webcam, imagem ou peso de modelo foi acessado.
+Os comandos e números exatos da validação Linux da tarefa 009 estão em
+[RESULTADO.md da tarefa009](../tasks/009-web-fundacao-linux/RESULTADO.md); aquela
+validação não acessou banco, webcam, imagem ou peso de modelo. A task010 usou
+somente o banco local de desenvolvimento e um PostgreSQL descartável, conforme
+o [resultado 010](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
 
 Para parar o runtime, encerre o processo Uvicorn e deixe de iniciar
 `src.web_main:create_web_app`. A CLI continua iniciada por `python -m src.main`

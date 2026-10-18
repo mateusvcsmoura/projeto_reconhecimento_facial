@@ -1,9 +1,13 @@
 # FaceDiff web — roadmap e plano de validação
 
-Data: 18/10/2026. **Tarefa 009 implementada e validada no escopo desta etapa.**
+Data: 18/10/2026. **Tarefa 009 validada; tarefa 010 publicada na `main`.**
 O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
 24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
 futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
+Tarefa 010 foi implementada, validada e publicada: 984 testes unitários,
+3 testes PostgreSQL em banco descartável, revisão `0005` aplicada ao banco local
+e `alembic check` aprovado. Deploy e validação operacional continuam pendentes; veja o
+[resultado 010](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
 Especificação: [planejamento principal](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Arquitetura: [operação KVM2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
 

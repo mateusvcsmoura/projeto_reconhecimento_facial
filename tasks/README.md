@@ -29,10 +29,17 @@ tarefa e execução.
 ### FaceDiff web — novo ciclo 009–020
 
 Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
-na020**, após aprovação do backend na019. API/testes HTTP não incluem telas
+na tarefa 020**, após aprovação do backend na tarefa 019. API/testes HTTP não incluem telas
 provisórias. A tarefa 009 foi implementada no workspace; runtime web e stack ML
 instalada/importada passaram em Ubuntu 24.04/Python 3.12. Inferência com pesos e
-validação integrada continuam pendentes. As tarefas 010–020 seguem planejadas.
+validação integrada continuam pendentes. As tarefas 011–020 seguem planejadas.
+Tarefa 010 foi implementada e publicada na `main`; revisão `0005` aplicada ao
+banco local `escola`, 3 testes PostgreSQL descartáveis aprovados e
+`alembic check` limpo; sem deploy; veja
+[RESULTADO.md](010-web-autenticacao-autorizacao/RESULTADO.md).
+Em 18/10/2026, o usuário autorizou migrations e testes com escrita em bancos
+locais de desenvolvimento/teste do projeto, inclusive reset/seed sintético;
+consulte o [contrato de migrations](WEB-MIGRACOES.md) para os limites.
 
 Ler o [contrato comum de execução](WEB-CONTRATO-EXECUCAO.md) e o
 [contrato de migrations](WEB-MIGRACOES.md). A autorização de commit/push dos
@@ -42,7 +49,7 @@ de infraestrutura dependem de autorização explícita vigente.
 | ID | Tarefa / desenho | Executor previsto | Estado |
 |---|---|---|---|
 | 009 | [Fundação web e compatibilidade Linux](009-web-fundacao-linux/DESENHO.md) | Luna 6, esforço High | API e instalação/importação ML Linux concluídas; inferência com pesos pendente; veja [RESULTADO.md](009-web-fundacao-linux/RESULTADO.md) |
-| 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 010 | [Contas, autenticação, professor responsável e auditoria](010-web-autenticacao-autorizacao/DESENHO.md) | Luna 6, esforço High | Concluída e publicada na `main`; migration local e integração PostgreSQL validadas; sem deploy; veja [RESULTADO.md](010-web-autenticacao-autorizacao/RESULTADO.md) |
 | 011 | [Três referências, cadastro pendente e versionamento biométrico](011-web-referencias-cadastro-pendente/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 012 | [Worker facial único, fila limitada e temporários](012-web-worker-fila/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 013 | [Desafio facial no servidor e verificação 1:1](013-web-desafio-verificacao-1a1/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
@@ -54,10 +61,10 @@ de infraestrutura dependem de autorização explícita vigente.
 | 019 | [Validação integrada do backend e gate para a interface](019-web-validacao-backend/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 020 | [Interface web responsiva e validação ponta a ponta](020-web-interface-final/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 
-Começar pelo [prompt009](009-web-fundacao-linux/PROMPT.md).
-Executar uma task de cada vez e ler o resultado das dependências. A020 não
-pode começar com testes apenas preparados: exige gate019 aprovado. Testes de
-navegador/câmera e acessibilidade ficam na020, depois da construção da interface.
+Começar pelo [prompt da tarefa 009](009-web-fundacao-linux/PROMPT.md).
+Executar uma tarefa de cada vez e ler o resultado das dependências. A tarefa 020 não
+pode começar com testes apenas preparados: exige o gate da tarefa 019 aprovado. Testes de
+navegador/câmera e acessibilidade ficam na tarefa 020, depois da construção da interface.
 Medição real da VPS, conexão Drive e dados reais continuam sujeitos a gates
 operacionais próprios e autorização; não são aprovados por testes sintéticos.
 
