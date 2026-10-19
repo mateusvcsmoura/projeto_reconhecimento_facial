@@ -363,7 +363,7 @@ def _preparar_processamento_valido(
     return worker, decisao
 
 
-def test_migration_0010_preserva_indices_legados_e_adiciona_chave_por_sessao(
+def test_migration_0011_preserva_indices_legados_e_adiciona_estado_versionado(
     postgres_presenca_engine: Engine,
 ) -> None:
     inspetor = inspect(postgres_presenca_engine)
@@ -377,12 +377,15 @@ def test_migration_0010_preserva_indices_legados_e_adiciona_chave_por_sessao(
     assert "sessao_id IS NULL" in str(
         indices["uq_presencas_turma_aluno_dia"]["dialect_options"]["postgresql_where"]
     )
+    colunas = {item["name"] for item in inspetor.get_columns("presencas")}
+    assert {"status", "origem", "versao", "corrigida_em"} <= colunas
+    assert "revisoes_presenca_web" in inspetor.get_table_names()
     with postgres_presenca_engine.connect() as connection:
         assert (
             connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            == "0010"
+            == "0011"
         )
 
 
