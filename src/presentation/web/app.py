@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -19,7 +20,13 @@ from src.config.web_settings import WebSettings
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
 )
+from src.infrastructure.storage.private_reference_storage import (
+    PrivateReferenceStorageLocal,
+)
+from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptureStorage
 from src.presentation.web.routes.auth import criar_rotas_auth
+from src.presentation.web.routes.cadastros import criar_rotas_cadastros
+from src.presentation.web.routes.links import criar_rotas_links
 from src.presentation.web.routes.operations import criar_rotas_operacoes
 from src.presentation.web.schemas import (
     ComponentStatus,
@@ -43,6 +50,10 @@ class WebServices:
 
     readiness_probes: Mapping[str, HealthProbe] = field(default_factory=dict)
     auth_repository: PostgresContaRepository | None = None
+    link_repository: Any | None = None
+    solicitacao_repository: Any | None = None
+    reference_storage: PrivateReferenceStorageLocal | None = None
+    capture_storage: TemporaryCaptureStorage | None = None
     fila_facial: FilaFacial | None = None
     clock: Callable[[], datetime] = utc_now
     on_shutdown: Callable[[], None] = field(default=lambda: None)
@@ -90,6 +101,8 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     app.state.web_services = services
     app.include_router(criar_rotas_auth(settings, services.auth_repository))
     app.include_router(criar_rotas_operacoes(services.fila_facial))
+    app.include_router(criar_rotas_links(settings, services))
+    app.include_router(criar_rotas_cadastros(settings, services))
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -114,6 +127,13 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 "/api/v1/admin/",
                 "/api/v1/me",
                 "/api/v1/operacoes/",
+                "/api/v1/cadastros",
+                "/api/v1/links/",
+                "/api/v1/acessos-link",
+                "/api/v1/turmas/",
+                "/api/v1/solicitacoes-biometria",
+                "/api/v1/admin/solicitacoes-biometria/",
+                "/api/v1/avisos/biometria",
             )
         ):
             response.headers["Cache-Control"] = "no-store"

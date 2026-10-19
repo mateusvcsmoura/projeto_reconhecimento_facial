@@ -68,7 +68,7 @@ class AnexarReferencias:
             return existente
         solicitacao = self._repositorio.obter_solicitacao(solicitacao_id)
         agora = self._agora()
-        if solicitacao.estado != "em_coleta":
+        if solicitacao.estado not in {"em_coleta", "em_validacao"}:
             raise ValueError("A solicitação não está recebendo referências.")
         if solicitacao.expira_em <= agora:
             raise ValueError("A solicitação está expirada.")

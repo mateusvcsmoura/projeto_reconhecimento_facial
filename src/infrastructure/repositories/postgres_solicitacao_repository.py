@@ -7,6 +7,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from typing import overload
+from uuid import UUID
 
 from sqlalchemy import Engine, and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -66,6 +67,9 @@ def _para_solicitacao(linha: models.SolicitacaoCadastroWeb) -> SolicitacaoCadast
         expira_em=_utc(linha.expira_em),  # type: ignore[arg-type]
         consentimento_em=_utc(linha.consentimento_em),
         consentimento_versao=linha.consentimento_versao,
+        desafio_nonce_hash=linha.desafio_nonce_hash,
+        desafio_direcao=linha.desafio_direcao,
+        desafio_expira_em=_utc(linha.desafio_expira_em),
     )
 
 
@@ -189,8 +193,50 @@ class PostgresSolicitacaoRepository:
         consentimento_versao: str,
         expira_em: dt.datetime,
         criado_em: dt.datetime,
+        credencial_acesso_hash: str | None = None,
+        desafio_nonce_hash: str | None = None,
+        desafio_direcao: str | None = None,
+        desafio_expira_em: dt.datetime | None = None,
     ) -> SolicitacaoCadastro:
+        link_id: UUID | None = None
+        instante = _utc(criado_em)
+        expiracao = _utc(expira_em)
+        credencial: models.CredencialLinkCadastroWeb | None = None
         with sessao(self._engine) as session:
+            if credencial_acesso_hash is not None:
+                try:
+                    link_id = UUID(convite_ref)
+                except ValueError as erro:
+                    raise PermissionError("O link não está disponível.") from erro
+                link = session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
+                credencial = session.scalar(
+                    select(models.CredencialLinkCadastroWeb)
+                    .where(
+                        models.CredencialLinkCadastroWeb.token_hash
+                        == credencial_acesso_hash
+                    )
+                    .with_for_update()
+                )
+                if (
+                    link is None
+                    or link.finalidade != "cadastro"
+                    or link.revogado_em is not None
+                    or _utc(link.expira_em) <= instante
+                    or _utc(link.finalidade_ate) <= instante
+                    or link.turma_id != turma_id
+                    or credencial is None
+                    or credencial.link_id != link.id
+                    or credencial.solicitacao_id is not None
+                    or _utc(credencial.expira_em) <= instante
+                    or expiracao > _utc(link.finalidade_ate)
+                ):
+                    raise PermissionError("O link não está disponível.")
+            if expiracao <= instante:
+                raise ValueError("A solicitação deve expirar no futuro.")
             turma = _turma_ativa(session, turma_id)
             if turma.responsavel_professor_id is None:
                 raise ValueError("A turma ainda não possui professor responsável.")
@@ -198,6 +244,7 @@ class PostgresSolicitacaoRepository:
                 tipo="cadastro",
                 estado="em_coleta",
                 convite_ref=convite_ref,
+                link_id=link_id,
                 turma_id=turma_id,
                 matricula=matricula,
                 nome=nome,
@@ -205,16 +252,22 @@ class PostgresSolicitacaoRepository:
                 consentimento_versao=consentimento_versao,
                 expira_em=expira_em,
                 criada_em=criado_em,
+                desafio_nonce_hash=desafio_nonce_hash,
+                desafio_direcao=desafio_direcao,
+                desafio_expira_em=desafio_expira_em,
             )
             session.add(linha)
             session.flush()
+            if credencial is not None:
+                credencial.solicitacao_id = linha.id
+                credencial.expira_em = expiracao
             _auditar(
                 session,
                 ator_id=None,
                 acao="solicitacao_cadastro_web_criada",
                 alvo_tipo="solicitacao_cadastro_web",
                 alvo_id=linha.id,
-                instante=criado_em,
+                instante=instante,
                 depois={"estado": "em_coleta", "turma_id": turma_id},
             )
             resultado = _para_solicitacao(linha)
@@ -226,6 +279,221 @@ class PostgresSolicitacaoRepository:
             if linha is None:
                 raise LookupError("Solicitação não encontrada.")
             return _para_solicitacao(linha)
+
+    def associar_job_cadastro(
+        self,
+        solicitacao_id: int,
+        job_id: uuid.UUID,
+        credencial_hash: str,
+        *,
+        agora: dt.datetime,
+    ) -> None:
+        instante = _utc(agora)
+        with sessao(self._engine) as session:
+            link_id = session.scalar(
+                select(models.SolicitacaoCadastroWeb.link_id).where(
+                    models.SolicitacaoCadastroWeb.id == solicitacao_id
+                )
+            )
+            link = None
+            if link_id is not None:
+                link = session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
+            credencial = session.scalar(
+                select(models.CredencialLinkCadastroWeb)
+                .where(models.CredencialLinkCadastroWeb.token_hash == credencial_hash)
+                .with_for_update()
+            )
+            linha = session.scalar(
+                select(models.SolicitacaoCadastroWeb)
+                .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
+                .with_for_update()
+            )
+            if (
+                linha is None
+                or (
+                    link_id is not None
+                    and (link is None or link.revogado_em is not None)
+                )
+                or (link is not None and _utc(link.expira_em) <= instante)
+                or (link is not None and _utc(link.finalidade_ate) <= instante)
+                or (
+                    link_id is not None
+                    and (
+                        credencial is None
+                        or credencial.link_id != link_id
+                        or credencial.solicitacao_id != solicitacao_id
+                        or _utc(credencial.expira_em) <= instante
+                    )
+                )
+                or (
+                    link_id is None
+                    and (
+                        linha.credencial_captura_hash != credencial_hash
+                        or linha.credencial_captura_expira_em is None
+                        or _utc(linha.credencial_captura_expira_em) <= instante
+                    )
+                )
+                or linha.tipo not in {"cadastro", "atualizacao"}
+                or linha.estado != "em_coleta"
+                or linha.job_id is not None
+                or linha.consentimento_em is None
+                or linha.consentimento_versao is None
+                or _utc(linha.expira_em) <= instante
+            ):
+                raise PermissionError("A solicitação não está autorizada.")
+            linha.job_id = job_id
+            linha.estado = "em_validacao"
+            session.flush()
+            _auditar(
+                session,
+                ator_id=None,
+                acao="job_cadastro_web_associado",
+                alvo_tipo="solicitacao_cadastro_web",
+                alvo_id=solicitacao_id,
+                instante=instante,
+                depois={"estado": "em_validacao", "job_id": str(job_id)},
+            )
+
+    def registrar_consentimento_atualizacao(
+        self,
+        solicitacao_id: int,
+        credencial_hash: str,
+        versao: str,
+        *,
+        agora: dt.datetime,
+        desafio_nonce_hash: str,
+        desafio_direcao: str,
+        desafio_expira_em: dt.datetime,
+    ) -> SolicitacaoCadastro:
+        instante = _utc(agora)
+        aviso = versao.strip()
+        if (
+            not aviso
+            or len(aviso) > 64
+            or len(desafio_nonce_hash) != 64
+            or any(
+                caractere not in "0123456789abcdef" for caractere in desafio_nonce_hash
+            )
+            or desafio_direcao not in {"esquerda", "direita"}
+        ):
+            raise ValueError("A versão do aviso é inválida.")
+        prazo_desafio = _utc(desafio_expira_em)
+        if prazo_desafio is None or prazo_desafio <= instante:
+            raise ValueError("O prazo do desafio é inválido.")
+        with sessao(self._engine) as session:
+            linha = session.scalar(
+                select(models.SolicitacaoCadastroWeb)
+                .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
+                .with_for_update()
+            )
+            if (
+                linha is None
+                or linha.tipo != "atualizacao"
+                or linha.estado != "em_coleta"
+                or linha.link_id is not None
+                or linha.credencial_captura_hash != credencial_hash
+                or linha.credencial_captura_expira_em is None
+                or _utc(linha.credencial_captura_expira_em) <= instante
+                or _utc(linha.expira_em) <= instante
+            ):
+                raise PermissionError("A solicitação não está disponível.")
+            if linha.consentimento_em is not None:
+                raise ValueError("O consentimento já foi registrado.")
+            if prazo_desafio > _utc(linha.expira_em):
+                raise ValueError("O prazo do desafio excede a solicitação.")
+            linha.consentimento_em = instante
+            linha.consentimento_versao = aviso
+            linha.desafio_nonce_hash = desafio_nonce_hash
+            linha.desafio_direcao = desafio_direcao
+            linha.desafio_expira_em = prazo_desafio
+            session.flush()
+            _auditar(
+                session,
+                ator_id=None,
+                acao="consentimento_atualizacao_biometrica_registrado",
+                alvo_tipo="solicitacao_cadastro_web",
+                alvo_id=solicitacao_id,
+                instante=instante,
+                depois={"consentimento_versao": aviso},
+            )
+            resultado = _para_solicitacao(linha)
+        return resultado
+
+    def cancelar_coleta_cadastro(
+        self,
+        solicitacao_id: int,
+        job_id: uuid.UUID,
+        *,
+        motivo: str,
+        agora: dt.datetime,
+    ) -> None:
+        instante = _utc(agora)
+        with sessao(self._engine) as session:
+            link_id = session.scalar(
+                select(models.SolicitacaoCadastroWeb.link_id).where(
+                    models.SolicitacaoCadastroWeb.id == solicitacao_id
+                )
+            )
+            if link_id is not None:
+                session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
+            linha = session.scalar(
+                select(models.SolicitacaoCadastroWeb)
+                .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
+                .with_for_update()
+            )
+            if (
+                linha is None
+                or linha.estado != "em_validacao"
+                or linha.job_id != job_id
+            ):
+                return
+            linha.estado = "cancelada"
+            linha.decidida_em = instante
+            linha.justificativa = motivo[:500]
+            session.flush()
+            _auditar(
+                session,
+                ator_id=None,
+                acao="coleta_cadastro_web_cancelada",
+                alvo_tipo="solicitacao_cadastro_web",
+                alvo_id=solicitacao_id,
+                instante=instante,
+                depois={"estado": "cancelada", "codigo": motivo[:64]},
+            )
+
+    def listar_cadastros_turma(
+        self,
+        ator: AtorWeb,
+        turma_id: int,
+        *,
+        estado: str = "pendente_aprovacao",
+        limite: int = 50,
+    ) -> tuple[SolicitacaoCadastro, ...]:
+        if estado not in {"em_coleta", "em_validacao", "pendente_aprovacao"}:
+            raise ValueError("Estado de solicitação inválido.")
+        if not 1 <= limite <= 100:
+            raise ValueError("O limite da consulta é inválido.")
+        with sessao(self._engine) as session:
+            atual = _ator_atual(session, ator)
+            turma = _turma_ativa(session, turma_id)
+            AutorizarTurma.exigir(atual, turma, "consultar cadastros web")
+            linhas = session.scalars(
+                select(models.SolicitacaoCadastroWeb)
+                .where(models.SolicitacaoCadastroWeb.turma_id == turma_id)
+                .where(models.SolicitacaoCadastroWeb.tipo == "cadastro")
+                .where(models.SolicitacaoCadastroWeb.estado == estado)
+                .order_by(models.SolicitacaoCadastroWeb.criada_em)
+                .limit(limite)
+            ).all()
+            return tuple(_para_solicitacao(linha) for linha in linhas)
 
     def estado_do_job(self, solicitacao_id: int, job_id: uuid.UUID) -> str | None:
         with sessao(self._engine) as session:
@@ -258,12 +526,24 @@ class PostgresSolicitacaoRepository:
             raise ValueError("As referências devem usar o mesmo modelo.")
         modelo = next(iter(modelos))
         with sessao(self._engine) as session:
+            link_id = session.scalar(
+                select(models.SolicitacaoCadastroWeb.link_id).where(
+                    models.SolicitacaoCadastroWeb.id == solicitacao_id
+                )
+            )
+            link = None
+            if link_id is not None:
+                link = session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
             linha = session.scalar(
                 select(models.SolicitacaoCadastroWeb)
                 .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
                 .with_for_update()
             )
-            if linha is None:
+            if linha is None or (link_id is not None and link is None):
                 raise LookupError("Solicitação não encontrada.")
             existente = session.scalar(
                 select(models.ConjuntoReferenciasWeb).where(
@@ -275,7 +555,20 @@ class PostgresSolicitacaoRepository:
                     raise ValueError("O job já foi associado a outra solicitação.")
                 raise AnexoJaProcessado(linha.estado)
             else:
-                if linha.estado != "em_coleta" or _utc(linha.expira_em) <= agora:
+                estado_coleta_esperado = (
+                    "em_validacao"
+                    if linha.tipo == "atualizacao" or link is not None
+                    else "em_coleta"
+                )
+                if (
+                    (link is not None and link.revogado_em is not None)
+                    or linha.estado != estado_coleta_esperado
+                    or (
+                        estado_coleta_esperado == "em_validacao"
+                        and linha.job_id != job_id
+                    )
+                    or _utc(linha.expira_em) <= agora
+                ):
                     raise ValueError("A solicitação não está aberta para coleta.")
                 if linha.tipo == "cadastro":
                     consentimento = _utc(linha.consentimento_em)
@@ -351,6 +644,7 @@ class PostgresSolicitacaoRepository:
         *,
         expira_em: dt.datetime,
         agora: dt.datetime,
+        credencial_captura_hash: str | None = None,
     ) -> SolicitacaoCadastro:
         with sessao(self._engine) as session:
             atual = _ator_atual(session, ator)
@@ -378,6 +672,10 @@ class PostgresSolicitacaoRepository:
                 aluno_id=aluno_id,
                 expira_em=expira_em,
                 criada_em=agora,
+                credencial_captura_hash=credencial_captura_hash,
+                credencial_captura_expira_em=(
+                    expira_em if credencial_captura_hash is not None else None
+                ),
             )
             session.add(linha)
             session.flush()
@@ -404,13 +702,31 @@ class PostgresSolicitacaoRepository:
     ) -> ResultadoAprovacao:
         with sessao(self._engine) as session:
             atual = _ator_atual(session, ator)
+            link_id = session.scalar(
+                select(models.SolicitacaoCadastroWeb.link_id).where(
+                    models.SolicitacaoCadastroWeb.id == solicitacao_id
+                )
+            )
+            link = None
+            if link_id is not None:
+                link = session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
             linha = session.scalar(
                 select(models.SolicitacaoCadastroWeb)
                 .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
                 .with_for_update()
             )
-            if linha is None or linha.tipo != "cadastro":
+            if (
+                linha is None
+                or linha.tipo != "cadastro"
+                or (link_id is not None and link is None)
+            ):
                 raise LookupError("Solicitação de cadastro não encontrada.")
+            if link is not None and link.revogado_em is not None:
+                raise ValueError("O link associado foi revogado.")
             turma = _turma_ativa(session, linha.turma_id)
             AutorizarTurma.exigir(atual, turma, "aprovar cadastro web")
             if linha.estado != "pendente_aprovacao" or _utc(linha.expira_em) <= agora:
@@ -516,6 +832,17 @@ class PostgresSolicitacaoRepository:
     ) -> None:
         with sessao(self._engine) as session:
             atual = _ator_atual(session, ator)
+            link_id = session.scalar(
+                select(models.SolicitacaoCadastroWeb.link_id).where(
+                    models.SolicitacaoCadastroWeb.id == solicitacao_id
+                )
+            )
+            if link_id is not None:
+                session.scalar(
+                    select(models.LinkCadastroWeb)
+                    .where(models.LinkCadastroWeb.id == link_id)
+                    .with_for_update()
+                )
             linha = session.scalar(
                 select(models.SolicitacaoCadastroWeb)
                 .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)

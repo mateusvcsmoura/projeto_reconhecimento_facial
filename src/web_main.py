@@ -17,6 +17,16 @@ from src.infrastructure.repositories.postgres_conta_repository import (
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
 )
+from src.infrastructure.repositories.postgres_link_repository import (
+    PostgresLinkRepository,
+)
+from src.infrastructure.repositories.postgres_solicitacao_repository import (
+    PostgresSolicitacaoRepository,
+)
+from src.infrastructure.storage.private_reference_storage import (
+    PrivateReferenceStorageLocal,
+)
+from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptureStorage
 from src.presentation.web.app import WebServices, create_app
 
 
@@ -49,6 +59,22 @@ def create_web_app(
         segredo=configuracao.secret_key.get_secret_value(),
     )
     jobs_repository = PostgresJobRepository(session_factory)
+    solicitacao_repository = PostgresSolicitacaoRepository(engine)
+    link_repository = PostgresLinkRepository(engine)
+    capture_storage = None
+    if configuracao.capture_temp_dir is not None:
+        capture_storage = TemporaryCaptureStorage(
+            configuracao.capture_temp_dir,
+            max_bytes_per_capture=configuracao.capture_max_bytes_per_capture,
+            max_captures=configuracao.capture_max_frames,
+            quota_bytes=configuracao.capture_storage_quota_bytes,
+            require_memory_fs=configuracao.environment == "production",
+        )
+    reference_storage = None
+    if configuracao.reference_storage_dir is not None:
+        reference_storage = PrivateReferenceStorageLocal(
+            configuracao.reference_storage_dir
+        )
     fila_facial = FilaFacial(
         jobs_repository,
         segredo=configuracao.secret_key.get_secret_value().encode(),
@@ -64,6 +90,10 @@ def create_web_app(
     services = WebServices(
         readiness_probes={"database": lambda: _database_ready(engine)},
         auth_repository=auth_repository,
+        link_repository=link_repository,
+        solicitacao_repository=solicitacao_repository,
+        reference_storage=reference_storage,
+        capture_storage=capture_storage,
         fila_facial=fila_facial,
         on_shutdown=engine.dispose,
     )

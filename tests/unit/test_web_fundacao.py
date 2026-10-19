@@ -134,6 +134,9 @@ def test_settings_producao_exige_media_pipe_em_ambiente_isolado() -> None:
     valores["mediapipe_python_executable"] = Path(
         "/opt/facediff/.venv-landmarks/bin/python"
     )
+    valores["purpose_end_at"] = datetime(2026, 11, 1, tzinfo=UTC)
+    valores["capture_temp_dir"] = Path("/run/facediff/capturas")
+    valores["reference_storage_dir"] = Path("/var/lib/facediff/referencias")
     settings = WebSettings(**valores)  # type: ignore[arg-type]
     assert settings.mediapipe_model_path is not None
 

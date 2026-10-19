@@ -19,6 +19,7 @@ class RepositorioAtualizacaoBiometrica(Protocol):
         *,
         expira_em: dt.datetime,
         agora: dt.datetime,
+        credencial_captura_hash: str | None = None,
     ) -> SolicitacaoCadastro: ...
 
 
@@ -39,10 +40,19 @@ class SolicitarAtualizacaoBiometrica:
         turma_id: int,
         *,
         expira_em: dt.datetime,
+        credencial_captura_hash: str | None = None,
     ) -> SolicitacaoCadastro:
         agora = self._agora()
         if expira_em.tzinfo is None or expira_em.utcoffset() is None:
             raise ValueError("A expiração deve conter fuso horário.")
+        if credencial_captura_hash is not None and (
+            len(credencial_captura_hash) != 64
+            or any(
+                caractere not in "0123456789abcdef"
+                for caractere in credencial_captura_hash
+            )
+        ):
+            raise ValueError("A credencial de captura é inválida.")
         limite = agora + dt.timedelta(days=7)
         expiracao = min(expira_em.astimezone(dt.UTC), limite)
         if expiracao <= agora:
@@ -53,6 +63,7 @@ class SolicitarAtualizacaoBiometrica:
             turma_id,
             expira_em=expiracao,
             agora=agora,
+            credencial_captura_hash=credencial_captura_hash,
         )
 
     def _agora(self) -> dt.datetime:

@@ -152,16 +152,65 @@ def _criar_solicitacao(repo, matricula: str, nome: str):
     )
 
 
-def _anexar(repo, storage, solicitacao_id: int, prefixo: str) -> None:
+def _anexar(
+    repo,
+    storage,
+    solicitacao_id: int,
+    prefixo: str,
+    *,
+    job_id: uuid.UUID | None = None,
+) -> None:
     AnexarReferencias(repo, storage, relogio=lambda: AGORA).executar(
         solicitacao_id,
         _preparacoes(prefixo),
         ContextoJobReferencias(
-            job_id=uuid.uuid4(),
+            job_id=job_id or uuid.uuid4(),
             consentimento_em=AGORA,
             consentimento_versao="termos-sinteticos-v1",
         ),
     )
+
+
+def _preparar_atualizacao_para_coleta(
+    engine, repo, aluno_id: int
+) -> tuple[int, uuid.UUID]:
+    credencial_hash = "a" * 64
+    atualizacao = SolicitarAtualizacaoBiometrica(repo, relogio=lambda: AGORA).executar(
+        AtorWeb(2, "professor", True, False, 10),
+        aluno_id,
+        20,
+        expira_em=AGORA + dt.timedelta(days=3),
+        credencial_captura_hash=credencial_hash,
+    )
+    repo.registrar_consentimento_atualizacao(
+        atualizacao.id,
+        credencial_hash,
+        "termos-sinteticos-v1",
+        agora=AGORA,
+        desafio_nonce_hash="b" * 64,
+        desafio_direcao="esquerda",
+        desafio_expira_em=AGORA + dt.timedelta(minutes=2),
+    )
+    job_id = uuid.uuid4()
+    with Session(engine) as session, session.begin():
+        session.add(
+            models.JobFacialWeb(
+                id=job_id,
+                dono_id=str(atualizacao.id),
+                tipo="cadastro",
+                estado="recebida",
+                idempotencia_hash="c" * 64,
+                credencial_hash=credencial_hash,
+                manifesto=None,
+                bytes_reservados=1,
+                prazo_reserva=AGORA + dt.timedelta(minutes=5),
+                prazo_execucao=AGORA + dt.timedelta(minutes=15),
+                criada_em=AGORA,
+                atualizada_em=AGORA,
+            )
+        )
+    repo.associar_job_cadastro(atualizacao.id, job_id, credencial_hash, agora=AGORA)
+    return atualizacao.id, job_id
 
 
 def test_aprovar_matricula_existente_preserva_aluno_e_descarta_trinca(
@@ -328,20 +377,15 @@ def test_atualizacao_substitui_conjunto_atomicamente_sem_replicar_antigo(
         "documento_presencial",
         "Identidade confirmada em conferência",
     )
-    solicitacao_update = SolicitarAtualizacaoBiometrica(
-        repo, relogio=lambda: AGORA
-    ).executar(
-        AtorWeb(2, "professor", True, False, 10),
-        aprovado.aluno_id,
-        20,
-        expira_em=AGORA + dt.timedelta(days=3),
+    solicitacao_update_id, job_id = _preparar_atualizacao_para_coleta(
+        engine, repo, aprovado.aluno_id
     )
-    _anexar(repo, storage, solicitacao_update.id, "versao-2")
+    _anexar(repo, storage, solicitacao_update_id, "versao-2", job_id=job_id)
     nova_versao = AprovarAtualizacaoBiometrica(
         repo, storage, relogio=lambda: AGORA + dt.timedelta(minutes=1)
     ).executar(
         AtorWeb(1, "admin", True, False, None),
-        solicitacao_update.id,
+        solicitacao_update_id,
         justificativa="Substituição aprovada por administrador",
     )
 
@@ -375,17 +419,14 @@ def test_falha_sql_na_troca_compensa_somente_candidato_e_preserva_ativa(
         "documento_presencial",
         "Identidade confirmada em conferência",
     )
-    update = SolicitarAtualizacaoBiometrica(repo, relogio=lambda: AGORA).executar(
-        AtorWeb(2, "professor", True, False, 10),
-        aprovado.aluno_id,
-        20,
-        expira_em=AGORA + dt.timedelta(days=3),
+    update_id, job_id = _preparar_atualizacao_para_coleta(
+        engine, repo, aprovado.aluno_id
     )
-    _anexar(repo, storage, update.id, "candidata")
+    _anexar(repo, storage, update_id, "candidata", job_id=job_id)
     with Session(engine) as session:
         candidato = session.scalar(
             select(models.ConjuntoReferenciasWeb).where(
-                models.ConjuntoReferenciasWeb.solicitacao_id == update.id
+                models.ConjuntoReferenciasWeb.solicitacao_id == update_id
             )
         )
         caminhos_candidatos = session.scalars(
@@ -406,7 +447,7 @@ def test_falha_sql_na_troca_compensa_somente_candidato_e_preserva_ativa(
             repo, storage, relogio=lambda: AGORA + dt.timedelta(minutes=1)
         ).executar(
             AtorWeb(1, "admin", True, False, None),
-            update.id,
+            update_id,
             justificativa="Falha simulada de persistência SQL",
         )
 
@@ -419,7 +460,7 @@ def test_falha_sql_na_troca_compensa_somente_candidato_e_preserva_ativa(
     with Session(engine) as session:
         estado_candidato = session.scalar(
             select(models.ConjuntoReferenciasWeb.estado).where(
-                models.ConjuntoReferenciasWeb.solicitacao_id == update.id
+                models.ConjuntoReferenciasWeb.solicitacao_id == update_id
             )
         )
         referencias_candidatas = session.scalar(

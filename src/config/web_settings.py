@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import ipaddress
 import re
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -30,9 +31,12 @@ class WebSettings(BaseSettings):
     secret_key: SecretStr
     retention_days: int
     public_origin: str | None = None
+    purpose_end_at: datetime | None = None
+    consent_notice_version: str = "v1-2026-10-18"
     trusted_proxy_cidrs: str | None = None
     database_disposable: bool = False
     capture_temp_dir: Path | None = None
+    reference_storage_dir: Path | None = None
     capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
     capture_max_frames: Literal[3] = 3
     capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024
@@ -114,6 +118,21 @@ class WebSettings(BaseSettings):
             porta = None
         netloc = f"{hostname}:{porta}" if porta is not None else hostname
         return f"{parsed.scheme.lower()}://{netloc}"
+
+    @field_validator("purpose_end_at")
+    @classmethod
+    def _validar_fim_da_finalidade(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("WEB_PURPOSE_END_AT deve conter fuso horário.")
+        return value
+
+    @field_validator("consent_notice_version")
+    @classmethod
+    def _validar_versao_aviso(cls, value: str) -> str:
+        normalizada = value.strip()
+        if not normalizada or len(normalizada) > 64:
+            raise ValueError("WEB_CONSENT_NOTICE_VERSION é inválida.")
+        return normalizada
 
     @field_validator("trusted_proxy_cidrs")
     @classmethod
@@ -198,6 +217,22 @@ class WebSettings(BaseSettings):
             raise ValueError(
                 "A produção exige modelo e ambiente MediaPipe isolado do worker."
             )
+        if self.environment == "production":
+            if self.purpose_end_at is None:
+                raise ValueError("A produção exige WEB_PURPOSE_END_AT explícito.")
+            if self.capture_temp_dir is None or self.reference_storage_dir is None:
+                raise ValueError(
+                    "A produção exige WEB_CAPTURE_TEMP_DIR e "
+                    "WEB_REFERENCE_STORAGE_DIR explícitos."
+                )
+            if not _path_is_absolute(self.capture_temp_dir) or not _path_is_absolute(
+                self.reference_storage_dir
+            ):
+                raise ValueError(
+                    "Os diretórios biométricos de produção devem ser absolutos."
+                )
+            if self.capture_temp_dir.resolve() == self.reference_storage_dir.resolve():
+                raise ValueError("As raízes temporária e privada devem ser distintas.")
         return self
 
 
@@ -205,3 +240,11 @@ def get_web_settings() -> WebSettings:
     """Lê apenas WEB_* do ambiente; nunca consulta o .env usado pela CLI."""
 
     return WebSettings()  # type: ignore[call-arg]
+
+
+def _path_is_absolute(value: Path) -> bool:
+    return (
+        value.is_absolute()
+        or PurePosixPath(value.as_posix()).is_absolute()
+        or PureWindowsPath(str(value)).is_absolute()
+    )

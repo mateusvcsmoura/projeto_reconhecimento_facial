@@ -17,6 +17,7 @@ from src.application.services.worker_facial import (
     WorkerFacial,
     preparar_worker,
 )
+from src.application.use_cases.anexar_referencias_web import AnexarReferencias
 from src.config.web_settings import WebSettings, get_web_settings
 from src.domain.services.desafio_captura import DesafioCaptura
 from src.domain.services.qualidade_captura import ParametrosQualidade
@@ -25,6 +26,9 @@ from src.infrastructure.face_recognition.desafio_movimento_adapter import (
     DesafioMovimentoAdapter,
 )
 from src.infrastructure.face_recognition.mediapipe_landmarks import MediaPipeLandmarks
+from src.infrastructure.face_recognition.processador_cadastro_web import (
+    ProcessadorCadastroWeb,
+)
 from src.infrastructure.face_recognition.processador_desafio_verificacao import (
     AdaptadorPoseSobDemanda,
     ProcessadorDesafioVerificacao,
@@ -37,6 +41,9 @@ from src.infrastructure.repositories.postgres_job_repository import (
 )
 from src.infrastructure.repositories.postgres_solicitacao_repository import (
     PostgresSolicitacaoRepository,
+)
+from src.infrastructure.storage.private_reference_storage import (
+    PrivateReferenceStorageLocal,
 )
 from src.infrastructure.storage.temporary_capture_storage import (
     TemporaryCaptureStorage,
@@ -54,6 +61,14 @@ def construir_worker(
     """Constrói worker e engine sem carregar modelos até a fase de aquecimento."""
     if settings.capture_temp_dir is None:
         raise RuntimeError("WEB_CAPTURE_TEMP_DIR é obrigatório no processo worker.")
+    if (
+        processadores is None
+        and settings.reference_storage_dir is not None
+        and settings.mediapipe_model_path is None
+    ):
+        raise RuntimeError(
+            "WEB_MEDIAPIPE_MODEL_PATH é obrigatório para processar cadastros web."
+        )
     armazenamento = TemporaryCaptureStorage(
         settings.capture_temp_dir,
         max_bytes_per_capture=settings.capture_max_bytes_per_capture,
@@ -91,16 +106,12 @@ def construir_worker(
     processadores_configurados = processadores
     if processadores_configurados is None:
         processadores_configurados = {}
+        solicitacoes_repository = PostgresSolicitacaoRepository(engine)
+        pose = None
         if settings.mediapipe_model_path is not None:
             modelo_landmarks = settings.mediapipe_model_path
             python_landmarks = settings.mediapipe_python_executable
             assert python_landmarks is not None
-            desafio_repository = PostgresDesafioRepository(session_factory)
-            referencias_repository = PostgresSolicitacaoRepository(engine)
-            desafio = DesafioCaptura(
-                desafio_repository,
-                segredo=settings.secret_key.get_secret_value().encode(),
-            )
             pose = AdaptadorPoseSobDemanda(
                 lambda: DesafioMovimentoAdapter(
                     MediaPipeLandmarks(
@@ -108,6 +119,25 @@ def construir_worker(
                         python_landmarks,
                     )
                 )
+            )
+        if settings.reference_storage_dir is not None:
+            assert pose is not None
+            private_storage = PrivateReferenceStorageLocal(
+                settings.reference_storage_dir
+            )
+            processadores_configurados[TipoJobFacial.CADASTRO] = ProcessadorCadastroWeb(
+                adapter,
+                solicitacoes_repository,
+                AnexarReferencias(solicitacoes_repository, private_storage),
+                pose,
+                relogio=lambda: datetime.now(UTC),
+            )
+        if pose is not None:
+            desafio_repository = PostgresDesafioRepository(session_factory)
+            referencias_repository = solicitacoes_repository
+            desafio = DesafioCaptura(
+                desafio_repository,
+                segredo=settings.secret_key.get_secret_value().encode(),
             )
             processadores_configurados[TipoJobFacial.PRESENCA] = (
                 ProcessadorDesafioVerificacao(

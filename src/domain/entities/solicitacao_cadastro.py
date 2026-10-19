@@ -32,6 +32,9 @@ class SolicitacaoCadastro:
     expira_em: dt.datetime
     consentimento_em: dt.datetime | None
     consentimento_versao: str | None
+    desafio_nonce_hash: str | None = None
+    desafio_direcao: str | None = None
+    desafio_expira_em: dt.datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

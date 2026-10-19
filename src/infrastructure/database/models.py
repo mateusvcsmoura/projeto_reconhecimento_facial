@@ -310,6 +310,90 @@ class EventoAuditoriaWeb(Base):
     )
 
 
+class LinkCadastroWeb(Base):
+    """Convite compartilhavel com hash do token e finalidade fixa."""
+
+    __tablename__ = "links_cadastro_web"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    turma_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("turmas.id", ondelete="RESTRICT"), nullable=False
+    )
+    emitido_por_conta_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    finalidade: Mapped[str] = mapped_column(String(16), nullable=False)
+    criado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    expira_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    finalidade_ate: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revogado_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revogado_por_conta_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_links_cadastro_web_token_hash"),
+        CheckConstraint("length(token_hash) = 64", name="token_hash_sha256"),
+        CheckConstraint("finalidade = 'cadastro'", name="finalidade_cadastro"),
+        CheckConstraint("expira_em > criado_em", name="expiracao_valida"),
+        CheckConstraint("finalidade_ate > criado_em", name="fim_finalidade_valido"),
+        CheckConstraint(
+            "(revogado_em IS NULL AND revogado_por_conta_id IS NULL) OR "
+            "(revogado_em IS NOT NULL AND revogado_por_conta_id IS NOT NULL)",
+            name="revogacao_coerente",
+        ),
+        Index("ix_links_cadastro_web_turma_expira", "turma_id", "expira_em"),
+    )
+
+
+class CredencialLinkCadastroWeb(Base):
+    """Credencial efemera, de uso unico para associar uma solicitacao ao link."""
+
+    __tablename__ = "credenciais_link_cadastro_web"
+
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    link_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("links_cadastro_web.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    criada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    expira_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    solicitacao_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "solicitacoes_cadastro_web.id",
+            name="fk_cred_link_solicitacao",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(token_hash) = 64", name="token_hash_sha256"),
+        CheckConstraint("expira_em > criada_em", name="expiracao_valida"),
+        UniqueConstraint("solicitacao_id", name="uq_credenciais_link_solicitacao"),
+        Index("ix_credenciais_link_expira", "expira_em"),
+    )
+
+
 class SolicitacaoCadastroWeb(Base):
     """Pedido isolado de cadastro/troca; nao e um Aluno ativo."""
 
@@ -319,6 +403,27 @@ class SolicitacaoCadastroWeb(Base):
     tipo: Mapped[str] = mapped_column(String(16), nullable=False)
     estado: Mapped[str] = mapped_column(String(24), nullable=False)
     convite_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    link_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("links_cadastro_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    job_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("jobs_faciais_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    credencial_captura_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    credencial_captura_expira_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    desafio_nonce_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    desafio_direcao: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    desafio_expira_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     turma_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("turmas.id", ondelete="RESTRICT"), nullable=False
     )
@@ -368,9 +473,39 @@ class SolicitacaoCadastroWeb(Base):
             name="consentimento_coerente",
         ),
         CheckConstraint("expira_em > criada_em", name="expiracao_valida"),
+        CheckConstraint(
+            "(credencial_captura_hash IS NULL AND "
+            "credencial_captura_expira_em IS NULL) OR "
+            "(length(credencial_captura_hash) = 64 AND "
+            "credencial_captura_expira_em IS NOT NULL AND "
+            "credencial_captura_expira_em > criada_em)",
+            name="credencial_captura_coerente",
+        ),
+        CheckConstraint(
+            "(desafio_nonce_hash IS NULL AND desafio_direcao IS NULL AND "
+            "desafio_expira_em IS NULL) OR "
+            "(length(desafio_nonce_hash) = 64 AND "
+            "desafio_direcao IN ('esquerda', 'direita') AND "
+            "desafio_expira_em IS NOT NULL AND desafio_expira_em > criada_em)",
+            name="desafio_cadastro_coerente",
+        ),
+        UniqueConstraint(
+            "credencial_captura_hash",
+            name="uq_solicitacoes_cadastro_web_credencial_captura",
+        ),
         Index("ix_solicitacoes_cadastro_web_turma_estado", "turma_id", "estado"),
         Index("ix_solicitacoes_cadastro_web_estado_expira", "estado", "expira_em"),
         Index("ix_solicitacoes_cadastro_web_aluno", "aluno_id"),
+        UniqueConstraint("job_id", name="uq_solicitacoes_cadastro_web_job"),
+        Index(
+            "ix_solicitacoes_cadastro_web_link_estado",
+            "link_id",
+            "estado",
+        ),
+        Index(
+            "ix_solicitacoes_cadastro_web_desafio_expira",
+            "desafio_expira_em",
+        ),
     )
 
 
