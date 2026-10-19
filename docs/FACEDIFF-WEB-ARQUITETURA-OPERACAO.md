@@ -251,7 +251,7 @@ antes de dados reais. Nenhuma integração com Drive foi realizada.
    dumps de memória, logs sensíveis ou credenciais dentro do pacote.
 5. Cifrar conteúdo e nomes com `rclone crypt` sobre destino local privado.
    Verificar integridade contra staging com `cryptcheck`; limpar staging em
-   sucesso/falha, liberando manutenção assim que cópia consistente estiver pronta.
+   sucesso/falha e liberar manutenção ao concluir a cópia local consistente.
 6. Copiar automaticamente os bytes JÁ cifrados da cópia local para pasta privada
    dedicada no Drive. A cópia local cifrada continua independente do upload.
    Upload usa nome de geração único; só marcar completa após sucesso e verificação.
@@ -290,6 +290,57 @@ Fontes técnicas: [rclone crypt](https://rclone.org/crypt/),
 [cryptcheck](https://rclone.org/commands/rclone_cryptcheck/) e
 [Drive/scopes](https://rclone.org/drive/). O desenho das duas cópias é recomendação
 do projeto, não configuração fornecida pronta pelo provedor.
+
+### Ferramentas da tarefa 017
+
+O workspace contém `scripts.web_backup`, `scripts.web_restore_check` e
+`scripts.web_retencao`, adaptadores PostgreSQL/rclone, registro externo de
+exclusões e exemplos de timer systemd. O timer só executa o backup local; se
+`WEB_BACKUP_EXTERNAL_RAW_REMOTE` estiver configurado, o mesmo comando tenta
+transportar os bytes cifrados e verifica a cópia externa. Uma falha de transporte
+mantém o backup local completo e deixa o transporte sem estado de sucesso. O
+retry usa `--transportar <geracao>`. A limpeza da retenção remove a cópia externa
+antes da local; um destino externo que não corresponda ao configurado é recusado.
+
+A configuração de rclone exige `filename_encryption=standard` e
+`directory_name_encryption=false` para que `rclone copy` possa copiar os bytes
+cifrados no backend raw. A [documentação oficial do rclone](https://rclone.org/crypt/)
+esclarece que, nesse modo, nomes de arquivo são cifrados e a estrutura de
+diretórios fica visível. Por isso o snapshot 017 achata referências em arquivos
+com nomes aleatórios; a associação ao caminho privado original fica apenas no
+`MANIFEST.json` cifrado. O backend ainda pode observar a geração opaca, número,
+tamanho aproximado e horários dos arquivos. Não considerar esses metadados
+ocultos. A cópia externa continua pendente de configuração/autorização OAuth e
+teste real de recuperação.
+
+Antes de operar, configure fora do repositório o `WEB_BACKUP_PG_SERVICE_FILE`,
+`WEB_BACKUP_PG_SERVICE`, `WEB_BACKUP_RCLONE_CONFIG`,
+`WEB_BACKUP_LOCAL_CRYPT_REMOTE`, `WEB_BACKUP_EXTERNAL_RAW_REMOTE`,
+`WEB_BACKUP_STATE_DIR`, `WEB_BACKUP_STAGING_DIR`,
+`WEB_BACKUP_TRANSPORT_STAGING_DIR`, `WEB_MAINTENANCE_DIR`,
+`WEB_BACKUP_EXCLUSIONS_FILE`, `WEB_REFERENCE_STORAGE_DIR` e os diretórios de
+captura/restore em volumes absolutos, privados e distintos. O arquivo de
+configuração rclone guarda material suficiente para recuperar a chave; restrinja
+permissões ou use proteção por senha do próprio rclone e mantenha cópia de
+recuperação separada da VPS. Nunca passe senhas em argumentos de linha de comando.
+
+Execução manual:
+
+```powershell
+python -m scripts.web_backup --mode manual_pre_apresentacao
+python -m scripts.web_backup --transportar <geracao>
+python -m scripts.web_restore_check --geracao <geracao> --confirmacao RESTAURAR-TASK017-<banco_descartavel>
+python -m scripts.web_retencao
+python -m scripts.web_retencao --apply --confirm-environment <ambiente> --confirm-target <alvo_exibido_no_dry_run>
+```
+
+O ensaio de restore exige `FACE_WEB_RESTORE_DATABASE_URL` apontando para um
+PostgreSQL local marcado explicitamente como descartável e um volume de
+referências vazio com marcador `.task017-disposable`. O `--apply` de retenção
+exige conferir o dry-run imediatamente antes de repetir os valores exatos de
+ambiente e alvo. Não executar esses comandos contra `escola`, produção ou dados
+operacionais. O roundtrip com `rclone`/`pg_restore` só é considerado validado
+depois de executar a integração opt-in em banco e volume descartáveis.
 
 ### Ensaio de restauração
 

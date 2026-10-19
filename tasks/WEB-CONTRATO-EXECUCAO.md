@@ -4,7 +4,8 @@ Data: 18/10/2026; status atualizado em 19/10/2026. **As tarefas 009–016 foram 
 013, 014, 015 e 016 foram publicadas na `main` após autorização explícita. As
 migrations 0006–0010 foram validadas em PostgreSQL descartável. A revisão 0011
 da task016 foi aplicada a `escola` e validada em PostgreSQL descartável. A
-web não foi implantada. As tarefas 017–020 continuam pendentes.** O runtime web passou em testes no
+web não foi implantada. A task017 está implementada no workspace; o ensaio real
+de restore permanece pendente. As tarefas 018–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
@@ -283,6 +284,30 @@ dependem da medição019 e do gate operacional.
   webcam, biometria real ou deploy. Consulte o
   [resultado 016](016-web-gestao-revisao-relatorios/RESULTADO.md) e o
   [contrato da API de gestão](../docs/FACEDIFF-WEB-GESTAO.md).
+
+### Contratos estabelecidos na tarefa 017
+
+- `scripts.web_backup` faz snapshot PostgreSQL + referências sob manutenção,
+  cifra em remote local rclone crypt, executa `cryptcheck`, remove staging
+  plaintext em `finally` e, quando configurado, transfere os bytes cifrados para
+  remote externo. Erro externo mantém a cópia local e não registra transporte
+  completo; retenção também pode limpar um transporte incompleto identificado.
+- Nomes de diretório do crypt ficam visíveis para cópia raw; os arquivos de
+  referência são achatados sob nomes aleatórios, e o caminho original fica no
+  manifesto cifrado. O backend ainda vê geração, quantidade, tamanho aproximado
+  e horário. A configuração rclone e `pg_service` ficam fora do repositório.
+- `scripts.web_restore_check` exige banco PostgreSQL local com nome/descrição de
+  descarte e volume privado vazio com marcador. A restauração verifica hashes,
+  reaplica exclusões append-only e invalida sessões/credenciais. Não aponta para
+  `escola`, banco de produção ou serviço remoto.
+- `scripts.web_retencao` é dry-run por padrão; `--apply` exige ambiente e alvo
+  copiados do plano. Preserva até três gerações completas e logs por três dias
+  antes do prazo final; após ele, planeja purga final de dados web e backups
+  configurados. A cópia externa só pode ser removida quando o remote raw
+  correspondente estiver configurado e validado.
+- Até 19/10/2026, os testes locais unitários usam fakes/sintéticos. `rclone`,
+  `pg_dump`, `pg_restore` e `psql` não estão instalados neste Windows; não houve
+  roundtrip local PostgreSQL/rclone, acesso ao Drive, uso de rosto real ou deploy.
 
 ## 5. Permissões para futuras execuções
 
