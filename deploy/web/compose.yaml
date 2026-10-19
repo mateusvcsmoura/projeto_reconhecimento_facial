@@ -1,0 +1,382 @@
+name: facediff-web
+
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: postgres
+    image: facediff/postgres:16.15-bookworm-task018
+    restart: unless-stopped
+    read_only: true
+    environment:
+      POSTGRES_DB: facediff
+      POSTGRES_USER: facediff_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-admin-password
+      WEB_APP_DB_PASSWORD_FILE: /run/secrets/web_app_db_password
+      WEB_MIGRATOR_DB_PASSWORD_FILE: /run/secrets/web_migrator_db_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+    secrets:
+      - postgres-admin-password
+      - web-app-db-password
+      - web-migrator-db-password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - data
+    tmpfs:
+      - /run/postgresql:size=16m,mode=0770,uid=0,gid=999,nosuid,nodev,noexec
+      - /tmp:size=16m,mode=1777,nosuid,nodev,noexec
+    shm_size: 256mb
+    pids_limit: 128
+    cpus: ${WEB_POSTGRES_CPU_LIMIT:?configure WEB_POSTGRES_CPU_LIMIT}
+    mem_limit: ${WEB_POSTGRES_MEMORY_LIMIT:?configure WEB_POSTGRES_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=\"$${POSTGRES_USER}\" --dbname=\"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 60s
+
+  app:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: app
+    image: facediff/app:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to the source revision}
+    restart: unless-stopped
+    init: true
+    command: ["uvicorn", "src.web_main:create_web_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    user: "10001:10001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      WEB_ENVIRONMENT: production
+      WEB_DATABASE_URL_FILE: /run/secrets/web-database-url
+      WEB_SECRET_KEY_FILE: /run/secrets/web-secret-key
+      WEB_PUBLIC_ORIGIN: https://${WEB_DOMAIN:?configure WEB_DOMAIN}
+      WEB_PURPOSE_END_AT: ${WEB_PURPOSE_END_AT:?configure WEB_PURPOSE_END_AT}
+      WEB_RETENTION_DAYS: ${WEB_RETENTION_DAYS:?configure WEB_RETENTION_DAYS}
+      WEB_APP_TIMEZONE: ${WEB_APP_TIMEZONE:-America/Sao_Paulo}
+      WEB_TRUSTED_PROXY_CIDRS: ${WEB_NETWORK_CIDR:-172.28.50.0/24}
+      WEB_CAPTURE_TEMP_DIR: /run/facediff/captures
+      WEB_REFERENCE_STORAGE_DIR: /var/lib/facediff/references
+      WEB_MAINTENANCE_DIR: /run/facediff/maintenance
+      WEB_BACKUP_EXCLUSIONS_FILE: /var/lib/facediff/exclusions/exclusions.jsonl
+      WEB_MEDIAPIPE_MODEL_PATH: /var/lib/facediff/models/face_landmarker.task
+      WEB_MEDIAPIPE_PYTHON_EXECUTABLE: /opt/facediff/landmarks-venv/bin/python
+      WEB_CAPTURE_STORAGE_QUOTA_BYTES: "314572800"
+      WEB_CAPTURE_MAX_BYTES_PER_CAPTURE: "8388608"
+      WEB_JOB_RESERVATION_SECONDS: "300"
+      WEB_JOB_DEADLINE_SECONDS: "900"
+      WEB_JOB_LEASE_SECONDS: "120"
+    secrets:
+      - web-database-url
+      - web-secret-key
+    volumes:
+      - references:/var/lib/facediff/references
+      - exclusions:/var/lib/facediff/exclusions
+      - type: bind
+        source: ${WEB_CAPTURE_HOST_DIR:-/run/facediff/captures}
+        target: /run/facediff/captures
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_MAINTENANCE_HOST_DIR:-/run/facediff/maintenance}
+        target: /run/facediff/maintenance
+        bind:
+          create_host_path: false
+    networks:
+      - web
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    tmpfs:
+      - /tmp:size=64m,mode=1777,nosuid,nodev,noexec
+    pids_limit: 128
+    cpus: ${WEB_APP_CPU_LIMIT:?configure WEB_APP_CPU_LIMIT}
+    mem_limit: ${WEB_APP_MEMORY_LIMIT:?configure WEB_APP_MEMORY_LIMIT}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+  face-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: worker
+    image: facediff/face-worker:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to the source revision}
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      WEB_ENVIRONMENT: production
+      WEB_DATABASE_URL_FILE: /run/secrets/web-database-url
+      WEB_SECRET_KEY_FILE: /run/secrets/web-secret-key
+      WEB_PUBLIC_ORIGIN: https://${WEB_DOMAIN:?configure WEB_DOMAIN}
+      WEB_PURPOSE_END_AT: ${WEB_PURPOSE_END_AT:?configure WEB_PURPOSE_END_AT}
+      WEB_RETENTION_DAYS: ${WEB_RETENTION_DAYS:?configure WEB_RETENTION_DAYS}
+      WEB_APP_TIMEZONE: ${WEB_APP_TIMEZONE:-America/Sao_Paulo}
+      WEB_CAPTURE_TEMP_DIR: /run/facediff/captures
+      WEB_REFERENCE_STORAGE_DIR: /var/lib/facediff/references
+      WEB_MAINTENANCE_DIR: /run/facediff/maintenance
+      WEB_BACKUP_EXCLUSIONS_FILE: /var/lib/facediff/exclusions/exclusions.jsonl
+      WEB_MEDIAPIPE_MODEL_PATH: /var/lib/facediff/models/face_landmarker.task
+      WEB_MEDIAPIPE_PYTHON_EXECUTABLE: /opt/facediff/landmarks-venv/bin/python
+      WEB_CAPTURE_STORAGE_QUOTA_BYTES: "314572800"
+      WEB_CAPTURE_MAX_BYTES_PER_CAPTURE: "8388608"
+      WEB_JOB_RESERVATION_SECONDS: "300"
+      WEB_JOB_DEADLINE_SECONDS: "900"
+      WEB_JOB_LEASE_SECONDS: "120"
+      DEEPFACE_HOME: /var/lib/facediff/models/home
+    secrets:
+      - web-database-url
+      - web-secret-key
+    volumes:
+      - references:/var/lib/facediff/references
+      - exclusions:/var/lib/facediff/exclusions:ro
+      - type: bind
+        source: ${WEB_CAPTURE_HOST_DIR:-/run/facediff/captures}
+        target: /run/facediff/captures
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_MAINTENANCE_HOST_DIR:-/run/facediff/maintenance}
+        target: /run/facediff/maintenance
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_MODELS_HOST_DIR:-/srv/facediff/models}
+        target: /var/lib/facediff/models
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    tmpfs:
+      - /tmp:size=128m,mode=1777,nosuid,nodev,noexec
+    pids_limit: 256
+    cpus: ${WEB_WORKER_CPU_LIMIT:?configure WEB_WORKER_CPU_LIMIT}
+    mem_limit: ${WEB_WORKER_MEMORY_LIMIT:?configure WEB_WORKER_MEMORY_LIMIT}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /opt/facediff/entrypoint.py
+        - python
+        - -m
+        - src.infrastructure.workers.web_worker_healthcheck
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 300s
+    stop_signal: SIGINT
+    stop_grace_period: 90s
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: migrate
+    image: facediff/migrate:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to the source revision}
+    profiles:
+      - admin
+    user: "10001:10001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      ALEMBIC_DATABASE_URL_FILE: /run/secrets/alembic-database-url
+    secrets:
+      - alembic-database-url
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    tmpfs:
+      - /tmp:size=32m,mode=1777,nosuid,nodev,noexec
+    pids_limit: 64
+    cpus: 0.5
+    mem_limit: 512m
+    restart: "no"
+
+  backup:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: backup
+    image: facediff/backup:${WEB_IMAGE_TAG:?set WEB_IMAGE_TAG to the source revision}
+    profiles:
+      - ops
+    user: "10001:10001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      WEB_ENVIRONMENT: production
+      WEB_DATABASE_URL_FILE: /run/secrets/web-database-url
+      WEB_SECRET_KEY_FILE: /run/secrets/web-secret-key
+      WEB_PUBLIC_ORIGIN: https://${WEB_DOMAIN:?configure WEB_DOMAIN}
+      WEB_PURPOSE_END_AT: ${WEB_PURPOSE_END_AT:?configure WEB_PURPOSE_END_AT}
+      WEB_RETENTION_DAYS: ${WEB_RETENTION_DAYS:?configure WEB_RETENTION_DAYS}
+      WEB_APP_TIMEZONE: ${WEB_APP_TIMEZONE:-America/Sao_Paulo}
+      WEB_CAPTURE_TEMP_DIR: /run/facediff/captures
+      WEB_REFERENCE_STORAGE_DIR: /var/lib/facediff/references
+      WEB_MAINTENANCE_DIR: /run/facediff/maintenance
+      WEB_BACKUP_EXCLUSIONS_FILE: /var/lib/facediff/exclusions/exclusions.jsonl
+      WEB_MEDIAPIPE_MODEL_PATH: /var/lib/facediff/models/face_landmarker.task
+      WEB_MEDIAPIPE_PYTHON_EXECUTABLE: /opt/facediff/landmarks-venv/bin/python
+      WEB_BACKUP_PG_SERVICE_FILE: /run/secrets/web-backup-pg-service
+      WEB_BACKUP_PG_SERVICE: facediff
+      WEB_BACKUP_RCLONE_CONFIG: /run/secrets/web-backup-rclone-config
+      WEB_BACKUP_LOCAL_CRYPT_REMOTE: ${WEB_BACKUP_LOCAL_CRYPT_REMOTE:?configure WEB_BACKUP_LOCAL_CRYPT_REMOTE}
+      WEB_BACKUP_EXTERNAL_RAW_REMOTE: ${WEB_BACKUP_EXTERNAL_RAW_REMOTE:-}
+      WEB_BACKUP_STATE_DIR: /var/lib/facediff/backup-state
+      WEB_BACKUP_STAGING_DIR: /run/facediff/backup-staging
+      WEB_BACKUP_TRANSPORT_STAGING_DIR: /run/facediff/transport-staging
+      WEB_APP_VERSION: ${WEB_IMAGE_TAG}
+    secrets:
+      - web-database-url
+      - web-secret-key
+      - web-backup-pg-service
+      - web-backup-rclone-config
+    volumes:
+      - references:/var/lib/facediff/references:ro
+      - exclusions:/var/lib/facediff/exclusions
+      - backup-encrypted:/var/lib/facediff/backup/encrypted
+      - backup-state:/var/lib/facediff/backup-state
+      - type: bind
+        source: ${WEB_MAINTENANCE_HOST_DIR:-/run/facediff/maintenance}
+        target: /run/facediff/maintenance
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_BACKUP_STAGING_HOST_DIR:-/run/facediff/backup-staging}
+        target: /run/facediff/backup-staging
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_BACKUP_TRANSPORT_STAGING_HOST_DIR:-/run/facediff/transport-staging}
+        target: /run/facediff/transport-staging
+        bind:
+          create_host_path: false
+    networks:
+      - data
+      - backup-egress
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "scripts.web_backup", "--mode", "diario"]
+    tmpfs:
+      - /tmp:size=64m,mode=1777,nosuid,nodev,noexec
+    pids_limit: 128
+    cpus: ${WEB_BACKUP_CPU_LIMIT:?configure WEB_BACKUP_CPU_LIMIT}
+    mem_limit: ${WEB_BACKUP_MEMORY_LIMIT:?configure WEB_BACKUP_MEMORY_LIMIT}
+    restart: "no"
+
+  caddy:
+    build:
+      context: ../..
+      dockerfile: deploy/web/Dockerfile
+      target: caddy
+    image: facediff/caddy:2.11.4-task018
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:?configure WEB_DOMAIN}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL:?configure CADDY_ACME_EMAIL}
+    ports:
+      - "80:8080/tcp"
+      - "443:8443/tcp"
+    volumes:
+      - type: bind
+        source: ./Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - web
+      - edge-egress
+    depends_on:
+      app:
+        condition: service_healthy
+    tmpfs:
+      - /tmp:size=64m,mode=1777,nosuid,nodev,noexec
+    pids_limit: 64
+    cpus: ${WEB_CADDY_CPU_LIMIT:?configure WEB_CADDY_CPU_LIMIT}
+    mem_limit: ${WEB_CADDY_MEMORY_LIMIT:?configure WEB_CADDY_MEMORY_LIMIT}
+
+networks:
+  web:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${WEB_NETWORK_CIDR:-172.28.50.0/24}
+  data:
+    internal: true
+  edge-egress: {}
+  backup-egress: {}
+
+volumes:
+  postgres-data:
+  references:
+  exclusions:
+  caddy-data:
+  caddy-config:
+  backup-encrypted:
+  backup-state:
+
+secrets:
+  postgres-admin-password:
+    file: ${POSTGRES_PASSWORD_FILE:?set POSTGRES_PASSWORD_FILE outside the repository}
+  web-app-db-password:
+    file: ${WEB_APP_DB_PASSWORD_FILE:?set WEB_APP_DB_PASSWORD_FILE outside the repository}
+  web-migrator-db-password:
+    file: ${WEB_MIGRATOR_DB_PASSWORD_FILE:?set WEB_MIGRATOR_DB_PASSWORD_FILE outside the repository}
+  web-database-url:
+    file: ${WEB_DATABASE_URL_FILE:?set WEB_DATABASE_URL_FILE outside the repository}
+  web-secret-key:
+    file: ${WEB_SECRET_KEY_FILE:?set WEB_SECRET_KEY_FILE outside the repository}
+  alembic-database-url:
+    file: ${ALEMBIC_DATABASE_URL_FILE:?set ALEMBIC_DATABASE_URL_FILE outside the repository}
+  web-backup-pg-service:
+    file: ${WEB_BACKUP_PG_SERVICE_FILE:?set WEB_BACKUP_PG_SERVICE_FILE outside the repository}
+  web-backup-rclone-config:
+    file: ${WEB_BACKUP_RCLONE_CONFIG_FILE:?set WEB_BACKUP_RCLONE_CONFIG_FILE outside the repository}

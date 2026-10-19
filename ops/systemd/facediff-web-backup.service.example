@@ -1,18 +1,18 @@
 [Unit]
 Description=Backup local cifrado do FaceDiff Web
-After=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+RequiresMountsFor=/run/facediff
 
 [Service]
 Type=oneshot
-User=facediff
-Group=facediff
-WorkingDirectory=/opt/facediff/current
-EnvironmentFile=/etc/facediff/web-runtime.env
-EnvironmentFile=/etc/facediff/web-backup.env
+User=root
+Group=root
+WorkingDirectory=/opt/facediff/current/deploy/web
+EnvironmentFile=/etc/facediff/web-deploy.env
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/run/facediff /srv/facediff/private /var/lib/facediff/backup /var/log/facediff
-ExecStart=/opt/facediff/.venv-web/bin/python -m scripts.web_backup --mode diario
+ExecStart=/usr/bin/docker compose --env-file /etc/facediff/web-deploy.env --file /opt/facediff/current/deploy/web/compose.yaml --profile ops run --rm --no-deps backup

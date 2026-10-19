@@ -243,13 +243,27 @@ def test_worker_aquece_antes_de_reivindicar_e_libera_no_encerramento(
         "preparar_worker",
         lambda _worker, aquecer: aquecer(),
     )
+    publicar_marcador = face_worker_main._marcar_worker_pronto
+    marcadores_publicados: list[str] = []
+
+    def registrar_marcador(caminho: Path) -> None:
+        assert adapter.aquecimentos == 1
+        assert worker.aquecimentos == 1
+        publicar_marcador(caminho)
+        marcadores_publicados.append(caminho.read_text(encoding="ascii"))
+
+    monkeypatch.setattr(face_worker_main, "_marcar_worker_pronto", registrar_marcador)
 
     with pytest.raises(RuntimeError, match="parada sintetica"):
-        face_worker_main.executar_worker(_settings(tmp_path))
+        face_worker_main.executar_worker(
+            _settings(tmp_path, maintenance_dir=tmp_path / "maintenance")
+        )
 
     assert adapter.aquecimentos == 1
     assert worker.aquecimentos == 1
     assert worker.fechamentos == 1
+    assert marcadores_publicados == ["ready\n"]
+    assert not (tmp_path / "maintenance" / ".worker-ready").exists()
     dispose.assert_called_once_with()
 
 

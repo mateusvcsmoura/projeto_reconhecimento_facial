@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -193,10 +194,14 @@ def executar_worker(
         if configuracao.maintenance_dir is not None
         else None
     )
+    ready_marker: Path | None = None
     try:
         with SingletonProcessLock(lock_path) as lock:
             if not lock.adquirido:
                 raise RuntimeError("Já existe um worker facial ativo nesta máquina.")
+            if maintenance_gate is not None:
+                ready_marker = maintenance_gate.raiz / ".worker-ready"
+                ready_marker.unlink(missing_ok=True)
             with repository.worker_unico() as lock_database:
                 if not lock_database:
                     raise RuntimeError(
@@ -216,6 +221,8 @@ def executar_worker(
                                 preparar_worker(worker, aquecer)
                                 break
                         time.sleep(0.1)
+                if ready_marker is not None:
+                    _marcar_worker_pronto(ready_marker)
                 logger.info("Worker facial inicializado.")
                 proxima_limpeza = time.monotonic() + 30
                 while True:
@@ -230,8 +237,20 @@ def executar_worker(
                         worker.reconciliar_temporarios()
                         proxima_limpeza = time.monotonic() + 30
     finally:
+        if ready_marker is not None:
+            ready_marker.unlink(missing_ok=True)
         worker.fechar()
         engine.dispose()
+
+
+def _marcar_worker_pronto(caminho: Path) -> None:
+    descritor = os.open(caminho, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descritor, "w", encoding="ascii") as marcador:
+            marcador.write("ready\n")
+    except Exception:
+        caminho.unlink(missing_ok=True)
+        raise
 
 
 def main() -> None:
