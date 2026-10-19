@@ -40,6 +40,8 @@ class WebSettings(BaseSettings):
     capture_temp_dir: Path | None = None
     reference_storage_dir: Path | None = None
     legacy_image_storage_dir: Path | None = None
+    maintenance_dir: Path | None = None
+    backup_exclusions_file: Path | None = None
     capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
     capture_max_frames: Literal[3] = 3
     capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024
@@ -244,8 +246,48 @@ class WebSettings(BaseSettings):
                 raise ValueError(
                     "Os diretórios biométricos de produção devem ser absolutos."
                 )
-            if self.capture_temp_dir.resolve() == self.reference_storage_dir.resolve():
+            raiz_captura = self.capture_temp_dir.resolve()
+            raiz_referencias = self.reference_storage_dir.resolve()
+            if raiz_captura.is_relative_to(
+                raiz_referencias
+            ) or raiz_referencias.is_relative_to(raiz_captura):
+                raise ValueError("Raizes temporaria e privada devem ser separadas.")
+            if raiz_captura == raiz_referencias:
                 raise ValueError("As raízes temporária e privada devem ser distintas.")
+            if self.maintenance_dir is None or self.backup_exclusions_file is None:
+                raise ValueError(
+                    "A produção exige WEB_MAINTENANCE_DIR e "
+                    "WEB_BACKUP_EXCLUSIONS_FILE explícitos."
+                )
+            if not _path_is_absolute(self.maintenance_dir) or not _path_is_absolute(
+                self.backup_exclusions_file
+            ):
+                raise ValueError(
+                    "Os caminhos de manutenção e exclusões devem ser absolutos."
+                )
+            raiz_manutencao = self.maintenance_dir.resolve()
+            arquivo_exclusoes = self.backup_exclusions_file.resolve()
+            if (
+                raiz_manutencao.is_relative_to(raiz_captura)
+                or raiz_captura.is_relative_to(raiz_manutencao)
+                or raiz_manutencao.is_relative_to(raiz_referencias)
+                or raiz_referencias.is_relative_to(raiz_manutencao)
+            ):
+                raise ValueError(
+                    "Raizes de manutencao, captura e referencia devem ser distintas."
+                )
+            if arquivo_exclusoes.is_relative_to(raiz_manutencao):
+                raise ValueError(
+                    "O registro de exclusões não pode ficar na raiz do backup."
+                )
+            if arquivo_exclusoes.is_relative_to(self.capture_temp_dir.resolve()):
+                raise ValueError(
+                    "O registro de exclusoes nao pode ficar com capturas temporarias."
+                )
+            if arquivo_exclusoes.is_relative_to(self.reference_storage_dir.resolve()):
+                raise ValueError(
+                    "O registro de exclusões não pode ficar com as referências faciais."
+                )
         return self
 
 

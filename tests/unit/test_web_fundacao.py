@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from src.config.web_settings import WebSettings, get_web_settings
+from src.infrastructure.workers.maintenance_gate import ManutencaoWeb
 from src.presentation.web.app import WebServices, create_app, utc_now
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -137,8 +138,24 @@ def test_settings_producao_exige_media_pipe_em_ambiente_isolado() -> None:
     valores["purpose_end_at"] = datetime(2026, 11, 1, tzinfo=UTC)
     valores["capture_temp_dir"] = Path("/run/facediff/capturas")
     valores["reference_storage_dir"] = Path("/var/lib/facediff/referencias")
+    valores["maintenance_dir"] = Path("/var/lib/facediff/maintenance")
+    valores["backup_exclusions_file"] = Path(
+        "/var/lib/facediff/backup-control/exclusoes.jsonl"
+    )
     settings = WebSettings(**valores)  # type: ignore[arg-type]
     assert settings.mediapipe_model_path is not None
+
+    sem_gate = valores.copy()
+    del sem_gate["maintenance_dir"]
+    with pytest.raises(ValidationError, match="WEB_MAINTENANCE_DIR"):
+        WebSettings(**sem_gate)  # type: ignore[arg-type]
+
+    ledger_na_raiz_biometrica = valores.copy()
+    ledger_na_raiz_biometrica["backup_exclusions_file"] = Path(
+        "/var/lib/facediff/referencias/exclusoes.jsonl"
+    )
+    with pytest.raises(ValidationError, match="não pode ficar com as referências"):
+        WebSettings(**ledger_na_raiz_biometrica)  # type: ignore[arg-type]
 
     del valores["mediapipe_python_executable"]
     with pytest.raises(ValidationError, match="configurados juntos"):
@@ -182,6 +199,27 @@ def test_live_e_ready_entregam_contratos_sem_configuracao_interna() -> None:
         "componentes": {"database": "available"},
     }
     assert SEGREDO_TESTE not in live.text + ready.text
+
+
+def test_manutencao_responde_503_para_api_e_mantem_health_disponivel(
+    tmp_path: Path,
+) -> None:
+    assert "maintenance_gate" in WebServices.__dataclass_fields__
+    gate = ManutencaoWeb(tmp_path / "maintenance")
+    app = create_app(_settings(), WebServices(maintenance_gate=gate))
+    gate.solicitar_manutencao()
+    try:
+        with TestClient(app) as client:
+            api = client.post("/api/v1/auth/logout")
+            live = client.get("/health/live")
+    finally:
+        gate.liberar_manutencao()
+
+    assert api.status_code == 503
+    assert api.json()["codigo"] == "manutencao"
+    assert api.json()["request_id"] == api.headers["X-Request-ID"]
+    assert api.headers["Retry-After"] == "60"
+    assert live.status_code == 200
 
 
 def test_ready_indica_indisponibilidade_sem_expor_excecao_ou_credencial() -> None:
@@ -301,3 +339,18 @@ assert "src.main" not in sys.modules
     )
 
     assert resultado.returncode == 0, resultado.stderr
+
+
+def test_runtime_web_recusa_api_apos_fim_da_finalidade(tmp_path: Path) -> None:
+    fim = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
+    gate = ManutencaoWeb(tmp_path / "maintenance")
+    services = WebServices(maintenance_gate=gate, clock=lambda: fim)
+    app = create_app(_settings(purpose_end_at=fim), services)
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/recurso-inexistente")
+        openapi = client.get("/api/v1/openapi.json")
+
+    assert response.status_code == 410
+    assert response.json()["codigo"] == "finalidade_encerrada"
+    assert openapi.status_code == 200

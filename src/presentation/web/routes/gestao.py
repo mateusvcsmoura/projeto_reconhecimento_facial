@@ -6,6 +6,7 @@ import calendar
 import hashlib
 import hmac
 import re
+from contextlib import suppress
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID
@@ -319,6 +320,10 @@ def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRoute
     ) -> dict[str, object]:
         if conta.papel != "admin" or conta.troca_senha_obrigatoria:
             raise HTTPException(status_code=403, detail="Operação não autorizada.")
+        registro_exclusoes = services.backup_exclusions
+        exclusao_evento = None
+        if registro_exclusoes is not None:
+            exclusao_evento = registro_exclusoes.registrar_pendente("aluno", aluno_id)
         try:
             resultado = gerenciar().excluir_globalmente(
                 conta.como_ator(),
@@ -340,8 +345,17 @@ def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRoute
             ValueError,
             RuntimeError,
         ) as erro:
+            if exclusao_evento is not None and registro_exclusoes is not None:
+                with suppress(Exception):
+                    registro_exclusoes.cancelar(exclusao_evento, "aluno", aluno_id)
             raise _exigir_autenticado(erro) from None
         limpeza_pendente = False
+        if exclusao_evento is not None and registro_exclusoes is not None:
+            try:
+                registro_exclusoes.confirmar(exclusao_evento, "aluno", aluno_id)
+            except Exception:
+                # Pending exclusions prevent data resurrection on restore.
+                limpeza_pendente = True
         if services.reference_storage is not None:
             caminhos = cast(tuple[str, ...], resultado["caminhos_referencias"])
             for caminho in caminhos:

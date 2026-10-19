@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy import Engine, create_engine, text
@@ -12,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from src.application.services.fila_facial import FilaFacial
 from src.config.web_settings import WebSettings, get_web_settings
 from src.domain.services.desafio_captura import DesafioCaptura
+from src.infrastructure.backup.exclusions import RegistroExclusoes
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
 )
@@ -38,6 +40,7 @@ from src.infrastructure.storage.private_reference_storage import (
     PrivateReferenceStorageLocal,
 )
 from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptureStorage
+from src.infrastructure.workers.maintenance_gate import ManutencaoWeb
 from src.presentation.web.app import WebServices, create_app
 
 
@@ -100,6 +103,15 @@ def create_web_app(
     legacy_image_storage = None
     if configuracao.legacy_image_storage_dir is not None:
         legacy_image_storage = LegacyImageRemover(configuracao.legacy_image_storage_dir)
+    maintenance_gate = None
+    if configuracao.maintenance_dir is not None:
+        maintenance_gate = ManutencaoWeb(configuracao.maintenance_dir)
+    backup_exclusions = None
+    if configuracao.backup_exclusions_file is not None:
+        backup_exclusions = RegistroExclusoes(
+            configuracao.backup_exclusions_file,
+            project_root=Path(__file__).resolve().parents[1],
+        )
     fila_facial = FilaFacial(
         jobs_repository,
         segredo=configuracao.secret_key.get_secret_value().encode(),
@@ -125,6 +137,8 @@ def create_web_app(
         legacy_image_storage=legacy_image_storage,
         desafio_captura=desafio_captura,
         rate_limit_secret=configuracao.secret_key.get_secret_value().encode(),
+        maintenance_gate=maintenance_gate,
+        backup_exclusions=backup_exclusions,
         on_shutdown=engine.dispose,
     )
     return create_app(configuracao, services)

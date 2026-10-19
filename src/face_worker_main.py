@@ -55,6 +55,7 @@ from src.infrastructure.storage.private_reference_storage import (
 from src.infrastructure.storage.temporary_capture_storage import (
     TemporaryCaptureStorage,
 )
+from src.infrastructure.workers.maintenance_gate import ManutencaoWeb
 from src.infrastructure.workers.singleton_process_lock import SingletonProcessLock
 
 logger = logging.getLogger(__name__)
@@ -177,11 +178,21 @@ def executar_worker(
     processadores: Mapping[TipoJobFacial, ProcessadorJobFacial] | None = None,
 ) -> None:
     configuracao = settings or get_web_settings()
+    if configuracao.purpose_end_at is not None and datetime.now(
+        UTC
+    ) >= configuracao.purpose_end_at.astimezone(UTC):
+        logger.info("Worker web encerrado pelo fim autorizado da finalidade.")
+        return
     worker, adapter, engine, repository = construir_worker(
         configuracao, processadores=processadores
     )
     assert configuracao.capture_temp_dir is not None
     lock_path = Path(configuracao.capture_temp_dir).expanduser() / ".worker.lock"
+    maintenance_gate = (
+        ManutencaoWeb(configuracao.maintenance_dir)
+        if configuracao.maintenance_dir is not None
+        else None
+    )
     try:
         with SingletonProcessLock(lock_path) as lock:
             if not lock.adquirido:
@@ -196,11 +207,24 @@ def executar_worker(
                     adapter.preaquecer_para_web()
                     worker.preaquecer()
 
-                preparar_worker(worker, aquecer)
+                if maintenance_gate is None:
+                    preparar_worker(worker, aquecer)
+                else:
+                    while True:
+                        with maintenance_gate.mutacao_worker() as permitido:
+                            if permitido:
+                                preparar_worker(worker, aquecer)
+                                break
+                        time.sleep(0.1)
                 logger.info("Worker facial inicializado.")
                 proxima_limpeza = time.monotonic() + 30
                 while True:
-                    if not worker.executar_um():
+                    if maintenance_gate is None:
+                        trabalhou = worker.executar_um()
+                    else:
+                        with maintenance_gate.mutacao_worker() as permitido:
+                            trabalhou = worker.executar_um() if permitido else False
+                    if not trabalhou:
                         time.sleep(0.5)
                     if time.monotonic() >= proxima_limpeza:
                         worker.reconciliar_temporarios()

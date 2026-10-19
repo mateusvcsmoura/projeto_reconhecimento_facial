@@ -25,6 +25,10 @@ from src.infrastructure.storage.private_reference_storage import (
     PrivateReferenceStorageLocal,
 )
 from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptureStorage
+from src.infrastructure.workers.maintenance_gate import (
+    ManutencaoAtiva,
+    ManutencaoWeb,
+)
 from src.presentation.web.routes.auth import criar_rotas_auth
 from src.presentation.web.routes.cadastros import criar_rotas_cadastros
 from src.presentation.web.routes.gestao import criar_rotas_gestao
@@ -63,6 +67,8 @@ class WebServices:
     legacy_image_storage: Any | None = None
     desafio_captura: DesafioCaptura | None = None
     rate_limit_secret: bytes | None = None
+    maintenance_gate: ManutencaoWeb | None = None
+    backup_exclusions: Any | None = None
     clock: Callable[[], datetime] = utc_now
     on_shutdown: Callable[[], None] = field(default=lambda: None)
 
@@ -127,8 +133,38 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     ) -> Response:
         request_id = str(uuid4())
         request.state.request_id = request_id
+        response: Response
         try:
-            response = await call_next(request)
+            if (
+                settings.purpose_end_at is not None
+                and request.url.path.startswith("/api/v1/")
+                and request.url.path != "/api/v1/openapi.json"
+                and services.now_utc() >= settings.purpose_end_at.astimezone(UTC)
+            ):
+                response = _erro_publico(
+                    request,
+                    codigo="finalidade_encerrada",
+                    mensagem="O periodo de uso do servico terminou.",
+                    status_code=410,
+                )
+            elif (
+                services.maintenance_gate is not None
+                and request.url.path.startswith("/api/v1/")
+                and request.url.path != "/api/v1/openapi.json"
+            ):
+                try:
+                    with services.maintenance_gate.mutacao_http():
+                        response = await call_next(request)
+                except ManutencaoAtiva:
+                    response = _erro_publico(
+                        request,
+                        codigo="manutencao",
+                        mensagem="O serviço está temporariamente indisponível.",
+                        status_code=503,
+                    )
+                    response.headers["Retry-After"] = "60"
+            else:
+                response = await call_next(request)
         except Exception:
             response = _erro_publico(
                 request,
