@@ -1,8 +1,8 @@
 # Gestão web, revisão de presença e relatórios
 
-Estado: backend da tarefa 016 implementado e coberto por testes no workspace.
-A revisão Alembic `0011` está preparada, mas não foi aplicada a banco. Não há
-interface visual; ela continua reservada à tarefa 020.
+Estado: backend da tarefa 016 implementado, validado em PostgreSQL e migration
+`0011` aplicada ao banco local de desenvolvimento `escola`. Não há interface
+visual; ela continua reservada à tarefa 020.
 
 ## API disponível
 
@@ -62,10 +62,15 @@ presenças legadas e biométricas já existentes, permite presença manual de um
 sessão com correção auditada, aumenta o domínio do ordinal de tentativas para
 reativações de quota e cria `revisoes_presenca_web` com unicidade parcial de
 revisão aberta. O downgrade recusa eliminar dados de revisão/correção novos.
-Foi compilada em modo SQL offline até `head`; não houve conexão nem escrita em
-banco nesta execução. Antes de habilitar a API em outro ambiente, aplicar a
-migration somente após revisar/validar o alvo e fazer o procedimento de backup
-definido no contrato de migrations.
+Depois de confirmar `escola` como banco local em `localhost:5433`, na revisão
+`0005`, foram aplicadas as revisões pendentes `0006–0011`. A revisão terminou
+em `0011` e `alembic check` retornou `No new upgrade operations detected`. No
+banco descartável `task016_gestao_test_20261018`, a fixture aplicou `head`,
+validou o schema e executou uma corrida real revisão/worker; limpou os dados
+sintéticos e reverteu o banco descartável a `base`. Também confirmou que um
+downgrade com revisão persistida é recusado sem apagar o registro. Antes de
+habilitar a API em outro ambiente, revisar o alvo e seguir o procedimento de
+backup do contrato de migrations.
 
 A exclusão global tenta remover os arquivos temporários e a imagem legada após
 o commit do banco. A API informa `limpeza_pendente=true` se algum armazenamento
@@ -74,17 +79,16 @@ falha não tem retry automático persistido; exige procedimento operacional de
 limpeza/reconciliação. A configuração `WEB_LEGACY_IMAGE_STORAGE_DIR` é opcional
 e limita remoção ao diretório privado configurado.
 
-## Evidências e gates pendentes
+## Evidências e limites remanescentes
 
-Na execução da tarefa 016, a suíte completa reportou 1.209 aprovados, 78
-ignorados e cobertura total de 80,23%, superando o gate de 80%. Ruff,
-formatação, mypy, compilação e geração offline da cadeia de migrations até
-`0011` passaram. O gate de integração PostgreSQL, aplicação/rollback de `0011`,
-`alembic check` e corrida real entre revisão e worker não foram executados por
-falta de ambiente descartável da task016 configurado. Os testes de SQLite e
-fakes verificam a lógica da aplicação, mas não substituem a prova de locks e
-constraints PostgreSQL. Não houve teste com pessoas, imagens biométricas,
-webcam, implantação ou acesso ao banco operacional.
+Na validação final, a suíte completa reportou 1.209 aprovados, 80 ignorados e
+cobertura total de 80,23%, acima do gate de 80%. Ruff, formatação e mypy
+passaram. Os dois testes PostgreSQL da tarefa passaram: migration/schema e
+concorrência real do worker com uma revisão confirmada. `alembic check` passou
+no banco descartável e em `escola`; o downgrade protegido preservou a revisão.
+Não houve teste com pessoas, imagens biométricas, webcam ou implantação. A
+validação não substitui o gate integrado
+do backend previsto na tarefa 019.
 
 Consulte o [resultado da tarefa 016](../tasks/016-web-gestao-revisao-relatorios/RESULTADO.md)
 e os [contratos de execução](../tasks/WEB-CONTRATO-EXECUCAO.md) e de
