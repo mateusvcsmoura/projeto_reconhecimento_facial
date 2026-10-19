@@ -106,8 +106,10 @@ banco descartável descrito abaixo; a URL e credenciais não foram registradas.
 
 O banco usado foi `task014_cadastro_api_test_20261018`, identificado pelo
 comentário `projeto_reconhecimento_facial: task 014 disposable registration database`.
-`escola` não recebeu a migration 0009 nem foi alterado. A validação PostgreSQL
-cobriu migration e revogação transacional, não carga ou concorrência de produção.
+Na execução original da task014, `escola` não recebeu a migration 0009. Em
+19/10/2026, `0009` foi aplicada a `escola` como parte da cadeia `0006–0011` da
+tarefa 016. A validação PostgreSQL desta task cobriu migration e revogação
+transacional, não carga ou concorrência de produção.
 
 ## Ativação e reversão
 

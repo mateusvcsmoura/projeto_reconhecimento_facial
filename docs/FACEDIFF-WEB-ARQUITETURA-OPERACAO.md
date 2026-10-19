@@ -8,10 +8,12 @@ foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa
 Estado do código em 18/10/2026: as tasks 009–016 fornecem fundação, autenticação,
 referências, fila/worker, verificação 1:1, cadastro/aprovação, presença por
 sessão e gestão/revisão/CSV via API. As migrations `0006` a `0010` foram
-validadas em PostgreSQL descartável; `0011` foi gerada offline, com validação
-PostgreSQL ainda pendente. Os fluxos de cadastro, presença e gestão foram
-exercitados com API e dados sintéticos; concorrência transacional de revisão e
-worker aguarda teste PostgreSQL. tmpfs compartilhado de produção, validação com
+validadas em PostgreSQL descartável. Em 19/10/2026, `0006–0011` também foram
+aplicadas em sequência ao banco local `escola`, que estava na revisão `0005`;
+`alembic check` confirmou `0011`. Os fluxos de cadastro, presença e gestão foram
+exercitados com API e dados sintéticos; dois testes PostgreSQL task016 provaram
+o schema, a concorrência transacional revisão/worker e a recusa de downgrade
+com revisão persistida. tmpfs compartilhado de produção, validação com
 pessoas, interface e deploy continuam pendentes. O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
@@ -31,8 +33,9 @@ presença versionada e auditada, revisão solicitada pelo bearer de uma sessão,
 painel agregado e CSV seguro. A declaração de identidade conferida é uma ação
 auditável de operador, não uma conclusão biométrica. O contrato HTTP e a
 limitação de limpeza após exclusão global estão em
-[FACEDIFF-WEB-GESTAO.md](FACEDIFF-WEB-GESTAO.md); SQL da migration 0011 foi
-compilado offline, mas segue sem upgrade/rollback real em PostgreSQL.
+[FACEDIFF-WEB-GESTAO.md](FACEDIFF-WEB-GESTAO.md); a migration 0011 foi aplicada
+em `escola` e exercitada no banco descartável. Não houve upgrade em ambiente
+remoto, deploy ou validação com pessoas.
 
 ## 1. Topologia proposta
 

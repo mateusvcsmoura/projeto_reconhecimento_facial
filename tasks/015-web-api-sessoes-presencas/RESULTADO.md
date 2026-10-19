@@ -56,8 +56,10 @@ verificação específica.
 
 O banco usado na integração foi o local descartável
 `task015_presenca_test_20261018`, com comentário marcador validado pela fixture.
-O banco `escola` não recebeu `0010` nem foi alterado. Nenhuma webcam, imagem
-biométrica real ou banco de produção foi acessado.
+Na execução original da task015, `escola` não recebeu `0010` nem foi alterado.
+Em 19/10/2026, `0010` foi aplicada a `escola` como parte da cadeia `0006–0011`
+da tarefa 016. Nenhuma webcam, imagem biométrica real ou banco de produção foi
+acessado.
 
 ## Arquivos e limites
 

@@ -5,17 +5,20 @@
 **Status: planejamento consolidado; as tarefas 009–016 foram implementadas no
 workspace e as tarefas 010, 013, 014, 015 e 016 foram publicadas na `main`; implantação
 web não executada.** Este documento substitui as propostas conflitantes das versões
-anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável;
-`escola` não recebeu `0006` a `0010`. O worker/fila, desafio 1:1 e fluxos HTTP de
+anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável.
+Em 19/10/2026, `0006–0011` também foram aplicadas em sequência ao banco local
+`escola`, que estava na revisão `0005`; `alembic check` confirmou `0011`. O worker/fila, desafio 1:1 e fluxos HTTP de
 cadastro/aprovação e presença por sessão estão implementados; a interface continua
 pendente. A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
 validação com pessoas autorizadas seguem pendentes.
 
-A revisão `0011` da gestão foi preparada e gerada em modo offline, sem aplicação
-em banco. O gate de integração PostgreSQL da task016, incluindo locks entre
-revisão e worker, continua pendente. A gestão web está descrita em
+A revisão `0011` da gestão foi aplicada a `escola` e validada no banco
+descartável `task016_gestao_test_20261018`: dois testes PostgreSQL passaram,
+incluindo a corrida de locks entre revisão e worker e a recusa de downgrade
+com revisão persistida. A fixture limpou dados sintéticos e reverteu o banco
+descartável a `base`. A gestão web está descrita em
 [FACEDIFF-WEB-GESTAO.md](FACEDIFF-WEB-GESTAO.md).
 
 Documentos complementares:
@@ -482,14 +485,15 @@ opcional; importação em lote não foi adicionada.
   sessões distintas no mesmo dia; 11 testes HTTP cobrem o contrato e recusam
   timestamps do cliente. A suíte unitária passou com 80,09% de cobertura. A migration
   foi revertida pela fixture no banco descartável `task015_presenca_test_20261018`;
-  `escola` permaneceu intacta. Sem validação com pessoas, interface, medição na
+  `escola` não foi alterada durante a execução da task015. Sem validação com pessoas, interface, medição na
   VPS ou deploy. Veja [RESULTADO 015](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
-- 18/10/2026: tarefa 016 adicionou CRUD autorizado, revisão manual auditada,
+- 18–19/10/2026: tarefa 016 adicionou CRUD autorizado, revisão manual auditada,
   controle de versão/resultado tardio, reativação auditada de quota, painel e
-  CSV com proteção contra fórmulas. A migration `0011` foi compilada offline,
-  sem acesso a banco; integração PostgreSQL, aplicação/rollback e `alembic
-  check` permanecem pendentes. A suíte completa passou com 1209 aprovados, 78
-  ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não houve
+  CSV com proteção contra fórmulas. A migration `0011` foi aplicada a `escola`
+  depois de confirmar que estava em `0005`; dois testes PostgreSQL descartáveis
+  validaram schema, lock/concorrência e recusa protegida de downgrade. `alembic
+  check` passou na fixture e em `escola`. A suíte completa passou com 1209
+  aprovados, 80 ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não houve
   biometria real, interface, deploy nem validação na VPS. Consulte
   [RESULTADO 016](../tasks/016-web-gestao-revisao-relatorios/RESULTADO.md).
 
