@@ -81,11 +81,18 @@ class PostgresLinkRepository:
         criado_em: dt.datetime,
         expira_em: dt.datetime,
         finalidade_ate: dt.datetime,
+        sessao_id: int | None = None,
     ) -> UUID:
         instante = _utc(criado_em)
         expiracao = _utc(expira_em)
         fim = _utc(finalidade_ate)
-        if finalidade != "cadastro" or expiracao <= instante or fim <= instante:
+        if (
+            finalidade not in {"cadastro", "presenca"}
+            or (finalidade == "cadastro" and sessao_id is not None)
+            or (finalidade == "presenca" and (sessao_id is None or sessao_id <= 0))
+            or expiracao <= instante
+            or fim <= instante
+        ):
             raise ValueError("O link ou finalidade são inválidos.")
         link_id = uuid4()
         with sessao(self._engine) as session:
@@ -98,6 +105,17 @@ class PostgresLinkRepository:
             if turma is None or turma.excluida_em is not None:
                 raise LookupError("A turma não está disponível.")
             AutorizarTurma.exigir(atual, turma, "emitir link de cadastro")
+            if sessao_id is not None:
+                sessao_presenca = session.scalar(
+                    select(models.SessaoPresencaWeb)
+                    .where(
+                        models.SessaoPresencaWeb.id == sessao_id,
+                        models.SessaoPresencaWeb.turma_id == turma_id,
+                    )
+                    .with_for_update()
+                )
+                if sessao_presenca is None or sessao_presenca.revogada_em is not None:
+                    raise LookupError("A sessão não está disponível.")
             session.add(
                 models.LinkCadastroWeb(
                     id=link_id,
@@ -105,6 +123,7 @@ class PostgresLinkRepository:
                     emitido_por_conta_id=atual.conta_id,
                     token_hash=token_hash,
                     finalidade=finalidade,
+                    sessao_id=sessao_id,
                     criado_em=instante,
                     expira_em=expiracao,
                     finalidade_ate=fim,
@@ -142,12 +161,16 @@ class PostgresLinkRepository:
             )
             if (
                 link is None
-                or link.finalidade != "cadastro"
+                or link.finalidade not in {"cadastro", "presenca"}
                 or link.revogado_em is not None
                 or _utc(link.expira_em) <= instante
                 or _utc(link.finalidade_ate) <= instante
             ):
                 return None
+            if link.sessao_id is not None:
+                sessao_presenca = session.get(models.SessaoPresencaWeb, link.sessao_id)
+                if sessao_presenca is None or sessao_presenca.revogada_em is not None:
+                    return None
             expiracao = min(_utc(credencial_expira_em), _utc(link.finalidade_ate))
             if expiracao <= instante:
                 return None
@@ -163,6 +186,7 @@ class PostgresLinkRepository:
             return {
                 "link_id": link.id,
                 "turma_id": link.turma_id,
+                "sessao_id": link.sessao_id,
                 "finalidade": link.finalidade,
                 "finalidade_ate": _utc(link.finalidade_ate),
                 "credencial_expira_em": expiracao,
@@ -186,14 +210,22 @@ class PostgresLinkRepository:
                         models.CredencialLinkCadastroWeb.expira_em.label("cred_expira"),
                         models.LinkCadastroWeb.turma_id,
                         models.LinkCadastroWeb.finalidade,
+                        models.LinkCadastroWeb.sessao_id,
                         models.LinkCadastroWeb.expira_em.label("link_expira"),
                         models.LinkCadastroWeb.finalidade_ate,
                         models.LinkCadastroWeb.revogado_em,
+                        models.SessaoPresencaWeb.revogada_em.label(
+                            "sessao_revogada_em"
+                        ),
                     )
                     .join(
                         models.LinkCadastroWeb,
                         models.LinkCadastroWeb.id
                         == models.CredencialLinkCadastroWeb.link_id,
+                    )
+                    .outerjoin(
+                        models.SessaoPresencaWeb,
+                        models.SessaoPresencaWeb.id == models.LinkCadastroWeb.sessao_id,
                     )
                     .where(
                         models.CredencialLinkCadastroWeb.token_hash == credencial_hash
@@ -233,6 +265,7 @@ class PostgresLinkRepository:
             return {
                 "link_id": None,
                 "turma_id": atualizacao["turma_id"],
+                "sessao_id": None,
                 "finalidade": "atualizacao",
                 "finalidade_ate": expira_em,
                 "expira_em": expira_em,
@@ -244,6 +277,7 @@ class PostgresLinkRepository:
             return None
         if exigir_link_ativo and (
             resultado["revogado_em"] is not None
+            or resultado["sessao_revogada_em"] is not None
             or _utc(resultado["link_expira"]) <= instante
             or _utc(resultado["finalidade_ate"]) <= instante
         ):
@@ -251,6 +285,7 @@ class PostgresLinkRepository:
         return {
             "link_id": resultado["link_id"],
             "turma_id": resultado["turma_id"],
+            "sessao_id": resultado["sessao_id"],
             "finalidade": resultado["finalidade"],
             "finalidade_ate": _utc(resultado["finalidade_ate"]),
             "expira_em": _utc(resultado["link_expira"]),

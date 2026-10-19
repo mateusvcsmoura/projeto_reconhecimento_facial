@@ -310,6 +310,64 @@ class EventoAuditoriaWeb(Base):
     )
 
 
+class SessaoPresencaWeb(Base):
+    """Janela de chamada criada por professor para uma turma."""
+
+    __tablename__ = "sessoes_presenca_web"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    turma_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    criada_por_conta_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    titulo: Mapped[str] = mapped_column(String(120), nullable=False)
+    inicio_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    fim_em: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    criada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revogada_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revogada_por_conta_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    versao: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+
+    __table_args__ = (
+        UniqueConstraint("id", "turma_id", name="uq_sessoes_presenca_id_turma"),
+        CheckConstraint(
+            "length(btrim(titulo)) BETWEEN 1 AND 120", name="titulo_valido"
+        ),
+        CheckConstraint("fim_em > inicio_em", name="janela_valida"),
+        CheckConstraint("versao > 0", name="versao_positiva"),
+        CheckConstraint(
+            "(revogada_em IS NULL AND revogada_por_conta_id IS NULL) OR "
+            "(revogada_em IS NOT NULL AND revogada_por_conta_id IS NOT NULL)",
+            name="revogacao_coerente",
+        ),
+        ForeignKeyConstraint(
+            ["turma_id"],
+            ["turmas.id"],
+            name="fk_sessoes_presenca_turma",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["criada_por_conta_id"],
+            ["contas_web.id"],
+            name="fk_sessoes_presenca_criador",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["revogada_por_conta_id"],
+            ["contas_web.id"],
+            name="fk_sessoes_presenca_revogador",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_sessoes_presenca_turma_inicio", "turma_id", "inicio_em"),
+    )
+
+
 class LinkCadastroWeb(Base):
     """Convite compartilhavel com hash do token e finalidade fixa."""
 
@@ -326,6 +384,7 @@ class LinkCadastroWeb(Base):
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     finalidade: Mapped[str] = mapped_column(String(16), nullable=False)
+    sessao_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     criado_em: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -346,8 +405,15 @@ class LinkCadastroWeb(Base):
 
     __table_args__ = (
         UniqueConstraint("token_hash", name="uq_links_cadastro_web_token_hash"),
+        UniqueConstraint(
+            "id", "sessao_id", "turma_id", name="uq_links_cadastro_sessao_turma"
+        ),
         CheckConstraint("length(token_hash) = 64", name="token_hash_sha256"),
-        CheckConstraint("finalidade = 'cadastro'", name="finalidade_cadastro"),
+        CheckConstraint(
+            "(finalidade = 'cadastro' AND sessao_id IS NULL) OR "
+            "(finalidade = 'presenca' AND sessao_id IS NOT NULL)",
+            name="finalidade_sessao_coerente",
+        ),
         CheckConstraint("expira_em > criado_em", name="expiracao_valida"),
         CheckConstraint("finalidade_ate > criado_em", name="fim_finalidade_valido"),
         CheckConstraint(
@@ -356,6 +422,12 @@ class LinkCadastroWeb(Base):
             name="revogacao_coerente",
         ),
         Index("ix_links_cadastro_web_turma_expira", "turma_id", "expira_em"),
+        ForeignKeyConstraint(
+            ["sessao_id", "turma_id"],
+            ["sessoes_presenca_web.id", "sessoes_presenca_web.turma_id"],
+            name="fk_links_presenca_sessao_turma",
+            ondelete="RESTRICT",
+        ),
     )
 
 
@@ -544,6 +616,12 @@ class ConjuntoReferenciasWeb(Base):
         UniqueConstraint("job_id", name="uq_conjuntos_referencias_web_job"),
         UniqueConstraint(
             "aluno_id", "versao", name="uq_conjuntos_referencias_web_aluno_versao"
+        ),
+        UniqueConstraint(
+            "id",
+            "aluno_id",
+            "versao",
+            name="uq_conjuntos_referencias_id_aluno_versao",
         ),
         CheckConstraint(
             "estado IN ('pendente', 'ativo', 'substituido', 'descartado')",
@@ -786,6 +864,162 @@ class DesafioVerificacaoWeb(Base):
     )
 
 
+class TentativaPresencaWeb(Base):
+    """Emissão contável de verificação 1:1 vinculada a um job facial."""
+
+    __tablename__ = "tentativas_presenca_web"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    sessao_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    turma_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    aluno_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ordinal: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    conjunto_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    versao_referencia: Mapped[int] = mapped_column(Integer, nullable=False)
+    versao_sessao: Mapped[int] = mapped_column(Integer, nullable=False)
+    link_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False)
+    idempotencia_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    iniciada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    prazo_envio: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    recebida_em: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    concluida_em: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    motivo_tecnico: Mapped[str | None] = mapped_column(String(64))
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["id"],
+            ["jobs_faciais_web.id"],
+            name="fk_tentativas_presenca_job",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["sessao_id", "turma_id"],
+            ["sessoes_presenca_web.id", "sessoes_presenca_web.turma_id"],
+            name="fk_tentativas_presenca_sessao_turma",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["turma_id", "aluno_id"],
+            ["aluno_turma.turma_id", "aluno_turma.aluno_id"],
+            name="fk_tentativas_presenca_vinculo",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["conjunto_id", "aluno_id", "versao_referencia"],
+            [
+                "conjuntos_referencias_web.id",
+                "conjuntos_referencias_web.aluno_id",
+                "conjuntos_referencias_web.versao",
+            ],
+            name="fk_tentativas_presenca_conjunto_ativo",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["link_id", "sessao_id", "turma_id"],
+            [
+                "links_cadastro_web.id",
+                "links_cadastro_web.sessao_id",
+                "links_cadastro_web.turma_id",
+            ],
+            name="fk_tentativas_presenca_link_escopo",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "sessao_id", "aluno_id", "ordinal", name="uq_tentativas_presenca_ordinal"
+        ),
+        UniqueConstraint(
+            "sessao_id",
+            "aluno_id",
+            "idempotencia_hash",
+            name="uq_tentativas_presenca_idempotencia",
+        ),
+        CheckConstraint("ordinal BETWEEN 1 AND 3", name="ordinal_valido"),
+        CheckConstraint(
+            "versao_referencia > 0 AND versao_sessao > 0", name="versoes_positivas"
+        ),
+        CheckConstraint(
+            "length(idempotencia_hash) = 64", name="idempotencia_hash_valida"
+        ),
+        CheckConstraint(
+            "estado IN ('iniciada', 'recebida', 'enfileirada', 'processando', "
+            "'concluida', 'expirada', 'rejeitada')",
+            name="estado_valido",
+        ),
+        CheckConstraint("prazo_envio > iniciada_em", name="prazo_valido"),
+        CheckConstraint(
+            "(estado IN ('iniciada', 'recebida', 'enfileirada', 'processando') "
+            "AND concluida_em IS NULL) OR "
+            "(estado IN ('concluida', 'expirada', 'rejeitada') "
+            "AND concluida_em IS NOT NULL)",
+            name="terminalidade_coerente",
+        ),
+        Index(
+            "uq_tentativas_presenca_ativa",
+            "sessao_id",
+            "aluno_id",
+            unique=True,
+            postgresql_where=text(
+                "estado IN ('iniciada', 'recebida', 'enfileirada', 'processando')"
+            ),
+            sqlite_where=text(
+                "estado IN ('iniciada', 'recebida', 'enfileirada', 'processando')"
+            ),
+        ),
+        Index("ix_tentativas_presenca_estado", "estado", "prazo_envio"),
+    )
+
+
+class LimitePresencaWeb(Base):
+    """Contador agregado; chaves são hashes e nunca armazenam IP bruto."""
+
+    __tablename__ = "limites_presenca_web"
+
+    chave_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    janela_iniciada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    quantidade: Mapped[int] = mapped_column(Integer, nullable=False)
+    bloqueado_ate: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    atualizado_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(chave_hash) = 64", name="chave_hash_valida"),
+        CheckConstraint("quantidade >= 0", name="quantidade_nao_negativa"),
+        Index("ix_limites_presenca_atualizado", "atualizado_em"),
+    )
+
+
+class RecebimentoTentativaPresencaWeb(Base):
+    """Hash do payload recebido por etapa; a imagem permanece temporária."""
+
+    __tablename__ = "recebimentos_tentativa_presenca_web"
+
+    tentativa_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    ordinal: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    recebido_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tentativa_id"],
+            ["tentativas_presenca_web.id"],
+            name="fk_recebimentos_tentativa_web_tentativa",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("ordinal BETWEEN 1 AND 3", name="ordinal_valido"),
+        CheckConstraint("length(payload_hash) = 64", name="payload_hash_valido"),
+    )
+
+
 class AlunoTurma(Base):
     __tablename__ = "aluno_turma"
 
@@ -836,6 +1070,10 @@ class Presenca(Base):
         ForeignKey("turmas.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    sessao_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    tentativa_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=True
+    )
 
     # Instante exato do registro.
     registrado_em: Mapped[dt.datetime] = mapped_column(
@@ -857,21 +1095,50 @@ class Presenca(Base):
             name="fk_presencas_turma_aluno_aluno_turma",
             ondelete="CASCADE",
         ),
-        # Presencas novas sao unicas dentro da turma; as linhas legadas com
-        # turma_id NULL usam um indice unico parcial independente.
-        UniqueConstraint(
+        ForeignKeyConstraint(
+            ["sessao_id", "turma_id"],
+            ["sessoes_presenca_web.id", "sessoes_presenca_web.turma_id"],
+            name="fk_presencas_sessao_turma",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["tentativa_id"],
+            ["tentativas_presenca_web.id"],
+            name="fk_presencas_tentativa",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "(sessao_id IS NULL AND tentativa_id IS NULL) OR "
+            "(sessao_id IS NOT NULL AND tentativa_id IS NOT NULL "
+            "AND turma_id IS NOT NULL)",
+            name="sessao_tentativa_coerentes",
+        ),
+        Index(
+            "uq_presencas_turma_aluno_dia",
             "turma_id",
             "aluno_id",
             "data_referencia",
-            name="uq_presencas_turma_aluno_dia",
+            unique=True,
+            postgresql_where=text("sessao_id IS NULL AND turma_id IS NOT NULL"),
+            sqlite_where=text("sessao_id IS NULL AND turma_id IS NOT NULL"),
         ),
         Index(
             "uq_presencas_legado_aluno_dia",
             "aluno_id",
             "data_referencia",
             unique=True,
-            postgresql_where=text("turma_id IS NULL"),
+            postgresql_where=text("sessao_id IS NULL AND turma_id IS NULL"),
+            sqlite_where=text("sessao_id IS NULL AND turma_id IS NULL"),
         ),
+        Index(
+            "uq_presencas_sessao_aluno",
+            "sessao_id",
+            "aluno_id",
+            unique=True,
+            postgresql_where=text("sessao_id IS NOT NULL"),
+            sqlite_where=text("sessao_id IS NOT NULL"),
+        ),
+        UniqueConstraint("tentativa_id", name="uq_presencas_tentativa"),
         Index("ix_presencas_turma_data", "turma_id", "data_referencia"),
         Index("ix_presencas_data_referencia", "data_referencia"),
     )

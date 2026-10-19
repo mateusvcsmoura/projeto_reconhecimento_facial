@@ -37,6 +37,7 @@ class ResultadoWorker:
     codigo: CodigoResultadoWorker
     aguardando_etapa: bool = False
     resultado_facial: ResultadoFacial | None = None
+    finalizacao_persistida: bool = False
 
 
 class ProcessadorJobFacial(Protocol):
@@ -166,9 +167,11 @@ class WorkerFacial:
                         resultado = ResultadoWorker(
                             False, CodigoResultadoWorker.FALHA_TECNICA
                         )
-            if heartbeat_perdido.is_set():
+            if heartbeat_perdido.is_set() and not resultado.finalizacao_persistida:
                 resultado = ResultadoWorker(False, CodigoResultadoWorker.FALHA_TECNICA)
-            if resultado.aguardando_etapa and not heartbeat_perdido.is_set():
+            if resultado.finalizacao_persistida:
+                finalizado = True
+            elif resultado.aguardando_etapa and not heartbeat_perdido.is_set():
                 finalizado = self._fila.aguardar_proxima_etapa(job)
                 preservar_temporarios = finalizado
             else:

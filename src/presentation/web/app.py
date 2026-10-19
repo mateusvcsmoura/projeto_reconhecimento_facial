@@ -17,6 +17,7 @@ from starlette.responses import Response
 
 from src.application.services.fila_facial import FilaCheia, FilaFacial
 from src.config.web_settings import WebSettings
+from src.domain.services.desafio_captura import DesafioCaptura
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
 )
@@ -28,6 +29,7 @@ from src.presentation.web.routes.auth import criar_rotas_auth
 from src.presentation.web.routes.cadastros import criar_rotas_cadastros
 from src.presentation.web.routes.links import criar_rotas_links
 from src.presentation.web.routes.operations import criar_rotas_operacoes
+from src.presentation.web.routes.presencas import criar_rotas_presencas
 from src.presentation.web.schemas import (
     ComponentStatus,
     HealthLiveResponse,
@@ -55,6 +57,9 @@ class WebServices:
     reference_storage: PrivateReferenceStorageLocal | None = None
     capture_storage: TemporaryCaptureStorage | None = None
     fila_facial: FilaFacial | None = None
+    presenca_repository: Any | None = None
+    desafio_captura: DesafioCaptura | None = None
+    rate_limit_secret: bytes | None = None
     clock: Callable[[], datetime] = utc_now
     on_shutdown: Callable[[], None] = field(default=lambda: None)
 
@@ -103,6 +108,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     app.include_router(criar_rotas_operacoes(services.fila_facial))
     app.include_router(criar_rotas_links(settings, services))
     app.include_router(criar_rotas_cadastros(settings, services))
+    app.include_router(criar_rotas_presencas(settings, services))
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -134,6 +140,8 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 "/api/v1/solicitacoes-biometria",
                 "/api/v1/admin/solicitacoes-biometria/",
                 "/api/v1/avisos/biometria",
+                "/api/v1/sessoes/",
+                "/api/v1/tentativas/",
             )
         ):
             response.headers["Cache-Control"] = "no-store"
@@ -153,12 +161,21 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 "requisicao_recusada",
                 "A requisição não pode ser atendida.",
             )
-        return _erro_publico(
+        resposta = _erro_publico(
             request,
             codigo=codigo,
             mensagem=mensagem,
             status_code=erro.status_code,
         )
+        retry_after = (erro.headers or {}).get("Retry-After")
+        if (
+            erro.status_code in {429, 503}
+            and retry_after is not None
+            and retry_after.isascii()
+            and retry_after.isdigit()
+        ):
+            resposta.headers["Retry-After"] = retry_after
+        return resposta
 
     @app.exception_handler(FilaCheia)
     async def tratar_fila_cheia(request: Request, erro: FilaCheia) -> JSONResponse:

@@ -25,6 +25,7 @@ class LinkCadastroEmitido:
     criado_em: datetime
     expira_em: datetime
     finalidade_ate: datetime
+    sessao_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,7 @@ class AcessoLinkEmitido:
     finalidade: str
     expira_em: datetime
     finalidade_ate: datetime
+    sessao_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,18 +75,34 @@ class GerenciarLinks:
         self._gerar_segredo = gerar_segredo or (lambda: secrets.token_urlsafe(32))
 
     def criar(
-        self, ator: AtorWeb, turma_id: int, *, finalidade_ate: datetime
+        self,
+        ator: AtorWeb,
+        turma_id: int,
+        *,
+        finalidade_ate: datetime,
+        finalidade: str = "cadastro",
+        sessao_id: int | None = None,
     ) -> LinkCadastroEmitido:
         agora = self._agora()
         fim = self._utc(finalidade_ate)
-        if turma_id <= 0 or fim <= agora:
+        if (
+            turma_id <= 0
+            or fim <= agora
+            or finalidade not in {"cadastro", "presenca"}
+            or (finalidade == "cadastro" and sessao_id is not None)
+            or (
+                finalidade == "presenca"
+                and (sessao_id is None or isinstance(sessao_id, bool) or sessao_id <= 0)
+            )
+        ):
             raise ValueError("A turma ou o fim da finalidade são inválidos.")
         token = self._segredo()
         expira_em = min(agora + PRAZO_LINK, fim)
         link_id = self._repositorio.criar_link(
             ator=ator,
             turma_id=turma_id,
-            finalidade="cadastro",
+            finalidade=finalidade,
+            sessao_id=sessao_id,
             token_hash=self._hash(token),
             criado_em=agora,
             expira_em=expira_em,
@@ -94,10 +112,11 @@ class GerenciarLinks:
             id=link_id,
             token=token,
             turma_id=turma_id,
-            finalidade="cadastro",
+            finalidade=finalidade,
             criado_em=agora,
             expira_em=expira_em,
             finalidade_ate=fim,
+            sessao_id=sessao_id,
         )
 
     def trocar(self, token: str) -> AcessoLinkEmitido | None:
@@ -118,22 +137,29 @@ class GerenciarLinks:
         finalidade = link.get("finalidade")
         expira_credencial = link.get("credencial_expira_em")
         finalidade_ate = link.get("finalidade_ate")
+        sessao_id = link.get("sessao_id")
         if (
             not isinstance(link_id, UUID)
             or not isinstance(turma_id, int)
             or isinstance(turma_id, bool)
-            or finalidade != "cadastro"
+            or finalidade not in {"cadastro", "presenca"}
             or not isinstance(expira_credencial, datetime)
             or not isinstance(finalidade_ate, datetime)
+            or (
+                sessao_id is not None
+                and (isinstance(sessao_id, bool) or not isinstance(sessao_id, int))
+            )
+            or (finalidade == "presenca") != (sessao_id is not None)
         ):
             return None
         return AcessoLinkEmitido(
             credencial=credencial,
             link_id=link_id,
             turma_id=turma_id,
-            finalidade="cadastro",
+            finalidade=finalidade,
             expira_em=self._utc(expira_credencial),
             finalidade_ate=self._utc(finalidade_ate),
+            sessao_id=sessao_id,
         )
 
     def revogar(self, ator: AtorWeb, link_id: UUID) -> ResultadoRevogacaoLink:

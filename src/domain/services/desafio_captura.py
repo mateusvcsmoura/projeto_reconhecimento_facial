@@ -217,6 +217,35 @@ class DesafioCaptura:
             proxima_etapa=persistido.etapa_validada + 1,
         )
 
+    def consultar(self, contexto: ContextoDesafio, agora: datetime) -> Desafio | None:
+        """Reconstroi o prompt atual sem criar nonce nem revelar estado terminal."""
+        instante = _utc(agora)
+        registro = self._repositorio.obter(contexto.job_id)
+        if (
+            registro is None
+            or registro.estado is not EstadoDesafio.AGUARDANDO_ETAPA
+            or registro.etapa_recebida != registro.etapa_validada
+            or registro.aluno_id != contexto.aluno_id
+            or registro.conjunto_id != contexto.conjunto_id
+            or registro.versao_referencia != contexto.versao_referencia
+            or instante >= _utc(registro.expira_em)
+        ):
+            return None
+        nonce = self._nonce(contexto.job_id)
+        if not hmac.compare_digest(
+            hashlib.sha256(nonce.encode()).hexdigest(), registro.nonce_hash
+        ):
+            return None
+        proxima = registro.etapa_validada + 1
+        return Desafio(
+            id=registro.id,
+            nonce=nonce,
+            direcao=registro.direcao,
+            primeira_orientacao=OrientacaoPose.FRENTE,
+            expira_em=_utc(registro.expira_em),
+            proxima_etapa=proxima,
+        )
+
     def registrar_etapa_recebida(
         self, desafio_id: UUID, nonce: str, sequencia: int, agora: datetime
     ) -> ResultadoEtapaDesafio:

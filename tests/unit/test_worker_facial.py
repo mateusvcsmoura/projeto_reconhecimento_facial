@@ -20,6 +20,10 @@ from src.application.services.worker_facial import (
     WorkerFacial,
     preparar_worker,
 )
+from src.domain.services.face_recognition import ResultadoFacial
+from src.infrastructure.face_recognition.processador_presenca_web import (
+    ProcessadorPresencaWeb,
+)
 from src.infrastructure.storage.temporary_capture_storage import (
     TemporaryCaptureStorage,
 )
@@ -215,6 +219,176 @@ def test_worker_libera_slot_e_preserva_temporarios_entre_etapas(
     assert queue.etapas_aguardadas == [(job_id, "aguardando_etapa")]
     assert queue.finalizados == []
     assert (storage.raiz / str(job_id) / "captura-1.bin").is_file()
+
+
+def test_worker_nao_finaliza_lease_apos_commit_transacional_de_presenca(
+    tmp_path: Path,
+) -> None:
+    job_id = uuid.uuid4()
+    storage = _storage(tmp_path, job_id)
+    processor = ProcessorFake()
+    processor.resultado = ResultadoWorker(
+        True,
+        CodigoResultadoWorker.CONCLUIDA,
+        finalizacao_persistida=True,
+    )
+    job = replace(
+        _job(job_id, estado=EstadoJobFacial.ENFILEIRADA),
+        tipo=TipoJobFacial.PRESENCA,
+    )
+    queue = FilaFake([job])
+    worker = WorkerFacial(
+        queue,
+        storage,
+        processadores={TipoJobFacial.PRESENCA: processor},
+    )
+    worker.inicializar()
+
+    assert worker.executar_um()
+
+    assert queue.finalizados == []
+    assert queue.invalidacoes == []
+    assert not (storage.raiz / str(job_id)).exists()
+
+
+def test_processador_presenca_persiste_somente_apos_verificacao_positiva() -> None:
+    facial = ResultadoFacial(
+        identidade_ok=True,
+        desafio_ok=True,
+        antispoofing_ok=True,
+        qualidade_ok=True,
+        motivo_tecnico=None,
+        versao_referencia=2,
+        politica="mediana-3",
+    )
+
+    class Verificador:
+        def processar(self, _job, _capturas):
+            return ResultadoWorker(
+                True, CodigoResultadoWorker.CONCLUIDA, resultado_facial=facial
+            )
+
+    class Conclusao:
+        def __init__(self) -> None:
+            self.chamadas = []
+
+        def executar(self, job, resultado, *, agora):
+            self.chamadas.append((job, resultado, agora))
+
+    job = _job(uuid.uuid4(), estado=EstadoJobFacial.PROCESSANDO)
+    conclusao = Conclusao()
+    processador = ProcessadorPresencaWeb(
+        Verificador(), conclusao, relogio=lambda: AGORA
+    )
+
+    resultado = processador.processar(job, (b"captura",))
+
+    assert resultado.sucesso
+    assert resultado.finalizacao_persistida
+    assert conclusao.chamadas == [(job, facial, AGORA)]
+
+
+def test_processador_presenca_nao_persiste_recusa_do_verificador() -> None:
+    recusado = ResultadoWorker(False, CodigoResultadoWorker.RECUSA_BIOMETRICA)
+
+    class Verificador:
+        def processar(self, _job, _capturas):
+            return recusado
+
+    class Conclusao:
+        def executar(self, *_args, **_kwargs):
+            raise AssertionError("uma recusa não deve gravar presença")
+
+    processador = ProcessadorPresencaWeb(
+        Verificador(), Conclusao(), relogio=lambda: AGORA
+    )
+
+    assert (
+        processador.processar(
+            _job(uuid.uuid4(), estado=EstadoJobFacial.PROCESSANDO), (b"captura",)
+        )
+        is recusado
+    )
+
+
+def test_processador_presenca_nao_confirma_sucesso_sem_decisao_facial() -> None:
+    sem_decisao = ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
+
+    class Verificador:
+        def processar(self, _job, _capturas):
+            return sem_decisao
+
+    class Conclusao:
+        def executar(self, *_args, **_kwargs):
+            raise AssertionError("não há decisão facial para persistir")
+
+    processador = ProcessadorPresencaWeb(
+        Verificador(), Conclusao(), relogio=lambda: AGORA
+    )
+
+    resultado = processador.processar(
+        _job(uuid.uuid4(), estado=EstadoJobFacial.PROCESSANDO), (b"captura",)
+    )
+
+    assert not resultado.sucesso
+    assert resultado.codigo is CodigoResultadoWorker.FALHA_TECNICA
+    assert not resultado.finalizacao_persistida
+
+
+def test_processador_presenca_encaminha_ciclo_de_vida_opcional() -> None:
+    eventos: list[str] = []
+
+    class Verificador:
+        def processar(self, _job, _capturas):
+            return ResultadoWorker(False, CodigoResultadoWorker.RECUSA_BIOMETRICA)
+
+        def preaquecer(self):
+            eventos.append("preaquecer")
+
+        def fechar(self):
+            eventos.append("fechar")
+
+    processador = ProcessadorPresencaWeb(Verificador(), object(), relogio=lambda: AGORA)
+
+    processador.preaquecer()
+    processador.fechar()
+
+    assert eventos == ["preaquecer", "fechar"]
+
+
+def test_processador_presenca_converte_falha_transacional_em_falha_tecnica() -> None:
+    facial = ResultadoFacial(
+        identidade_ok=True,
+        desafio_ok=True,
+        antispoofing_ok=True,
+        qualidade_ok=True,
+        motivo_tecnico=None,
+        versao_referencia=2,
+        politica="mediana-3",
+    )
+
+    class Verificador:
+        def processar(self, _job, _capturas):
+            return ResultadoWorker(
+                True, CodigoResultadoWorker.CONCLUIDA, resultado_facial=facial
+            )
+
+    class Conclusao:
+        def executar(self, *_args, **_kwargs):
+            raise RuntimeError("falha transacional")
+
+    processador = ProcessadorPresencaWeb(
+        Verificador(), Conclusao(), relogio=lambda: AGORA
+    )
+
+    resultado = processador.processar(
+        _job(uuid.uuid4(), estado=EstadoJobFacial.PROCESSANDO), (b"captura",)
+    )
+
+    assert not resultado.sucesso
+    assert resultado.codigo is CodigoResultadoWorker.FALHA_TECNICA
+    assert resultado.resultado_facial is facial
+    assert not resultado.finalizacao_persistida
 
 
 def test_resultado_tardio_nao_e_aceito_e_falha_sanitizada(

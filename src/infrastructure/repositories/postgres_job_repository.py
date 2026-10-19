@@ -174,7 +174,7 @@ class PostgresJobRepository:
             if (
                 registro is None
                 or registro.estado != EstadoJobFacial.RECEBIDA.value
-                or registro.prazo_reserva <= agora
+                or registro.prazo_reserva < agora
             ):
                 if (
                     registro is not None
@@ -184,6 +184,13 @@ class PostgresJobRepository:
                     registro.resultado_codigo = "prazo_expirado"
                     registro.atualizada_em = agora
                     registro.finalizada_em = agora
+                    self._atualizar_tentativa(
+                        session,
+                        reserva_id,
+                        "expirada",
+                        agora,
+                        "prazo_expirado",
+                    )
                 indisponivel = True
             else:
                 registro.manifesto = self._serializar_manifesto(manifesto)
@@ -191,6 +198,7 @@ class PostgresJobRepository:
                 registro.enfileirada_em = agora
                 registro.atualizada_em = agora
                 session.flush()
+                self._atualizar_tentativa(session, reserva_id, "enfileirada", agora)
                 job = self._para_job(registro)
         if indisponivel:
             raise ReservaInvalida("A reserva expirou ou já foi submetida.")
@@ -254,6 +262,7 @@ class PostgresJobRepository:
             registro.iniciada_em = agora
             registro.atualizada_em = agora
             session.flush()
+            self._atualizar_tentativa(session, registro.id, "processando", agora)
             return self._para_job(registro, lease=lease)
 
     def estender_lease(
@@ -311,6 +320,15 @@ class PostgresJobRepository:
             registro.manifesto = None
             registro.atualizada_em = agora
             registro.finalizada_em = agora
+            self._atualizar_tentativa(
+                session,
+                job_id,
+                "concluida"
+                if registro.estado == EstadoJobFacial.CONCLUIDA.value
+                else "rejeitada",
+                agora,
+                registro.resultado_codigo,
+            )
             return True
 
     def aguardar_proxima_etapa(
@@ -342,7 +360,19 @@ class PostgresJobRepository:
             registro.lease_expira_em = None
             registro.manifesto = None
             registro.atualizada_em = agora
-            return registro.estado == EstadoJobFacial.RECEBIDA.value
+            aguardando = registro.estado == EstadoJobFacial.RECEBIDA.value
+            self._atualizar_tentativa(
+                session,
+                job_id,
+                "recebida"
+                if aguardando
+                else "expirada"
+                if registro.estado == EstadoJobFacial.EXPIRADA.value
+                else "rejeitada",
+                agora,
+                registro.resultado_codigo,
+            )
+            return aguardando
 
     def invalidar_apos_execucao(
         self, *, job_id: UUID, lease: str, agora: datetime
@@ -367,6 +397,9 @@ class PostgresJobRepository:
             registro.manifesto = None
             registro.atualizada_em = agora
             registro.finalizada_em = agora
+            self._atualizar_tentativa(
+                session, job_id, "expirada", agora, "prazo_expirado"
+            )
             return True
 
     def recuperar_apos_reinicio(self, *, agora: datetime) -> set[UUID]:
@@ -391,6 +424,9 @@ class PostgresJobRepository:
                 registro.manifesto = None
                 registro.atualizada_em = agora
                 registro.finalizada_em = agora
+                self._atualizar_tentativa(
+                    session, registro.id, "rejeitada", agora, "worker_reiniciado"
+                )
             return ids
 
     def ids_com_temporarios(self) -> set[UUID]:
@@ -433,26 +469,52 @@ class PostgresJobRepository:
                 return False
             if registro.estado == EstadoJobFacial.PROCESSANDO.value:
                 registro.cancelamento_solicitado = True
+                self._atualizar_tentativa(
+                    session, job_id, "rejeitada", agora, "cancelada"
+                )
             else:
                 registro.estado = EstadoJobFacial.CANCELADA.value
                 registro.resultado_codigo = "cancelada"
                 registro.manifesto = None
                 registro.finalizada_em = agora
+                self._atualizar_tentativa(
+                    session, job_id, "rejeitada", agora, "cancelada"
+                )
             registro.atualizada_em = agora
             return True
 
     def _expirar_aguardando(self, session: Session, agora: datetime) -> None:
+        expiradas = tuple(
+            session.scalars(
+                select(models.JobFacialWeb.id).where(
+                    models.JobFacialWeb.estado == EstadoJobFacial.RECEBIDA.value,
+                    models.JobFacialWeb.prazo_reserva < agora,
+                )
+            )
+        )
         session.execute(
             update(models.JobFacialWeb)
             .where(
                 models.JobFacialWeb.estado == EstadoJobFacial.RECEBIDA.value,
-                models.JobFacialWeb.prazo_reserva <= agora,
+                models.JobFacialWeb.prazo_reserva < agora,
             )
             .values(
                 estado=EstadoJobFacial.EXPIRADA.value,
                 resultado_codigo="prazo_expirado",
                 atualizada_em=agora,
                 finalizada_em=agora,
+            )
+        )
+        for job_id in expiradas:
+            self._atualizar_tentativa(
+                session, job_id, "expirada", agora, "prazo_expirado"
+            )
+        expiradas_execucao = tuple(
+            session.scalars(
+                select(models.JobFacialWeb.id).where(
+                    models.JobFacialWeb.estado == EstadoJobFacial.ENFILEIRADA.value,
+                    models.JobFacialWeb.prazo_execucao <= agora,
+                )
             )
         )
         session.execute(
@@ -468,6 +530,35 @@ class PostgresJobRepository:
                 atualizada_em=agora,
                 finalizada_em=agora,
             )
+        )
+        for job_id in expiradas_execucao:
+            self._atualizar_tentativa(
+                session, job_id, "expirada", agora, "prazo_expirado"
+            )
+
+    @staticmethod
+    def _atualizar_tentativa(
+        session: Session,
+        job_id: UUID,
+        estado: str,
+        agora: datetime,
+        motivo: str | None = None,
+    ) -> None:
+        terminal = estado in {"concluida", "expirada", "rejeitada"}
+        valores: dict[str, object] = {
+            "estado": estado,
+            "concluida_em": agora if terminal else None,
+            "motivo_tecnico": motivo[:64] if terminal and motivo else None,
+        }
+        session.execute(
+            update(models.TentativaPresencaWeb)
+            .where(models.TentativaPresencaWeb.id == job_id)
+            .where(
+                models.TentativaPresencaWeb.estado.in_(
+                    ["iniciada", "recebida", "enfileirada", "processando"]
+                )
+            )
+            .values(**valores)
         )
 
     @staticmethod

@@ -277,7 +277,7 @@ class FilaFacial:
         if (
             job is None
             or job.estado is not EstadoJobFacial.RECEBIDA
-            or job.prazo <= agora
+            or job.prazo < agora
         ):
             raise ReservaInvalida("A reserva não está disponível.")
         self._validar_manifesto(job.tipo, manifesto_temporario)

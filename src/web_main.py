@@ -11,14 +11,21 @@ from sqlalchemy.orm import sessionmaker
 
 from src.application.services.fila_facial import FilaFacial
 from src.config.web_settings import WebSettings, get_web_settings
+from src.domain.services.desafio_captura import DesafioCaptura
 from src.infrastructure.repositories.postgres_conta_repository import (
     PostgresContaRepository,
+)
+from src.infrastructure.repositories.postgres_desafio_repository import (
+    PostgresDesafioRepository,
 )
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
 )
 from src.infrastructure.repositories.postgres_link_repository import (
     PostgresLinkRepository,
+)
+from src.infrastructure.repositories.postgres_presenca_web_repository import (
+    PostgresPresencaWebRepository,
 )
 from src.infrastructure.repositories.postgres_solicitacao_repository import (
     PostgresSolicitacaoRepository,
@@ -61,6 +68,14 @@ def create_web_app(
     jobs_repository = PostgresJobRepository(session_factory)
     solicitacao_repository = PostgresSolicitacaoRepository(engine)
     link_repository = PostgresLinkRepository(engine)
+    presenca_repository = PostgresPresencaWebRepository(
+        session_factory, timezone_name=configuracao.app_timezone
+    )
+    desafio_repository = PostgresDesafioRepository(session_factory)
+    desafio_captura = DesafioCaptura(
+        desafio_repository,
+        segredo=configuracao.secret_key.get_secret_value().encode(),
+    )
     capture_storage = None
     if configuracao.capture_temp_dir is not None:
         capture_storage = TemporaryCaptureStorage(
@@ -95,6 +110,9 @@ def create_web_app(
         reference_storage=reference_storage,
         capture_storage=capture_storage,
         fila_facial=fila_facial,
+        presenca_repository=presenca_repository,
+        desafio_captura=desafio_captura,
+        rate_limit_secret=configuracao.secret_key.get_secret_value().encode(),
         on_shutdown=engine.dispose,
     )
     return create_app(configuracao, services)

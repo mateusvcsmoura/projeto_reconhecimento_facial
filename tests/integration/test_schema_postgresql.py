@@ -60,7 +60,7 @@ def test_constraints_esperadas_existem(engine: Engine) -> None:
         u["name"] for u in inspetor.get_unique_constraints("presencas")
     }
     assert "uq_presencas_aluno_dia" not in uniques_presencas
-    assert "uq_presencas_turma_aluno_dia" in uniques_presencas
+    assert "uq_presencas_turma_aluno_dia" not in uniques_presencas
 
     checks_alunos = {c["name"] for c in inspetor.get_check_constraints("alunos")}
     assert {
@@ -77,7 +77,9 @@ def test_constraints_esperadas_existem(engine: Engine) -> None:
     assert {
         "ix_presencas_data_referencia",
         "ix_presencas_turma_data",
+        "uq_presencas_turma_aluno_dia",
         "uq_presencas_legado_aluno_dia",
+        "uq_presencas_sessao_aluno",
     } <= indices
 
 
@@ -152,7 +154,7 @@ def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:
                 "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
                 " VALUES (:a, now(), DATE '2026-03-10')"
                 " ON CONFLICT (aluno_id, data_referencia)"
-                " WHERE turma_id IS NULL DO NOTHING"
+                " WHERE sessao_id IS NULL AND turma_id IS NULL DO NOTHING"
                 " RETURNING id"
             ),
             {"a": aluno_id},
@@ -162,7 +164,7 @@ def test_on_conflict_do_nothing_nao_duplica(banco_limpo: Engine) -> None:
                 "INSERT INTO presencas (aluno_id, registrado_em, data_referencia)"
                 " VALUES (:a, now(), DATE '2026-03-10')"
                 " ON CONFLICT (aluno_id, data_referencia)"
-                " WHERE turma_id IS NULL DO NOTHING"
+                " WHERE sessao_id IS NULL AND turma_id IS NULL DO NOTHING"
                 " RETURNING id"
             ),
             {"a": aluno_id},

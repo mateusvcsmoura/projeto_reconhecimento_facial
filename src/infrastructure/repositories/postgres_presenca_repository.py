@@ -128,7 +128,15 @@ class PostgresPresencaRepository:
                     registrado_em=momento,
                     data_referencia=dia,
                 )
-                .on_conflict_do_nothing(constraint="uq_presencas_turma_aluno_dia")
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        models.Presenca.turma_id,
+                        models.Presenca.aluno_id,
+                        models.Presenca.data_referencia,
+                    ],
+                    index_where=models.Presenca.sessao_id.is_(None)
+                    & models.Presenca.turma_id.is_not(None),
+                )
                 .returning(models.Presenca.id)
             )
             inserido = session.execute(comando).scalar()

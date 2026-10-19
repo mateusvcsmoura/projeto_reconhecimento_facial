@@ -18,6 +18,7 @@ from src.application.services.worker_facial import (
     preparar_worker,
 )
 from src.application.use_cases.anexar_referencias_web import AnexarReferencias
+from src.application.use_cases.verificar_presenca_web import ConcluirPresenca
 from src.config.web_settings import WebSettings, get_web_settings
 from src.domain.services.desafio_captura import DesafioCaptura
 from src.domain.services.qualidade_captura import ParametrosQualidade
@@ -33,11 +34,17 @@ from src.infrastructure.face_recognition.processador_desafio_verificacao import 
     AdaptadorPoseSobDemanda,
     ProcessadorDesafioVerificacao,
 )
+from src.infrastructure.face_recognition.processador_presenca_web import (
+    ProcessadorPresencaWeb,
+)
 from src.infrastructure.repositories.postgres_desafio_repository import (
     PostgresDesafioRepository,
 )
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
+)
+from src.infrastructure.repositories.postgres_presenca_web_repository import (
+    PostgresPresencaWebRepository,
 )
 from src.infrastructure.repositories.postgres_solicitacao_repository import (
     PostgresSolicitacaoRepository,
@@ -139,15 +146,21 @@ def construir_worker(
                 desafio_repository,
                 segredo=settings.secret_key.get_secret_value().encode(),
             )
-            processadores_configurados[TipoJobFacial.PRESENCA] = (
-                ProcessadorDesafioVerificacao(
-                    desafio_repository,
-                    referencias_repository,
-                    desafio,
-                    adapter,
-                    pose,
-                    relogio=lambda: datetime.now(UTC),
-                )
+            verificador = ProcessadorDesafioVerificacao(
+                desafio_repository,
+                referencias_repository,
+                desafio,
+                adapter,
+                pose,
+                relogio=lambda: datetime.now(UTC),
+            )
+            presenca_repository = PostgresPresencaWebRepository(
+                session_factory, timezone_name=settings.app_timezone
+            )
+            processadores_configurados[TipoJobFacial.PRESENCA] = ProcessadorPresencaWeb(
+                verificador,
+                ConcluirPresenca(presenca_repository),
+                relogio=lambda: datetime.now(UTC),
             )
     worker = WorkerFacial(
         fila,

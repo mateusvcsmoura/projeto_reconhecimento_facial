@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,6 +34,7 @@ class WebSettings(BaseSettings):
     public_origin: str | None = None
     purpose_end_at: datetime | None = None
     consent_notice_version: str = "v1-2026-10-18"
+    app_timezone: str = "America/Sao_Paulo"
     trusted_proxy_cidrs: str | None = None
     database_disposable: bool = False
     capture_temp_dir: Path | None = None
@@ -133,6 +135,16 @@ class WebSettings(BaseSettings):
         if not normalizada or len(normalizada) > 64:
             raise ValueError("WEB_CONSENT_NOTICE_VERSION é inválida.")
         return normalizada
+
+    @field_validator("app_timezone")
+    @classmethod
+    def _validar_fuso_aplicacao(cls, value: str) -> str:
+        nome = value.strip()
+        try:
+            ZoneInfo(nome)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("WEB_APP_TIMEZONE deve ser um fuso IANA valido.") from exc
+        return nome
 
     @field_validator("trusted_proxy_cidrs")
     @classmethod

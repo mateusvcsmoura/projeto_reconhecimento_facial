@@ -46,7 +46,8 @@ def test_presenca_permita_legado_e_separe_unicidade_por_turma() -> None:
     assert "uq_presencas_aluno_dia" not in {
         constraint.name for constraint in tabela.constraints
     }
-    assert "uq_presencas_turma_aluno_dia" in {
+    assert "uq_presencas_turma_aluno_dia" in {index.name for index in tabela.indexes}
+    assert "uq_presencas_turma_aluno_dia" not in {
         constraint.name for constraint in tabela.constraints
     }
     indice_legado = next(
@@ -55,9 +56,13 @@ def test_presenca_permita_legado_e_separe_unicidade_por_turma() -> None:
         if index.name == "uq_presencas_legado_aluno_dia"
     )
     assert indice_legado.unique
+    assert "sessao_id IS NULL" in str(
+        indice_legado.dialect_options["postgresql"]["where"]
+    )
     assert "turma_id IS NULL" in str(
         indice_legado.dialect_options["postgresql"]["where"]
     )
+    assert "uq_presencas_sessao_aluno" in {index.name for index in tabela.indexes}
     fks = {constraint.name: constraint for constraint in tabela.foreign_key_constraints}
     assert fks["fk_presencas_turma_id_turmas"].ondelete == "RESTRICT"
     assert fks["fk_presencas_turma_aluno_aluno_turma"].ondelete == "CASCADE"

@@ -182,6 +182,10 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
         )
         if contexto is None:
             raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
+        if (
+            solicitacao_id is None and contexto.get("finalidade") != "cadastro"
+        ) or contexto.get("finalidade") == "presenca":
+            raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
         return hash_credencial, contexto
 
     def _consultar_solicitacao(

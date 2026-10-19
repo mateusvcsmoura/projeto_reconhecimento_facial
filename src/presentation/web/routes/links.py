@@ -81,6 +81,7 @@ def criar_rotas_links(settings: WebSettings, services: WebServices) -> APIRouter
             "id": str(link.id),
             "token": link.token,
             "finalidade": link.finalidade,
+            "sessao_id": link.sessao_id,
             "criado_em": link.criado_em.isoformat(),
             "expira_em": link.expira_em.isoformat(),
         }
@@ -95,6 +96,7 @@ def criar_rotas_links(settings: WebSettings, services: WebServices) -> APIRouter
         return {
             "credencial": acesso.credencial,
             "finalidade": acesso.finalidade,
+            "sessao_id": acesso.sessao_id,
             "expira_em": acesso.expira_em.isoformat(),
             "finalidade_ate": acesso.finalidade_ate.isoformat(),
         }

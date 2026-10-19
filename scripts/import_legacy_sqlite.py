@@ -292,7 +292,7 @@ def _comando_presenca_legada(
         )
         .on_conflict_do_nothing(
             index_elements=[Presenca.aluno_id, Presenca.data_referencia],
-            index_where=Presenca.turma_id.is_(None),
+            index_where=Presenca.sessao_id.is_(None) & Presenca.turma_id.is_(None),
         )
         .returning(Presenca.id)
     )

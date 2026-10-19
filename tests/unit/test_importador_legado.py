@@ -17,5 +17,8 @@ def test_importador_compila_conflito_apenas_para_indice_parcial_legado() -> None
     sql = str(comando.compile(dialect=postgresql.dialect()))
 
     assert "turma_id" in sql
-    assert "ON CONFLICT (aluno_id, data_referencia) WHERE turma_id IS NULL" in sql
+    assert (
+        "ON CONFLICT (aluno_id, data_referencia) "
+        "WHERE sessao_id IS NULL AND turma_id IS NULL"
+    ) in sql
     assert "uq_presencas_aluno_dia" not in sql
