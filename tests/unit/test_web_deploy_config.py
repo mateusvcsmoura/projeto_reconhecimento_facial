@@ -226,6 +226,22 @@ def test_dockerfile_fixa_bases_e_isola_dependencias_biometricas() -> None:
     assert "requirements-landmarks-linux.txt" not in app_stage
 
 
+def test_target_postgres_define_comando_para_entrypoint_customizado() -> None:
+    dockerfile = (DEPLOY / "Dockerfile").read_text(encoding="utf-8")
+    postgres_stage = dockerfile.split(
+        "FROM ${POSTGRES_BASE} AS postgres\n", maxsplit=1
+    )[1].split("FROM ${CADDY_BASE} AS caddy", maxsplit=1)[0]
+    assert 'CMD ["postgres"]' in postgres_stage
+
+
+def test_target_caddy_remove_file_capability_incompativel_com_no_new_privileges() -> (
+    None
+):
+    dockerfile = (DEPLOY / "Dockerfile").read_text(encoding="utf-8")
+    caddy_stage = dockerfile.split("FROM ${CADDY_BASE} AS caddy", maxsplit=1)[1]
+    assert "setcap -r /usr/bin/caddy" in caddy_stage
+
+
 def test_worker_preflight_exige_modelos_locais_sem_download_automatico() -> None:
     preflight = (ROOT / "scripts" / "web_worker_preflight.py").read_text(
         encoding="utf-8"
@@ -235,3 +251,41 @@ def test_worker_preflight_exige_modelos_locais_sem_download_automatico() -> None
     assert "4_0_0_80x80_MiniFASNetV1SE.pth" in preflight
     assert "WEB_MEDIAPIPE_MODEL_PATH" in preflight
     assert "download" not in preflight.lower()
+
+
+def test_runtime_web_declara_numpy_sem_stack_biometrica() -> None:
+    requirements = (ROOT / "requirements-web.txt").read_text(encoding="utf-8")
+    packages = {
+        line.partition("==")[0].strip().lower()
+        for line in requirements.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    assert "numpy" in packages
+    assert not packages.intersection(
+        {
+            "opencv-python",
+            "opencv-contrib-python",
+            "deepface",
+            "tensorflow",
+            "torch",
+            "mediapipe",
+        }
+    )
+
+
+def test_postgres_bootstrap_usa_scram_com_a_credencial_local(
+    compose_config: dict[str, object],
+) -> None:
+    services = compose_config["services"]
+    assert isinstance(services, dict)
+    postgres = services["postgres"]
+    assert isinstance(postgres, dict)
+    environment = postgres["environment"]
+    assert isinstance(environment, dict)
+    assert "--auth-local=scram-sha-256" in environment["POSTGRES_INITDB_ARGS"]
+
+    init_script = (DEPLOY / "postgres-init" / "001-web-roles.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'PGPASSWORD="$admin_password" psql' in init_script
+    assert "unset app_password migrator_password admin_password" in init_script

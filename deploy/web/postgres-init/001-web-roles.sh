@@ -13,8 +13,10 @@ read_secret() {
 
 read_secret app_password "$WEB_APP_DB_PASSWORD_FILE"
 read_secret migrator_password "$WEB_MIGRATOR_DB_PASSWORD_FILE"
+admin_password="${POSTGRES_PASSWORD:?Senha administrativa do PostgreSQL ausente}"
 
-psql --no-psqlrc --set=ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+PGPASSWORD="$admin_password" psql --no-psqlrc --set=ON_ERROR_STOP=1 \
+    --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
 CREATE ROLE facediff_app LOGIN;
 CREATE ROLE facediff_migrator LOGIN;
 REVOKE CONNECT ON DATABASE facediff FROM PUBLIC;
@@ -29,12 +31,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE facediff_migrator IN SCHEMA public
 SQL
 
 printf '%s\n%s\n' "$app_password" "$app_password" \
-    | psql --no-psqlrc --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    | PGPASSWORD="$admin_password" psql --no-psqlrc \
+      --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
       --command='\password facediff_app' >/dev/null
 printf '%s\n%s\n' "$migrator_password" "$migrator_password" \
-    | psql --no-psqlrc --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    | PGPASSWORD="$admin_password" psql --no-psqlrc \
+      --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
       --command='\password facediff_migrator' >/dev/null
 
-unset app_password migrator_password
+unset app_password migrator_password admin_password
 rm -f "$WEB_APP_DB_PASSWORD_FILE" "$WEB_MIGRATOR_DB_PASSWORD_FILE" \
     "$POSTGRES_PASSWORD_FILE"

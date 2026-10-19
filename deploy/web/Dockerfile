@@ -93,9 +93,11 @@ FROM ${POSTGRES_BASE} AS postgres
 COPY --chmod=0755 deploy/web/postgres-entrypoint.sh /usr/local/bin/facediff-postgres-entrypoint
 COPY --chmod=0755 deploy/web/postgres-init/001-web-roles.sh /docker-entrypoint-initdb.d/001-web-roles.sh
 ENTRYPOINT ["/usr/local/bin/facediff-postgres-entrypoint"]
+CMD ["postgres"]
 
 FROM ${CADDY_BASE} AS caddy
-RUN addgroup -S -g 10001 facediff \
+RUN setcap -r /usr/bin/caddy \
+    && addgroup -S -g 10001 facediff \
     && adduser -S -D -H -u 10001 -G facediff facediff \
     && mkdir -p /data /config \
     && chown -R 10001:10001 /data /config

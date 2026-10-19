@@ -1,6 +1,7 @@
-# Ambiente HTTP separado: não instalar OpenCV, DeepFace, TensorFlow, PyTorch ou MediaPipe.
+# Runtime HTTP separado: inclui NumPy do domínio, sem a stack biométrica.
 fastapi==0.144.0
 uvicorn==0.54.0
+numpy==2.5.3
 
 # Persistencia e configuracao do runtime web.
 SQLAlchemy==2.0.52

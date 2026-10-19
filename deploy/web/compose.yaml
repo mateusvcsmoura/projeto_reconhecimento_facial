@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres-admin-password
       WEB_APP_DB_PASSWORD_FILE: /run/secrets/web_app_db_password
       WEB_MIGRATOR_DB_PASSWORD_FILE: /run/secrets/web_migrator_db_password
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     secrets:
       - postgres-admin-password
       - web-app-db-password
