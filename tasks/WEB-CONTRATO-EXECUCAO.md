@@ -1,9 +1,9 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **As tarefas 009–016 foram implementadas no workspace; 010,
+Data: 18/10/2026; status atualizado em 19/10/2026. **As tarefas 009–016 foram implementadas no workspace; 010,
 013, 014, 015 e 016 foram publicadas na `main` após autorização explícita. As
 migrations 0006–0010 foram validadas em PostgreSQL descartável. A revisão 0011
-da task016 foi gerada offline, mas não foi validada/aplicada em PostgreSQL. A
+da task016 foi aplicada a `escola` e validada em PostgreSQL descartável. A
 web não foi implantada. As tarefas 017–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
@@ -126,8 +126,9 @@ dependem da medição019 e do gate operacional.
 - A revisão `0006` cria solicitações separadas de `Aluno`, conjuntos versionados
   e três referências por ordinal. Embeddings são persistidos como float32 de
   dimensão 512; cada captura guarda seu próprio consentimento/versão e caminho
-  relativo privado. A revisão foi testada somente no banco descartável
-  `task011_web_references_test_20261018`; `escola` continua sem `0006`.
+  relativo privado. A revisão foi testada no banco descartável
+  `task011_web_references_test_20261018`; na execução original, `escola` não
+  recebeu `0006`. Em 19/10/2026, `0006` foi aplicada em sequência a `escola`.
 - Cadastro pendente não reserva matrícula. A aprovação exige vínculo de turma
   autorizado e conferência independente; matrícula existente preserva nome,
   foto e embedding, adicionando apenas vínculo. Corridas usam unicidade SQL e
@@ -176,8 +177,9 @@ dependem da medição019 e do gate operacional.
   mesmo job, aluno e conjunto de referências: hash do nonce, direção, prazo,
   estado/etapas e motivo técnico. Não armazena frames, landmarks ou embeddings.
   Foi migrada, verificada com `alembic check`, exercitada e revertida no banco
-  descartável task012; `escola` não recebeu `0008`. O downgrade recusa remover
-  a tabela enquanto houver desafios persistidos.
+  descartável task012; na execução original, `escola` não recebeu `0008`. Em
+  19/10/2026, foi aplicada como parte da cadeia `0006–0011` da tarefa 016. O
+  downgrade recusa remover a tabela enquanto houver desafios persistidos.
 - `VerificarIdentidade` compara exclusivamente três referências ativas,
   ordinais 1–3, da matrícula autorizada e do conjunto/versão selecionados. Exige
   vetores Facenet512/512D normalizados e finitos e usa a mediana das três
@@ -212,7 +214,8 @@ dependem da medição019 e do gate operacional.
   efêmeras, vínculo de solicitação/job e campos para nonce hash-only, direção e
   prazo do desafio de cadastro. Foi aplicada, verificada com `alembic check`,
   testada e revertida no banco descartável `task014_cadastro_api_test_20261018`;
-  `escola` não recebeu a revisão.
+  na execução original `escola` não recebeu a revisão; em 19/10/2026, `0009` foi
+  aplicada como parte da cadeia `0006–0011` da tarefa 016.
 - A API expõe emissão/revogação de links, troca por credencial, cadastro,
   captura/status com credencial do solicitante, listagem/revisão por professor
   responsável e solicitação/consentimento/aprovação de atualização biométrica.
@@ -253,16 +256,17 @@ dependem da medição019 e do gate operacional.
   Índices parciais preservam a presença diária da CLI e o ramo web é único por
   aluno/sessão.
 - Os testes usaram dados e embeddings sintéticos; não houve inferência com
-  pessoas, teste visual, uso de webcam, deploy, nem aplicação da migration ao
-  banco `escola`. A interface continua exclusiva da task020.
+  pessoas, teste visual, uso de webcam ou deploy. Em 19/10/2026, a migration
+  `0010` também foi aplicada a `escola` como parte da cadeia `0006–0011` da
+  tarefa 016. A interface continua exclusiva da task020.
 
 ### Contratos estabelecidos na tarefa 016
 
 - A revisão `0011` adiciona estado/origem/versão e correção auditável à presença,
   aceita reativação de quota auditada e cria revisões com uma solicitação aberta
-  por aluno/sessão. SQL foi gerado offline até `head`; aplicação, rollback,
-  `alembic check` e prova de concorrência PostgreSQL ainda estão pendentes. Não
-  foi conectado a banco nesta execução.
+  por aluno/sessão. A migration foi aplicada a `escola` e validada em PostgreSQL
+  descartável; a fixture aprovou `alembic check`, lock/concorrência real e a
+  recusa de downgrade com revisão persistida.
 - A API adiciona CRUD de turma/vínculos com escopo por professor, exclusão
   lógica e exclusão global somente por admin com confirmação/justificativa.
   Revisão pública exige bearer válido da sessão de presença e responde apenas
@@ -273,10 +277,10 @@ dependem da medição019 e do gate operacional.
   administrativo auditado. CSV UTF-8 é por intervalo inclusivo ou mês local,
   neutraliza fórmulas e não inclui faltas inferidas, dados biométricos, tokens,
   score ou justificativas.
-- Suíte: 1209 aprovados, 78 ignorados, cobertura 80,23%; Ruff, formatação,
-  mypy e compilação passaram. Os testes ignorados incluem integrações que
-  requerem ambiente PostgreSQL opt-in; SQLite/fakes não provam constraints ou
-  locks PostgreSQL. Sem pessoas, webcam, biometria real ou deploy. Consulte o
+- Suíte: 1209 aprovados, 80 ignorados, cobertura 80,23%; dois testes PostgreSQL
+  focados passaram; Ruff, formatação e mypy passaram. Os testes ignorados
+  incluem integrações que requerem ambiente PostgreSQL opt-in. Sem pessoas,
+  webcam, biometria real ou deploy. Consulte o
   [resultado 016](016-web-gestao-revisao-relatorios/RESULTADO.md) e o
   [contrato da API de gestão](../docs/FACEDIFF-WEB-GESTAO.md).
 
@@ -290,8 +294,10 @@ respeitar permissões do ambiente e não modificar ambientes pessoais/produção
 provisionamento/contratação, deploy, GoogleDrive, imagens reais, cadastro de
 participantes, troca de limiar ou desligamento de antispoofing. Preparar os
 artefatos, indicar bloqueio específico e concluir o que independe dele.
-Integração que cria/migra/limpa banco exige autorização explícita de ambiente
-descartável; nunca ler `.env` real como fallback.
+Integração que cria/migra/limpa banco exige autorização explícita para o alvo
+descartável ou de desenvolvimento local; preferir banco descartável e confirmar
+host/nome antes de escrever. Nunca usar `.env` como fallback para configuração
+`WEB_*` ou exibir credenciais.
 
 **Autorização explícita registrada em 18/10/2026:** o usuário autorizou
 migrations e testes com escrita em bancos locais de desenvolvimento/teste do
@@ -303,6 +309,11 @@ ou compartilhado, nem imagens biométricas reais. O `DATABASE_URL` local pode
 ser usado somente para identificar/conectar ao banco de desenvolvimento depois
 de validar host e nome; nunca exibir a credencial ou usá-la como fallback para
 as configurações `WEB_*`.
+
+Em 19/10/2026, o usuário autorizou especificamente usar o banco local atual
+`escola` e excluir dados se necessário. O alvo foi confirmado em
+`localhost:5433`, revisão `0005`; a cadeia `0006–0011` foi aplicada sem apagar
+dados. Esta autorização específica não se estende a outro ambiente.
 
 **Autorização permanente de publicação registrada em 18/10/2026:** ao pedir a
 implementação de uma task, o solicitante autoriza criar commits organizados e

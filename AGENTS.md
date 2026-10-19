@@ -25,8 +25,9 @@ pendências biométricas.
 A tarefa 008 implementa operações com contexto de turma, vínculo N:N e
 presença por turma. A migration `0004` foi aplicada ao PostgreSQL local
 configurado; a migration `0005` da autenticação web também foi aplicada ao
-banco local `escola`. A migration `0006` de referências web foi validada somente
-em um PostgreSQL descartável e não foi aplicada a `escola`. Testes de integração
+banco local `escola`. A migration `0006` de referências web foi validada em um
+PostgreSQL descartável; em 19/10/2026, as migrations `0006–0011` também foram
+aplicadas em sequência a `escola`, que estava na `0005`. Testes de integração
 PostgreSQL/BDD da tarefa 008 permanecem pendentes. O código atual requer esse
 schema para o menu de turmas; outros ambientes devem ser verificados
 separadamente. Consulte
@@ -42,17 +43,19 @@ atualização e limpeza. O fluxo de convite/API/worker foi conectado pela tarefa
 
 A tarefa 012 implementa fila PostgreSQL limitada, reserva idempotente, leases,
 storage temporário privado, worker serial e consulta autenticada do status. A
-migration `0007` foi validada somente no banco descartável
-`task012_web_worker_test_20261018`; não foi aplicada a `escola`. As rotas de
-cadastro e presença reutilizam esse worker nas tarefas 014 e 015. Worker,
+migration `0007` foi validada no banco descartável
+`task012_web_worker_test_20261018`; em 19/10/2026, foi aplicada também a
+`escola` como parte da cadeia `0006–0011` da tarefa 016. As rotas de cadastro e
+presença reutilizam esse worker nas tarefas 014 e 015. Worker,
 runtime Linux e implantação ainda precisam de
 validação integrada na tarefa 019. Consulte
 [`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
 
 A tarefa 013 implementa no worker a verificação web fechada 1:1 com três
-referências e desafio facial ordenado; a migration `0008` foi validada somente
-no banco descartável task012, não em `escola`. A task014 reutiliza o desafio de
-pose em coleta de cadastro; a task013 não possui rota própria, interface, deploy
+referências e desafio facial ordenado; a migration `0008` foi validada no banco
+descartável task012; em 19/10/2026, foi aplicada também a `escola` como parte da
+cadeia `0006–0011` da tarefa 016. A task014 reutiliza o desafio de pose em coleta
+de cadastro; a task013 não possui rota própria, interface, deploy
 ou validação biométrica com pessoas. Consulte
 [`tasks/013-web-desafio-verificacao-1a1/RESULTADO.md`](tasks/013-web-desafio-verificacao-1a1/RESULTADO.md)
 antes de integrar ou implantar.
@@ -60,8 +63,9 @@ antes de integrar ou implantar.
 A tarefa 014 implementa links de cadastro revogáveis, credencial curta,
 consentimento, captura de três frames frente/virada/retorno, aprovação/rejeição
 por professor e atualização biométrica. A migration `0009` foi validada e
-revertida apenas no banco descartável `task014_cadastro_api_test_20261018`; não
-foi aplicada a `escola`. Foram aprovados 1127 testes unitários com 81,87% de
+revertida no banco descartável `task014_cadastro_api_test_20261018`. Em
+19/10/2026, foi aplicada a `escola` como parte da cadeia `0006–0011` da tarefa
+016. Foram aprovados 1127 testes unitários com 81,87% de
 cobertura e um teste PostgreSQL transacional. Não há interface, deploy ou
 validação com pessoas; limites operacionais gerais contra abuso das rotas
 públicas continuam pendentes. Consulte
@@ -70,19 +74,21 @@ públicas continuam pendentes. Consulte
 A tarefa 015 implementa sessões de presença, links por sessão, tentativas
 limitadas/idempotentes, recebimento de capturas pelo servidor e commit
 transacional revalidado pelo worker. A migration `0010` foi validada em banco
-PostgreSQL descartável e revertida pela fixture; não foi aplicada a `escola`.
-Cinco testes PostgreSQL, testes HTTP e 1160 unitários passaram, com cobertura
+PostgreSQL descartável e revertida pela fixture. Em 19/10/2026, foi aplicada a
+`escola` como parte da cadeia `0006–0011` da tarefa 016. Cinco testes
+PostgreSQL, testes HTTP e 1160 unitários passaram, com cobertura
 total de 80,09%. A entrega não inclui interface, deploy ou validação biométrica
 com pessoas. O rate limit HMAC vale apenas para as rotas de presença. Consulte
 [`tasks/015-web-api-sessoes-presencas/RESULTADO.md`](tasks/015-web-api-sessoes-presencas/RESULTADO.md).
 
-A tarefa 016 implementa no workspace gestão web autorizada, revisão/correção
-manual de presença versionada e auditada, painel agregado, CSV seguro e
-reativação administrativa auditada de quota. A migration `0011` foi gerada em
-modo SQL offline, mas ainda não foi aplicada nem validada em PostgreSQL; teste
-de locks/concorrência real segue pendente. A suíte completa passou com 1209
-testes, 78 ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não
-houve validação biométrica com pessoas, interface ou deploy. Consulte
+A tarefa 016 implementa gestão web autorizada, revisão/correção manual de
+presença versionada e auditada, painel agregado, CSV seguro e reativação
+administrativa auditada de quota. A migration `0011` foi aplicada a `escola`
+(que estava na `0005`) e validada em PostgreSQL descartável com dois testes,
+incluindo lock/concorrência real. `alembic check` passou no banco descartável e
+em `escola`. A suíte completa passou com 1209 testes, 80 ignorados e 80,23% de
+cobertura; Ruff, formato e mypy passaram. Não houve validação biométrica com
+pessoas, interface ou deploy. Consulte
 [`tasks/016-web-gestao-revisao-relatorios/RESULTADO.md`](tasks/016-web-gestao-revisao-relatorios/RESULTADO.md)
 e [`docs/FACEDIFF-WEB-GESTAO.md`](docs/FACEDIFF-WEB-GESTAO.md).
 
@@ -172,12 +178,12 @@ push, publicação de trabalho alheio, deploy, nem operações de infraestrutura
 ## 7. Próxima direção sugerida
 
 O backend de presença remota por link e o escopo da tarefa 016 foram
-implementados. A revisão `0011` e a concorrência entre revisão/worker ainda
-precisam de validação em PostgreSQL descartável antes do gate integrado da
-task019 e da interface da task020. Não implementar a interface antes desse gate.
+implementados. A revisão `0011` e a concorrência entre revisão/worker foram
+validadas em PostgreSQL; o gate integrado do backend continua na tarefa 019 e a
+interface fica para a tarefa 020. Não implementar a interface antes desse gate.
 O planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
 [`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
 não autorização para implementar, migrar, contratar hospedagem ou publicar.
 
-Manter o registro atual e as limitações das tarefas 001–016 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. As migrations `0009` e `0010` e os fluxos web das tarefas 014 e 015 foram exercitados em bancos descartáveis locais; a revisão `0011` está só preparada e sem validação em banco; somente `0004` e `0005` estão aplicadas ao banco `escola`. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–016 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. Em 19/10/2026, as migrations `0006–0011` foram aplicadas em sequência ao banco local `escola`, que estava na `0005`; `alembic check` confirmou o schema em `0011`. As migrations `0009` e `0010` e os fluxos web das tarefas 014 e 015 também foram exercitados em bancos descartáveis locais; a migration `0011` e a corrida revisão/worker passaram em PostgreSQL descartável. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

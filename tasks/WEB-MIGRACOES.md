@@ -19,6 +19,11 @@ usado apenas para identificar/conectar ao banco de desenvolvimento após
 confirmar host e nome; não usá-lo como fallback para variáveis `WEB_*` nem
 exibir credenciais.
 
+Em 19/10/2026, o usuário autorizou especificamente usar o banco local atual e
+apagar seus dados se necessário. O alvo foi confirmado como `escola` em
+`localhost:5433`, na revisão `0005`; a cadeia `0006–0011` foi aplicada sem
+apagar dados. Essa autorização continua limitada ao desenvolvimento local.
+
 ## Estado confirmado por inspeção
 
 O repositório contém as revisões 0001–0011. A revisão `0005` da task 010 foi
@@ -27,8 +32,9 @@ check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes
 banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
 reverteu o schema a `base`. A revisão `0006` da task 011 foi aplicada, validada
 com `alembic check` e revertida pela fixture no banco descartável
-`task011_web_references_test_20261018`; 3 testes PostgreSQL passaram. O banco
-local `escola` não recebeu a revisão `0006`. `models.py` mantém alunos com embedding único,
+`task011_web_references_test_20261018`; 3 testes PostgreSQL passaram. Em
+19/10/2026, `0006` também foi aplicada a `escola` como parte da atualização da
+cadeia `0006–0011` da tarefa 016. `models.py` mantém alunos com embedding único,
 turmas, vínculos N:N e presença única turma/aluno/dia. `AGENTS.md` e
 `ARCHITECTURE.md` registravam a revisão 0004 antes desta execução.
 `0005` acrescenta contas/perfis, sessões, rate limit, auditoria e responsável
@@ -39,22 +45,24 @@ A revisão `0007` da task 012 foi migrada até `head`, verificada com `alembic
 check` e revertida a `base` pela fixture PostgreSQL no banco descartável local
 `task012_web_worker_test_20261018`, identificado pelo comentário
 `projeto_reconhecimento_facial: task 012 disposable worker database`. Quatro
-testes PostgreSQL passaram. O banco `escola` não recebeu `0006` nem `0007`.
+testes PostgreSQL passaram. Em 19/10/2026, `0006` e `0007` foram aplicadas a
+`escola` como parte da atualização da cadeia `0006–0011` da tarefa 016.
 
 A revisão `0008` da task 013 foi aplicada até `head`, validada com `alembic
 check`, exercitada com transições concorrentes e revertida pela fixture no mesmo
 banco descartável local `task012_web_worker_test_20261018`. A tentativa de
 reverter `0008` com um desafio existente foi recusada e preservou a linha e o
-schema. A fixture removeu os dados sintéticos e retornou o banco a `base`; o
-banco local `escola` não recebeu `0008`.
+schema. A fixture removeu os dados sintéticos e retornou o banco a `base`. Em
+19/10/2026, `0008` foi aplicada a `escola` como parte da atualização da cadeia
+`0006–0011` da tarefa 016.
 
 A revisão `0009` da task 014 foi aplicada até `head`, conferida com `alembic
 check`, exercitada pelo teste PostgreSQL de cadastro/revogação e revertida pela
 fixture no banco local descartável `task014_cadastro_api_test_20261018`, com o
 comentário `projeto_reconhecimento_facial: task 014 disposable registration
 database`. O downgrade recusa remover links, credenciais, associações de jobs ou
-desafios persistidos. O banco local `escola` não recebeu `0009` nem foi alterado
-por esta tarefa.
+desafios persistidos. Em 19/10/2026, `0009` foi aplicada a `escola` como parte
+da atualização da cadeia `0006–0011` da tarefa 016.
 
 A revisão `0010` da task 015 foi aplicada até `head`, validada com `alembic
 check` e revertida pela fixture no banco PostgreSQL descartável local
@@ -64,15 +72,18 @@ Cinco testes de integração passaram: índices legados/parciais, escritor CLI
 diário idempotente, reserva concorrente com uma tentativa ativa e limite de três,
 bloqueio do commit tardio após revogação e recebimento tempestivo finalizado
 depois do prazo, com sessões distintas no mesmo dia. A fixture apagou os dados
-sintéticos e retornou o schema a `base`. O banco `escola` não recebeu `0010` nem
-foi alterado.
+sintéticos e retornou o schema a `base`. Em 19/10/2026, `0010` foi aplicada a
+`escola` como parte da atualização da cadeia `0006–0011` da tarefa 016.
 
-A revisão `0011` da task 016 foi adicionada depois da revisão `0010` e o comando
-`alembic upgrade head --sql` gerou a cadeia até `0011` em modo offline. Não foi
-conectado a banco, aplicado, revertido ou verificado por `alembic check`; não
-havia ambiente PostgreSQL descartável da task016 configurado para validação.
-Assim, nenhum banco recebeu `0011`. Executar o gate em banco descartável antes
-de ativar as rotas de gestão/revisão em qualquer ambiente.
+A revisão `0011` da task 016 foi aplicada e validada em 19/10/2026. No banco
+descartável local `task016_gestao_test_20261018`, com comentário identificador
+da task016, dois testes PostgreSQL passaram: inspeção do schema e corrida real
+entre revisão confirmada e worker sob lock. A fixture executou `alembic check`,
+confirmou que downgrade com revisão persistida é recusado sem perda, limpou
+dados sintéticos e reverteu o schema a `base`. A migration também foi
+aplicada em `escola`, que estava em `0005`; a cadeia `0006–0011` terminou em
+`0011` e `alembic check` reportou `No new upgrade operations detected`. Nenhum
+dado de `escola` foi apagado; não houve acesso a banco remoto/compartilhado.
 
 ## Donos das expansões
 
@@ -84,7 +95,7 @@ de ativar as rotas de gestão/revisão em qualquer ambiente.
 | 013 | Estado mínimo persistente de desafio 1:1, vinculado ao job, aluno e conjunto/versionamento (`0008`, validada em banco descartável) |
 | 014 | Link/credencial efêmera, associação de solicitações/jobs e nonce hash-only com direção/prazo (`0009`, validada em banco descartável) |
 | 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão (`0010`, validada em banco descartável) |
-| 016 | Estado/correção/versionamento da presença e revisões abertas por aluno/sessão (`0011`, SQL offline; validação PostgreSQL pendente) |
+| 016 | Estado/correção/versionamento da presença e revisões abertas por aluno/sessão (`0011`, aplicada em `escola`; dois testes PostgreSQL e `alembic check` aprovados em banco descartável) |
 
 Inspecionar head real a cada execução; não criar números fixos conflitantes nem
 uma segunda tabela para entidade já entregue. Não modificar silenciosamente
