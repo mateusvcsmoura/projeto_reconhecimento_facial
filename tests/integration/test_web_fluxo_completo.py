@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import base64
+import csv
 import datetime as dt
+import hashlib
 import os
 import subprocess
 import sys
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
 from pathlib import Path
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.orm import sessionmaker
 
 from src.application.services.fila_facial import TipoJobFacial
 from src.application.services.worker_facial import (
@@ -27,6 +33,9 @@ from src.config.web_settings import WebSettings
 from src.domain.services.desafio_captura import EvidenciaEtapa, OrientacaoPose
 from src.domain.services.face_recognition import ResultadoFacial
 from src.infrastructure.database import models
+from src.infrastructure.repositories.postgres_presenca_web_repository import (
+    PostgresPresencaWebRepository,
+)
 from src.presentation.web.app import WebServices
 from src.web_main import create_web_app
 
@@ -192,7 +201,7 @@ def _semear_referencias_sinteticas(
     with factory.begin() as session:
         aluno = models.Aluno(
             matricula=matricula_aprovada,
-            nome="Pessoa Sintética Aprovada",
+            nome="=FORMULA-SINTETICA",
             consentimento_em=agora,
         )
         sem_referencias = models.Aluno(
@@ -489,6 +498,106 @@ def test_fluxo_http_postgres_com_ownership_cadastro_aprovado_e_presenca_fake(
                 assert status_final.status_code == 200, status_final.text
                 assert status_final.json()["estado"] == "concluida"
 
+                data_local = inicio.astimezone(ZoneInfo("America/Sao_Paulo")).date()
+                url_csv = (
+                    f"/api/v1/turmas/{turma_id}/presencas.csv"
+                    f"?inicio={data_local.isoformat()}&fim={data_local.isoformat()}"
+                )
+                painel = professor_b_client.get(
+                    f"/api/v1/turmas/{turma_id}/painel", headers=headers_b
+                )
+                assert painel.status_code == 200, painel.text
+                sessao_painel = next(
+                    item for item in painel.json()["sessoes"] if item["id"] == sessao_id
+                )
+                assert sessao_painel["presencas_presentes"] == 1
+                assert sessao_painel["presencas_anuladas"] == 0
+
+                csv_antes = professor_b_client.get(url_csv, headers=headers_b)
+                assert csv_antes.status_code == 200, csv_antes.text
+                linhas_antes = list(
+                    csv.DictReader(StringIO(csv_antes.content.decode("utf-8")))
+                )
+                assert len(linhas_antes) == 1
+                assert linhas_antes[0]["nome"] == "'=FORMULA-SINTETICA"
+                assert linhas_antes[0]["status"] == "presente"
+                assert linhas_antes[0]["correcao_manual"] == "não"
+                assert "embedding" not in csv_antes.text.lower()
+                assert credencial_link not in csv_antes.text
+                assert desafio["nonce"] not in csv_antes.text
+
+                assert (
+                    professor_a_client.get(
+                        f"/api/v1/turmas/{turma_id}/painel", headers=headers_a
+                    ).status_code
+                    == 404
+                )
+                assert (
+                    professor_a_client.get(url_csv, headers=headers_a).status_code
+                    == 404
+                )
+
+                pedido_revisao = aluno_client.post(
+                    "/api/v1/revisoes",
+                    headers={"Authorization": f"Bearer {credencial_link}"},
+                    json={
+                        "sessao_id": sessao_id,
+                        "matricula": matricula_aprovada,
+                        "justificativa": "Correção manual sintética auditada.",
+                        "via_acessivel": True,
+                    },
+                )
+                assert pedido_revisao.status_code == 202, pedido_revisao.text
+                revisoes_b = professor_b_client.get(
+                    f"/api/v1/turmas/{turma_id}/revisoes?estado=aberta",
+                    headers=headers_b,
+                )
+                assert revisoes_b.status_code == 200, revisoes_b.text
+                revisao = next(
+                    item
+                    for item in revisoes_b.json()
+                    if item["id"] == pedido_revisao.json()["protocolo"]
+                )
+                assert revisao["matricula"] == matricula_aprovada
+                assert (
+                    professor_a_client.get(
+                        f"/api/v1/turmas/{turma_id}/revisoes?estado=aberta",
+                        headers=headers_a,
+                    ).status_code
+                    == 404
+                )
+                decisao = professor_b_client.post(
+                    f"/api/v1/revisoes/{revisao['id']}/decidir",
+                    headers=headers_b,
+                    json={
+                        "decisao": "anulada",
+                        "justificativa": "Anulação sintética para validar auditoria.",
+                        "versao_esperada": revisao["versao_presenca"],
+                        "identidade_confirmada": False,
+                    },
+                )
+                assert decisao.status_code == 200, decisao.text
+                assert decisao.json()["status"] == "anulada"
+                assert decisao.json()["origem"] == "biometrica"
+                assert decisao.json()["versao"] == revisao["versao_presenca"] + 1
+
+                painel_corrigido = professor_b_client.get(
+                    f"/api/v1/turmas/{turma_id}/painel", headers=headers_b
+                )
+                sessao_corrigida = next(
+                    item
+                    for item in painel_corrigido.json()["sessoes"]
+                    if item["id"] == sessao_id
+                )
+                assert sessao_corrigida["presencas_presentes"] == 0
+                assert sessao_corrigida["presencas_anuladas"] == 1
+                csv_corrigido = professor_b_client.get(url_csv, headers=headers_b)
+                linha_corrigida = next(
+                    csv.DictReader(StringIO(csv_corrigido.content.decode("utf-8")))
+                )
+                assert linha_corrigida["status"] == "anulada"
+                assert linha_corrigida["correcao_manual"] == "sim"
+
         with factory() as session:
             presencas = list(
                 session.scalars(
@@ -499,6 +608,17 @@ def test_fluxo_http_postgres_com_ownership_cadastro_aprovado_e_presenca_fake(
             )
             assert len(presencas) == 1
             assert presencas[0].origem == "biometrica"
+            assert presencas[0].status == "anulada"
+            assert presencas[0].versao == 2
+            assert (
+                session.scalar(
+                    select(models.EventoAuditoriaWeb.id).where(
+                        models.EventoAuditoriaWeb.acao == "presenca_corrigida_manual",
+                        models.EventoAuditoriaWeb.alvo_id == str(presencas[0].id),
+                    )
+                )
+                is not None
+            )
             pendente = session.scalar(
                 select(models.Aluno).where(models.Aluno.matricula == matricula_pendente)
             )
@@ -513,3 +633,44 @@ def test_fluxo_http_postgres_com_ownership_cadastro_aprovado_e_presenca_fake(
             )
     finally:
         services.on_shutdown()
+
+
+def test_rate_limit_postgres_serializa_concorrencia_e_reabre_janela(
+    postgres_gate_url: str,
+) -> None:
+    engine = create_engine(postgres_gate_url, future=True, pool_pre_ping=True)
+    repository = PostgresPresencaWebRepository(
+        sessionmaker(bind=engine, expire_on_commit=False, future=True),
+        timezone_name="America/Sao_Paulo",
+    )
+    instante = dt.datetime.now(dt.UTC).replace(microsecond=0)
+    chave = hashlib.sha256(uuid4().bytes).hexdigest()
+
+    def requisicao(_ordinal: int) -> int | None:
+        return repository.limitar_requisicao(
+            chave,
+            agora=instante,
+            limite=5,
+            janela=dt.timedelta(minutes=1),
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            resultados = list(pool.map(requisicao, range(12)))
+        assert resultados.count(None) == 5
+        assert all(
+            isinstance(espera, int) and espera > 0
+            for espera in resultados
+            if espera is not None
+        )
+        assert (
+            repository.limitar_requisicao(
+                chave,
+                agora=instante + dt.timedelta(minutes=1),
+                limite=5,
+                janela=dt.timedelta(minutes=1),
+            )
+            is None
+        )
+    finally:
+        engine.dispose()

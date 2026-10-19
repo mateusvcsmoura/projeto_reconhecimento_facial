@@ -24,6 +24,11 @@ from src.application.services.fila_facial import (
     ManifestoTemporario,
     TipoJobFacial,
 )
+from src.application.services.worker_facial import (
+    CodigoResultadoWorker,
+    ResultadoWorker,
+    WorkerFacial,
+)
 from src.domain.services.desafio_captura import (
     ContextoDesafio,
     DesafioCaptura,
@@ -37,6 +42,9 @@ from src.infrastructure.repositories.postgres_desafio_repository import (
 )
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
+)
+from src.infrastructure.storage.temporary_capture_storage import (
+    TemporaryCaptureStorage,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -304,6 +312,59 @@ def test_advisory_lock_mantem_um_worker_ativo_por_database(
 
     with segundo.worker_unico() as depois:
         assert depois
+
+
+def test_worker_apos_reinicio_processa_job_que_ainda_estava_na_fila(
+    fila: FilaFacial, postgres_engine: Engine, tmp_path: Path
+) -> None:
+    reserva = fila.reservar(
+        TipoJobFacial.PRESENCA,
+        "sessao:task019a:aluno:sintetico",
+        f"restart-pending-{uuid.uuid4()}",
+        dt.datetime.now(UTC) + dt.timedelta(minutes=2),
+    )
+    armazenamento = TemporaryCaptureStorage(
+        tmp_path / "capturas-restart",
+        max_bytes_per_capture=32,
+        max_captures=3,
+    )
+    armazenamento.salvar_captura(reserva.id, 1, b"frame-sintetico")
+    fila.submeter(reserva.id, armazenamento.manifesto(reserva.id))
+
+    class ProcessadorComFalha:
+        chamadas = 0
+
+        def processar(self, _job, capturas):
+            self.chamadas += 1
+            assert capturas == (b"frame-sintetico",)
+            return ResultadoWorker(False, CodigoResultadoWorker.FALHA_TECNICA)
+
+    processador = ProcessadorComFalha()
+    worker_apos_reinicio = WorkerFacial(
+        fila,
+        armazenamento,
+        processadores={TipoJobFacial.PRESENCA: processador},
+    )
+    with postgres_engine.connect() as connection:
+        presencas_antes = connection.scalar(
+            select(func.count()).select_from(models.Presenca)
+        )
+    try:
+        worker_apos_reinicio.inicializar()
+        assert worker_apos_reinicio.executar_um()
+        estado = fila.consultar(reserva.id, reserva.credencial)
+    finally:
+        worker_apos_reinicio.fechar()
+    with postgres_engine.connect() as connection:
+        presencas_depois = connection.scalar(
+            select(func.count()).select_from(models.Presenca)
+        )
+
+    assert processador.chamadas == 1
+    assert estado.estado is EstadoJobFacial.REJEITADA
+    assert estado.codigo == CodigoResultadoWorker.FALHA_TECNICA.value
+    assert not armazenamento.raiz.joinpath(str(reserva.id)).exists()
+    assert presencas_depois == presencas_antes
 
 
 def test_desafio_verificacao_transiciona_no_postgresql(
