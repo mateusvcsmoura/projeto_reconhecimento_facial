@@ -8,6 +8,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import BinaryIO
 
+from src.infrastructure.workers.windows_file_lock import alterar_lock_windows
+
 
 class SingletonProcessLock:
     """Mantém um lock de arquivo durante a vida do processo worker."""
@@ -26,9 +28,7 @@ class SingletonProcessLock:
         arquivo.seek(0)
         try:
             if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(arquivo.fileno(), msvcrt.LK_NBLCK, 1)
+                alterar_lock_windows(arquivo.fileno(), adquirir=True)
             else:
                 fcntl = importlib.import_module("fcntl")
                 fcntl.flock(arquivo.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -51,9 +51,7 @@ class SingletonProcessLock:
         try:
             arquivo.seek(0)
             if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(arquivo.fileno(), msvcrt.LK_UNLCK, 1)
+                alterar_lock_windows(arquivo.fileno(), adquirir=False)
             else:
                 fcntl = importlib.import_module("fcntl")
                 fcntl.flock(arquivo.fileno(), fcntl.LOCK_UN)

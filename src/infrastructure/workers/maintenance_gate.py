@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from src.infrastructure.workers.singleton_process_lock import SingletonProcessLock
+from src.infrastructure.workers.windows_file_lock import alterar_lock_windows
 
 
 class ManutencaoAtiva(RuntimeError):
@@ -148,9 +149,7 @@ class ManutencaoWeb:
 
 def _bloquear(arquivo: BinaryIO, *, compartilhado: bool) -> None:
     if os.name == "nt":
-        import msvcrt
-
-        msvcrt.locking(arquivo.fileno(), msvcrt.LK_NBLCK, 1)
+        alterar_lock_windows(arquivo.fileno(), adquirir=True)
         return
     fcntl = importlib.import_module("fcntl")
     tipo = fcntl.LOCK_SH if compartilhado else fcntl.LOCK_EX
@@ -159,9 +158,7 @@ def _bloquear(arquivo: BinaryIO, *, compartilhado: bool) -> None:
 
 def _desbloquear(arquivo: BinaryIO) -> None:
     if os.name == "nt":
-        import msvcrt
-
-        msvcrt.locking(arquivo.fileno(), msvcrt.LK_UNLCK, 1)
+        alterar_lock_windows(arquivo.fileno(), adquirir=False)
         return
     fcntl = importlib.import_module("fcntl")
     fcntl.flock(arquivo.fileno(), fcntl.LOCK_UN)

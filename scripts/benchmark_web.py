@@ -14,7 +14,7 @@ from ctypes import wintypes
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from src.application.services.fila_facial import (
@@ -41,6 +41,10 @@ _CAPTURAS_SINTETICAS = (
     b"frame-sintetico-2",
     b"frame-sintetico-3",
 )
+
+
+def _carregar_dll_windows(nome: str) -> Any:
+    return cast(Any, ctypes).WinDLL(nome, use_last_error=True)
 
 
 class _FilaSintetica:
@@ -278,7 +282,7 @@ def _memoria_host() -> dict[str, int | None]:
 
         memoria = _MemoryStatusEx()
         memoria.dwLength = ctypes.sizeof(memoria)
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32 = _carregar_dll_windows("kernel32")
         global_memory_status = kernel32.GlobalMemoryStatusEx
         global_memory_status.argtypes = [ctypes.POINTER(_MemoryStatusEx)]
         global_memory_status.restype = wintypes.BOOL
@@ -315,11 +319,11 @@ def _rss_processo() -> int | None:
 
         counters = _ProcessMemoryCountersEx()
         counters.cb = ctypes.sizeof(counters)
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32 = _carregar_dll_windows("kernel32")
         get_current_process = kernel32.GetCurrentProcess
         get_current_process.argtypes = []
         get_current_process.restype = wintypes.HANDLE
-        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        psapi = _carregar_dll_windows("psapi")
         get_process_memory_info = psapi.GetProcessMemoryInfo
         get_process_memory_info.argtypes = [
             wintypes.HANDLE,
