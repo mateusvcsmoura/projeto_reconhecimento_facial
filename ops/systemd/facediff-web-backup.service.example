@@ -1,0 +1,18 @@
+[Unit]
+Description=Backup local cifrado do FaceDiff Web
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=facediff
+Group=facediff
+WorkingDirectory=/opt/facediff/current
+EnvironmentFile=/etc/facediff/web-runtime.env
+EnvironmentFile=/etc/facediff/web-backup.env
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/facediff /srv/facediff/private /var/lib/facediff/backup /var/log/facediff
+ExecStart=/opt/facediff/.venv-web/bin/python -m scripts.web_backup --mode diario

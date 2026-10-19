@@ -1,0 +1,11 @@
+[Unit]
+Description=Agendamento diario do backup local cifrado FaceDiff Web
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=facediff-web-backup.service
+
+[Install]
+WantedBy=timers.target
