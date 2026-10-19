@@ -27,6 +27,7 @@ from src.infrastructure.storage.private_reference_storage import (
 from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptureStorage
 from src.presentation.web.routes.auth import criar_rotas_auth
 from src.presentation.web.routes.cadastros import criar_rotas_cadastros
+from src.presentation.web.routes.gestao import criar_rotas_gestao
 from src.presentation.web.routes.links import criar_rotas_links
 from src.presentation.web.routes.operations import criar_rotas_operacoes
 from src.presentation.web.routes.presencas import criar_rotas_presencas
@@ -58,6 +59,8 @@ class WebServices:
     capture_storage: TemporaryCaptureStorage | None = None
     fila_facial: FilaFacial | None = None
     presenca_repository: Any | None = None
+    gestao_repository: Any | None = None
+    legacy_image_storage: Any | None = None
     desafio_captura: DesafioCaptura | None = None
     rate_limit_secret: bytes | None = None
     clock: Callable[[], datetime] = utc_now
@@ -104,11 +107,18 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     )
     app.state.environment = settings.environment
     app.state.web_services = services
-    app.include_router(criar_rotas_auth(settings, services.auth_repository))
+    app.include_router(
+        criar_rotas_auth(
+            settings,
+            services.auth_repository,
+            gestao_repository=services.gestao_repository,
+        )
+    )
     app.include_router(criar_rotas_operacoes(services.fila_facial))
     app.include_router(criar_rotas_links(settings, services))
     app.include_router(criar_rotas_cadastros(settings, services))
     app.include_router(criar_rotas_presencas(settings, services))
+    app.include_router(criar_rotas_gestao(settings, services))
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -142,6 +152,8 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 "/api/v1/avisos/biometria",
                 "/api/v1/sessoes/",
                 "/api/v1/tentativas/",
+                "/api/v1/revisoes",
+                "/api/v1/alunos/",
             )
         ):
             response.headers["Cache-Control"] = "no-store"

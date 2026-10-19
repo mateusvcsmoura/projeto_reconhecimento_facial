@@ -18,6 +18,9 @@ from src.infrastructure.repositories.postgres_conta_repository import (
 from src.infrastructure.repositories.postgres_desafio_repository import (
     PostgresDesafioRepository,
 )
+from src.infrastructure.repositories.postgres_gestao_web_repository import (
+    PostgresGestaoWebRepository,
+)
 from src.infrastructure.repositories.postgres_job_repository import (
     PostgresJobRepository,
 )
@@ -30,6 +33,7 @@ from src.infrastructure.repositories.postgres_presenca_web_repository import (
 from src.infrastructure.repositories.postgres_solicitacao_repository import (
     PostgresSolicitacaoRepository,
 )
+from src.infrastructure.storage.legacy_image_remover import LegacyImageRemover
 from src.infrastructure.storage.private_reference_storage import (
     PrivateReferenceStorageLocal,
 )
@@ -71,6 +75,9 @@ def create_web_app(
     presenca_repository = PostgresPresencaWebRepository(
         session_factory, timezone_name=configuracao.app_timezone
     )
+    gestao_repository = PostgresGestaoWebRepository(
+        session_factory, timezone_name=configuracao.app_timezone
+    )
     desafio_repository = PostgresDesafioRepository(session_factory)
     desafio_captura = DesafioCaptura(
         desafio_repository,
@@ -90,6 +97,9 @@ def create_web_app(
         reference_storage = PrivateReferenceStorageLocal(
             configuracao.reference_storage_dir
         )
+    legacy_image_storage = None
+    if configuracao.legacy_image_storage_dir is not None:
+        legacy_image_storage = LegacyImageRemover(configuracao.legacy_image_storage_dir)
     fila_facial = FilaFacial(
         jobs_repository,
         segredo=configuracao.secret_key.get_secret_value().encode(),
@@ -111,6 +121,8 @@ def create_web_app(
         capture_storage=capture_storage,
         fila_facial=fila_facial,
         presenca_repository=presenca_repository,
+        gestao_repository=gestao_repository,
+        legacy_image_storage=legacy_image_storage,
         desafio_captura=desafio_captura,
         rate_limit_secret=configuracao.secret_key.get_secret_value().encode(),
         on_shutdown=engine.dispose,

@@ -39,6 +39,7 @@ class WebSettings(BaseSettings):
     database_disposable: bool = False
     capture_temp_dir: Path | None = None
     reference_storage_dir: Path | None = None
+    legacy_image_storage_dir: Path | None = None
     capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
     capture_max_frames: Literal[3] = 3
     capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024

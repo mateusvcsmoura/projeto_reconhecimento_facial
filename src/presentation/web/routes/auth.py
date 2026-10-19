@@ -2,7 +2,7 @@
 
 import hmac
 import ipaddress
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -79,7 +79,10 @@ class TransferirTurmaRequest(_Schema):
 
 
 def criar_rotas_auth(
-    settings: WebSettings, repository: PostgresContaRepository | None
+    settings: WebSettings,
+    repository: PostgresContaRepository | None,
+    *,
+    gestao_repository: Any | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["auth"])
 
@@ -372,6 +375,27 @@ def criar_rotas_auth(
         conta: Annotated[ContaAutenticada, Depends(exigir_conta)],
         repositorio: Annotated[PostgresContaRepository, Depends(exigir_repository)],
     ) -> dict[str, object]:
+        if gestao_repository is not None:
+            from src.application.use_cases.gerenciar_turmas_web import (
+                GerenciarTurmasWeb,
+            )
+
+            try:
+                return GerenciarTurmasWeb(gestao_repository).obter(
+                    conta.como_ator(), turma_id
+                )
+            except (AcessoTurmaNegado, LookupError):
+                raise HTTPException(
+                    status_code=404, detail="Recurso nao encontrado."
+                ) from None
+            except PermissionError:
+                raise HTTPException(
+                    status_code=403, detail="Operacao nao autorizada."
+                ) from None
+            except ValueError:
+                raise HTTPException(
+                    status_code=422, detail="Requisicao invalida."
+                ) from None
         turma = repositorio.autorizar_turma(turma_id)
         if turma is None:
             raise HTTPException(status_code=404, detail="Recurso nao encontrado.")

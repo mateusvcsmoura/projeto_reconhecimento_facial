@@ -114,7 +114,7 @@ class Aluno(Base):
 class Turma(Base):
     __tablename__ = "turmas"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
     materia: Mapped[str] = mapped_column(String(120), nullable=False)
     periodo: Mapped[str] = mapped_column(String(10), nullable=False)
     criado_em: Mapped[dt.datetime] = mapped_column(
@@ -938,7 +938,7 @@ class TentativaPresencaWeb(Base):
             "idempotencia_hash",
             name="uq_tentativas_presenca_idempotencia",
         ),
-        CheckConstraint("ordinal BETWEEN 1 AND 3", name="ordinal_valido"),
+        CheckConstraint("ordinal >= 1", name="ordinal_valido"),
         CheckConstraint(
             "versao_referencia > 0 AND versao_sessao > 0", name="versoes_positivas"
         ),
@@ -1059,7 +1059,7 @@ class AlunoTurma(Base):
 class Presenca(Base):
     __tablename__ = "presencas"
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    id: Mapped[int] = mapped_column(BIGINT_ID, Identity(always=True), primary_key=True)
     aluno_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("alunos.id", ondelete="CASCADE"),
@@ -1085,10 +1085,47 @@ class Presenca(Base):
     # timestamptz e STABLE, nao IMMUTABLE, e portanto nao pode ser coluna
     # gerada nem indexada diretamente.
     data_referencia: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(12), nullable=False, server_default=text("'presente'")
+    )
+    origem: Mapped[str] = mapped_column(
+        String(12), nullable=False, server_default=text("'legado'")
+    )
+    versao: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    horario_evidencia: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    corrigida_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    corrigida_por_conta_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
 
     aluno: Mapped[Aluno] = relationship(back_populates="presencas")
 
     __table_args__ = (
+        CheckConstraint(
+            "status IN ('presente', 'anulada')", name="status_presenca_valido"
+        ),
+        CheckConstraint(
+            "origem IN ('biometrica', 'manual', 'legado')",
+            name="origem_presenca_valida",
+        ),
+        CheckConstraint("versao > 0", name="versao_presenca_positiva"),
+        CheckConstraint(
+            "(corrigida_em IS NULL AND corrigida_por_conta_id IS NULL) OR "
+            "(corrigida_em IS NOT NULL AND corrigida_por_conta_id IS NOT NULL)",
+            name="correcao_presenca_coerente",
+        ),
+        CheckConstraint(
+            "status != 'anulada' OR corrigida_em IS NOT NULL",
+            name="anulacao_presenca_auditada",
+        ),
         ForeignKeyConstraint(
             ["turma_id", "aluno_id"],
             ["aluno_turma.turma_id", "aluno_turma.aluno_id"],
@@ -1109,8 +1146,10 @@ class Presenca(Base):
         ),
         CheckConstraint(
             "(sessao_id IS NULL AND tentativa_id IS NULL) OR "
-            "(sessao_id IS NOT NULL AND tentativa_id IS NOT NULL "
-            "AND turma_id IS NOT NULL)",
+            "(sessao_id IS NOT NULL AND turma_id IS NOT NULL AND "
+            "((tentativa_id IS NOT NULL AND origem = 'biometrica') OR "
+            "(tentativa_id IS NULL AND origem = 'manual' "
+            "AND corrigida_em IS NOT NULL)))",
             name="sessao_tentativa_coerentes",
         ),
         Index(
@@ -1141,4 +1180,73 @@ class Presenca(Base):
         UniqueConstraint("tentativa_id", name="uq_presencas_tentativa"),
         Index("ix_presencas_turma_data", "turma_id", "data_referencia"),
         Index("ix_presencas_data_referencia", "data_referencia"),
+    )
+
+
+class RevisaoPresencaWeb(Base):
+    """Pedido de revisão de presença sem guardar qualquer dado biométrico."""
+
+    __tablename__ = "revisoes_presenca_web"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    turma_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sessao_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    aluno_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    estado: Mapped[str] = mapped_column(String(12), nullable=False)
+    justificativa_solicitacao: Mapped[str] = mapped_column(String(500), nullable=False)
+    via_acessivel: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    solicitada_em: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    versao_presenca_base: Mapped[int] = mapped_column(Integer, nullable=False)
+    decisao: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    justificativa_decisao: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
+    decidida_em: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decidida_por_conta_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("contas_web.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("estado IN ('aberta', 'decidida')", name="estado_valido"),
+        CheckConstraint(
+            "length(btrim(justificativa_solicitacao)) BETWEEN 1 AND 500",
+            name="justificativa_solicitacao_valida",
+        ),
+        CheckConstraint("versao_presenca_base >= 0", name="versao_base_valida"),
+        CheckConstraint(
+            "(estado = 'aberta' AND decisao IS NULL AND decidida_em IS NULL "
+            "AND decidida_por_conta_id IS NULL AND justificativa_decisao IS NULL) OR "
+            "(estado = 'decidida' AND decisao IN ('presente', 'anulada') "
+            "AND decidida_em IS NOT NULL AND decidida_por_conta_id IS NOT NULL "
+            "AND justificativa_decisao IS NOT NULL)",
+            name="decisao_coerente",
+        ),
+        ForeignKeyConstraint(
+            ["sessao_id", "turma_id"],
+            ["sessoes_presenca_web.id", "sessoes_presenca_web.turma_id"],
+            name="fk_revisoes_presenca_sessao_turma",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["turma_id", "aluno_id"],
+            ["aluno_turma.turma_id", "aluno_turma.aluno_id"],
+            name="fk_revisoes_presenca_vinculo",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "uq_revisoes_presenca_aberta",
+            "sessao_id",
+            "aluno_id",
+            unique=True,
+            postgresql_where=text("estado = 'aberta'"),
+            sqlite_where=text("estado = 'aberta'"),
+        ),
+        Index("ix_revisoes_presenca_turma_estado", "turma_id", "estado"),
+        Index("ix_revisoes_presenca_aluno_sessao", "aluno_id", "sessao_id"),
     )

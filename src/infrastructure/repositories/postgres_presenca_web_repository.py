@@ -194,6 +194,12 @@ class PostgresPresencaWebRepository:
                     models.ConjuntoReferenciasWeb.estado == "ativo",
                 )
             )
+            revisao = session.scalar(
+                select(models.RevisaoPresencaWeb.id).where(
+                    models.RevisaoPresencaWeb.sessao_id == sessao_id,
+                    models.RevisaoPresencaWeb.aluno_id == aluno.id,
+                )
+            )
             if (
                 turma is None
                 or turma.excluida_em is not None
@@ -201,6 +207,7 @@ class PostgresPresencaWebRepository:
                 or not vinculo.ativo
                 or conjunto is None
                 or conjunto.versao is None
+                or revisao is not None
             ):
                 raise TentativaIndisponivel()
             ordinais = tuple(
@@ -269,6 +276,14 @@ class PostgresPresencaWebRepository:
                 )
             )
             if presenca_existente is not None:
+                raise TentativaIndisponivel()
+            revisao_existente = session.scalar(
+                select(models.RevisaoPresencaWeb.id).where(
+                    models.RevisaoPresencaWeb.sessao_id == sessao_id,
+                    models.RevisaoPresencaWeb.aluno_id == aluno_id,
+                )
+            )
+            if revisao_existente is not None:
                 raise TentativaIndisponivel()
             if instante < _utc(sessao_linha.inicio_em) or instante >= _utc(
                 sessao_linha.fim_em
@@ -340,7 +355,8 @@ class PostgresPresencaWebRepository:
                 )
                 or 0
             )
-            if contagem >= 3:
+            limite_tentativas = self._limite_tentativas(session, sessao_id, aluno_id)
+            if contagem >= limite_tentativas:
                 raise QuotaTentativasEsgotada()
             job = session.scalar(
                 select(models.JobFacialWeb)
@@ -692,6 +708,14 @@ class PostgresPresencaWebRepository:
                 or decisao.versao_referencia != tentativa.versao_referencia
             ):
                 return None
+            revisao = session.scalar(
+                select(models.RevisaoPresencaWeb.id).where(
+                    models.RevisaoPresencaWeb.sessao_id == tentativa.sessao_id,
+                    models.RevisaoPresencaWeb.aluno_id == tentativa.aluno_id,
+                )
+            )
+            if revisao is not None:
+                return None
             turma = session.scalar(
                 select(models.Turma)
                 .where(models.Turma.id == tentativa.turma_id)
@@ -759,6 +783,10 @@ class PostgresPresencaWebRepository:
                     tentativa_id=tentativa.id,
                     registrado_em=instante,
                     data_referencia=instante.astimezone(self._timezone).date(),
+                    status="presente",
+                    origem="biometrica",
+                    versao=1,
+                    horario_evidencia=instante,
                 )
                 .on_conflict_do_nothing(
                     index_elements=[
@@ -796,6 +824,22 @@ class PostgresPresencaWebRepository:
 
     def _factory(self) -> sessionmaker[Session]:
         return self._session_factory
+
+    @staticmethod
+    def _limite_tentativas(session: Session, sessao_id: int, aluno_id: int) -> int:
+        reativacoes = int(
+            session.scalar(
+                select(func.count())
+                .select_from(models.EventoAuditoriaWeb)
+                .where(
+                    models.EventoAuditoriaWeb.acao == "quota_presenca_reativada",
+                    models.EventoAuditoriaWeb.alvo_tipo == "sessao_aluno",
+                    models.EventoAuditoriaWeb.alvo_id == f"{sessao_id}:{aluno_id}",
+                )
+            )
+            or 0
+        )
+        return 3 * (reativacoes + 1)
 
     @staticmethod
     def _ator_atual(session: Session, ator: AtorWeb) -> AtorWeb:
