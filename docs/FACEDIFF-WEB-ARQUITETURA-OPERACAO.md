@@ -28,6 +28,15 @@ ou inferência operacional em Linux. Veja [runtime web](FACEDIFF-WEB-RUNTIME.md)
 e [resultado 012](../tasks/012-web-worker-fila/RESULTADO.md).
 Veja também o [resultado 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
 
+Em 19/10/2026, a task018 acrescentou artefatos revisáveis de deploy em
+`deploy/web`: Compose, imagens separadas para API/worker, Caddy, secrets por
+arquivo, migração manual e backup one-shot. A configuração Compose estática e
+os testes locais passaram com valores sintéticos. O Docker Engine não estava
+acessível para build ou validação do Caddy na imagem, e nenhum serviço foi
+iniciado; ensaio de volumes e operação permanecem pendentes. Consulte o
+[runbook de deploy](../deploy/web/README.md) e o
+[resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md).
+
 A task016 adiciona operações administrativas por turma, correção manual de
 presença versionada e auditada, revisão solicitada pelo bearer de uma sessão,
 painel agregado e CSV seguro. A declaração de identidade conferida é uma ação

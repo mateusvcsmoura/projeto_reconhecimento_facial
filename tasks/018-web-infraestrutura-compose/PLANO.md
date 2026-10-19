@@ -3,7 +3,8 @@
 > Executor: **Luna 6 High**, inline, sem delegação. Usar
 > `superpowers:executing-plans` quando disponível. Ler [DESENHO.md](DESENHO.md)
 > e [contrato comum](../WEB-CONTRATO-EXECUCAO.md) integralmente.
-> Este arquivo prepara uma execução futura; não a inicia nesta conversa.
+> Registro de execução: implementação realizada em 19/10/2026. O resultado,
+> comandos, limitações e gates restantes estão em [RESULTADO.md](RESULTADO.md).
 
 **Objetivo:** Artefatos de implantação Ubuntu, Compose e Caddy.
 **Dependências:** 017.

@@ -41,9 +41,12 @@ instalada/importada em Ubuntu 24.04/Python 3.12; a tarefa 013 também validou o
 provider MediaPipe Linux com modelo local e entrada sintética em WSL/Python 3.14.
 As migrations 0006–0010 foram verificadas em PostgreSQL descartável e revertidas
 pela fixture. Nenhuma validação biométrica com pessoas nem deploy foi executado.
-As tarefas 018–020 seguem planejadas. A tarefa 017 tem implementação no
-workspace, com roundtrip real PostgreSQL/rclone e Drive ainda pendentes; consulte
-seu resultado e os resultados 012–016.
+Os artefatos da tarefa 018 estão implementados e parcialmente validados no
+workspace: configuração Compose estática e testes passaram; build das imagens,
+validação do Caddy e execução integrada aguardam um Docker Engine acessível.
+Nenhum serviço foi iniciado. A tarefa 017 tem implementação no workspace, com
+roundtrip real PostgreSQL/rclone e Drive ainda pendentes; consulte seu resultado
+e os resultados 012–016.
 Tarefa 010 foi implementada e publicada na `main`; revisão `0005` aplicada ao
 banco local `escola`, 3 testes PostgreSQL descartáveis aprovados e
 `alembic check` limpo; sem deploy; veja
@@ -68,7 +71,7 @@ a implementação de uma tarefa; não cobre deploy ou operações de infraestrut
 | 015 | [Sessões, tentativas e presença por API](015-web-api-sessoes-presencas/DESENHO.md) | Luna 6, esforço High | Implementada e publicada na `main`; migration 0010 e 5 testes PostgreSQL validados em banco descartável, 11 testes HTTP, 1160 unitários e cobertura de 80,09%; veja [RESULTADO.md](015-web-api-sessoes-presencas/RESULTADO.md) |
 | 016 | [CRUD autorizado, revisão manual, auditoria e CSV](016-web-gestao-revisao-relatorios/DESENHO.md) | Luna 6, esforço High | Concluída; 1209 aprovados, 80 ignorados, 80,23% de cobertura; dois testes PostgreSQL e `alembic check` aprovados; migration 0011 aplicada a `escola`; sem deploy; veja [RESULTADO.md](016-web-gestao-revisao-relatorios/RESULTADO.md) |
 | 017 | [Backup cifrado, retenção e restauração](017-web-backup-retencao/DESENHO.md) | Luna 6, esforço High | Parcial e publicada na `main`; testes unitários e verificações locais registrados; roundtrip PostgreSQL/rclone e Drive pendentes; veja [RESULTADO.md](017-web-backup-retencao/RESULTADO.md) |
-| 018 | [Artefatos de implantação Ubuntu, Compose e Caddy](018-web-infraestrutura-compose/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 018 | [Artefatos de implantação Ubuntu, Compose e Caddy](018-web-infraestrutura-compose/DESENHO.md) | Luna 6, esforço High | Artefatos implementados; configuração Compose estática e 24 testes focados aprovados; build/execução pendentes por Docker Engine inacessível; veja [RESULTADO.md](018-web-infraestrutura-compose/RESULTADO.md) |
 | 019 | [Validação integrada do backend e gate para a interface](019-web-validacao-backend/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 | 020 | [Interface web responsiva e validação ponta a ponta](020-web-interface-final/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
 

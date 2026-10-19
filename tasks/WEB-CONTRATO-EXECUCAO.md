@@ -5,7 +5,8 @@ Data: 18/10/2026; status atualizado em 19/10/2026. **As tarefas 009–016 foram 
 migrations 0006–0010 foram validadas em PostgreSQL descartável. A revisão 0011
 da task016 foi aplicada a `escola` e validada em PostgreSQL descartável. A
 web não foi implantada. A task017 foi publicada parcialmente na `main`; o ensaio
-real de restore permanece pendente. As tarefas 018–020 continuam pendentes.** O runtime web passou em testes no
+real de restore permanece pendente. A task018 tem artefatos no workspace;
+build/ensaio de infraestrutura e as tarefas 019–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e

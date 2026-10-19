@@ -41,13 +41,19 @@ O [contrato comum](../tasks/WEB-CONTRATO-EXECUCAO.md) e o
 | 015 | Sessões, tentativas e presença por API | 014 | [Executar 015](../tasks/015-web-api-sessoes-presencas/PROMPT.md) |
 | 016 | CRUD autorizado, revisão manual, auditoria e CSV | 015 | [Executar 016](../tasks/016-web-gestao-revisao-relatorios/PROMPT.md) |
 | 017 | Backup cifrado, retenção e restauração | 016 | [Executar 017](../tasks/017-web-backup-retencao/PROMPT.md) |
-| 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | [Executar 018](../tasks/018-web-infraestrutura-compose/PROMPT.md) |
+| 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | [Resultado parcial](../tasks/018-web-infraestrutura-compose/RESULTADO.md) |
 | 019 | Validação integrada do backend e gate para a interface | 009–018 implementadas; não basta existirem seus documentos | [Executar 019](../tasks/019-web-validacao-backend/PROMPT.md) |
 | 020 | Interface web responsiva e validação ponta a ponta | 019 com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–018 prontas e testadas | [Executar 020](../tasks/020-web-interface-final/PROMPT.md) |
 
 A sequência recomendada é linear009→020, embora os contratos descrevam
 dependências mais específicas. Não paralelizar alterações de schema/contratos
 por iniciativa própria. Criar RESULTADO.md ao executar, nunca antecipadamente.
+
+A task018 já possui artefatos Compose, Dockerfiles, Caddy, preflight, healthcheck
+do worker e runbook. Testes locais validaram a configuração estática com valores
+sintéticos; build de imagens, validação do Caddy dentro da imagem e ensaio de
+volumes permanecem pendentes porque o Docker Engine não estava acessível. Nenhum
+serviço foi iniciado; consulte o [resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md).
 
 ## 3. Cobertura do planejamento anterior
 

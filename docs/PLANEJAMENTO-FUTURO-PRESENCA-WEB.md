@@ -5,7 +5,8 @@
 **Status: planejamento consolidado; as tarefas 009–016 foram implementadas no
 workspace e as tarefas 010, 013, 014, 015 e 016 foram publicadas na `main`. A
 task017 foi publicada parcialmente na `main`, sem roundtrip local PostgreSQL/rclone
-ou Drive real; implantação web não executada.** Este documento substitui as propostas conflitantes das versões
+ou Drive real. A task018 tem artefatos Compose no workspace, sem build ou deploy
+porque o Docker Engine não estava acessível.** Este documento substitui as propostas conflitantes das versões
 anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável.
 Em 19/10/2026, `0006–0011` também foram aplicadas em sequência ao banco local
 `escola`, que estava na revisão `0005`; `alembic check` confirmou `0011`. O worker/fila, desafio 1:1 e fluxos HTTP de
