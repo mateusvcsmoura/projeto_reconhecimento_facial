@@ -6,11 +6,11 @@
 > Este arquivo prepara uma execução futura; não a inicia nesta conversa.
 
 **Objetivo:** Interface web responsiva e validação ponta a ponta.
-**Dependências:** 019 com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–018 prontas e testadas.
+**Dependências:** 019 e 019A com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–019A prontas e testadas.
 **Stack:** arquitetura Python/PostgreSQL existente + componentes web definidos
 pela009; acrescentar apenas dependência estritamente necessária ao escopo.
 **Especificação:** [planejamento consolidado](../../docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
-**Interface:** esta é a última task de desenvolvimento; exigir gate019 aprovado.
+**Interface:** esta é a última task de desenvolvimento; exigir gates019 e 019A aprovados.
 
 ## 1. Baseline e preparação
 
@@ -26,7 +26,7 @@ pela009; acrescentar apenas dependência estritamente necessária ao escopo.
 
 ## 2. Passos de implementação e prova
 
-### 1. Verificar gate019 e contratos; listar todas as telas/estados antes de construir interface.
+### 1. Verificar gates019/019A e contratos; listar todas as telas/estados antes de construir interface.
 
 - [ ] Escrever primeiro os casos automatizados pertinentes do desenho em arquivos
   de teste previstos; usar fakes/relógio/embeddings sintéticos conforme a fronteira.

@@ -14,7 +14,7 @@ brainstorming, não delegue e não avance automaticamente para outra task.**
 3. `docs/FACEDIFF-WEB-ARQUITETURA-OPERACAO.md`.
 4. `tasks/WEB-CONTRATO-EXECUCAO.md` e `tasks/WEB-MIGRACOES.md`.
 5. `tasks/020-web-interface-final/DESENHO.md` e `tasks/020-web-interface-final/PLANO.md`, integralmente.
-6. Resultados reais das dependências: **019 com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–018 prontas e testadas**.
+6. Resultados reais das dependências: **019 e 019A com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–019A prontas e testadas**.
 
 Use Superpowers executing-plans quando disponível; aprove internamente escolhas
 rotineiras, sem pedir confirmações de decisões já definidas. Isso não amplia
@@ -50,7 +50,7 @@ Estado final 'presença confirmada' depende de resultado persistido daAPI, nunca
 
 ## Limites e conclusão
 
-**É a última task. Não começar sem GATE_BACKEND_PARA_INTERFACE=APROVADO na019.** E2E móvel acontece aqui; gates de dados reais/deploy continuam independentes.
+**É a última task. Não começar sem GATE_BACKEND_PARA_INTERFACE=APROVADO nas tarefas 019 e 019A**, com restore cifrado real, runtime Linux/Compose, proteções públicas e cadeia integrada efetivamente comprovados. E2E móvel acontece aqui; gates de dados reais/deploy continuam independentes.
 
 Não executar migration, acessar banco operacional, conectar Google Drive,
 provisionar VPS, realizar deploy ou usar rostos reais sem autorização específica
@@ -61,11 +61,9 @@ Não interpretar matrícula informada como autenticação.
 Interface completa sobre funcionalidades comprovadas, E2E aprovado com evidências; nenhuma decisão biométrica no cliente. Prontidão para dados reais/deploy só se gates operacionais adicionais forem efetivamente cumpridos.
 
 Ao terminar, criar `tasks/020-web-interface-final/RESULTADO.md`, atualizar índice e relatar comandos
-efetivos, contratos, pendências e estado dos gates. **Não fazer commit/push por
-autorização herdada de tasks001–008.** A restrição da consolidação atual prevalece;
-se o usuário autorizar explicitamente publicação nesta execução, fazer commit
-em PT-BR e push na main conforme procedimento do contrato comum. Não contratar
-ou implantar como consequência do push.
+efetivos, contratos, pendências e estado dos gates. Seguir a autorização e as
+instruções de commit/push vigentes em `AGENTS.md`; a autorização permanente de
+implementação não inclui deploy, contratação ou configuração de infraestrutura.
 
 ## Regra obrigatória de commit e push
 

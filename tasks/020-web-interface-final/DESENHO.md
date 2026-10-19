@@ -1,7 +1,7 @@
 # Desenho — 020: Interface web responsiva e validação ponta a ponta
 
 **Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
-Data: 17/10/2026. Dependências: **019 com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–018 prontas e testadas**.
+Data: 17/10/2026. Dependências: **019 e 019A com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–019A prontas e testadas**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.
 Especificação: [planejamento web](../../docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md)
@@ -9,7 +9,7 @@ e [arquitetura](../../docs/FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
 
 ## Escopo e decisões
 
-Única task de interface do pacote, deliberadamente por último. Consumir APIs já validadas, sem criar regras de negócio em JavaScript nem resolver funcionalidades faltantes escondidas naUI. Se um backend não cumprir contrato, registrar regressão, corrigir na camada responsável e repetir gate019 antes da aceitação. Não iniciar020 em status 'testes preparados'.
+Única task de interface do pacote, deliberadamente por último. Consumir APIs já validadas, sem criar regras de negócio em JavaScript nem resolver funcionalidades faltantes escondidas naUI. Se um backend não cumprir contrato, registrar regressão, corrigir na camada responsável e repetir gates019/019A antes da aceitação. Não iniciar020 em status 'testes preparados'.
 
 Frontend simples mesma origem, responsivo, sem necessidade de React/SPA/build adicional. Telas: login/troca de senha; painel/CRUD turmas e vínculos; convites; solicitações/aprovação sem biometria; sessão/presenças/revisões; CSV; administração segura. Professor vê estado e metadados necessários, nunca fotografia/embedding. Polling15s sem sobreposição, último horário e erro de atualização.
 
@@ -23,7 +23,7 @@ Testes browser sintéticos primeiro, com câmera fake, e ensaio nos celulares/no
 
 ```mermaid
 flowchart TD
-    N0["Gate019 aprovado"]
+    N0["Gates019 e 019A aprovados"]
     N1["Interface de professor e aluno"]
     N2["Câmera e APIs existentes"]
     N3["E2E e acessibilidade"]
