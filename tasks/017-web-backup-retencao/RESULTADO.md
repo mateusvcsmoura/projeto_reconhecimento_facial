@@ -1,7 +1,7 @@
 # Resultado — Tarefa 017: backup cifrado, retenção e restauração
 
-**Estado: parcial.** A implementação, testes unitários e verificações estáticas
-passaram. O roundtrip com rclone e PostgreSQL não pôde ser executado neste
+**Estado: parcial, publicada na `main`.** A implementação, testes unitários e
+verificações estáticas passaram. O roundtrip com rclone e PostgreSQL não pôde ser executado neste
 Windows porque `rclone`, `pg_dump`, `pg_restore` e `psql` não estão instalados;
 o teste de integração opt-in permaneceu ignorado. Não houve acesso ao banco
 `escola`, migration, Drive, arquivos biométricos ou deploy.
@@ -68,12 +68,12 @@ Ambiente: `.venv-ml`, Python 3.14.3, Windows AMD64.
 |---|---|
 | `.venv-ml\Scripts\python.exe -m pytest tests/unit -p no:cacheprovider --basetemp "$env:TEMP\pytest-task017-unit-20261019"` | 1209 aprovados; 1 aviso de adapter datetime do SQLite; 23,65 s |
 | `.venv-ml\Scripts\python.exe -m pytest tests/unit/test_web_backup_retencao.py tests/unit/test_web_fundacao.py -p no:cacheprovider --basetemp "$env:TEMP\pytest-task017-focused-final4-20261019"` | 41 aprovados; 1 aviso SQLite |
-| `.venv-ml\Scripts\ruff.exe check <arquivos Python alterados>` | aprovado |
-| `.venv-ml\Scripts\ruff.exe format --check <arquivos Python alterados>` | 19 arquivos formatados |
+| `.venv-ml\Scripts\ruff.exe check src/config/web_settings.py src/face_worker_main.py src/presentation/web/app.py src/presentation/web/routes/gestao.py src/web_main.py src/application/services/web_backup.py src/infrastructure/backup src/infrastructure/workers/maintenance_gate.py scripts/web_backup.py scripts/web_restore_check.py scripts/web_retencao.py tests/unit/test_web_fundacao.py tests/unit/test_web_backup_retencao.py tests/integration/test_web_restore_local.py` | aprovado |
+| `.venv-ml\Scripts\ruff.exe format --check src/config/web_settings.py src/face_worker_main.py src/presentation/web/app.py src/presentation/web/routes/gestao.py src/web_main.py src/application/services/web_backup.py src/infrastructure/backup src/infrastructure/workers/maintenance_gate.py scripts/web_backup.py scripts/web_restore_check.py scripts/web_retencao.py tests/unit/test_web_fundacao.py tests/unit/test_web_backup_retencao.py tests/integration/test_web_restore_local.py` | 19 arquivos formatados |
 | `.venv-ml\Scripts\python.exe -m mypy src scripts` | aprovado, 153 arquivos-fonte |
 | `.venv-ml\Scripts\python.exe -m pip check` | `No broken requirements found.` |
 | `git diff --check` | aprovado |
-| `pytest tests/integration/test_web_restore_local.py` | 1 ignorado: opt-in de restore descartável não configurado |
+| `.venv-ml\Scripts\python.exe -m pytest tests/integration/test_web_restore_local.py -p no:cacheprovider --basetemp "$env:TEMP\pytest-task017-restore-optin-20261019"` | 1 ignorado: opt-in de restore descartável não configurado |
 
 Também foi confirmado que `rclone`, `pg_dump`, `pg_restore` e `psql` não estão
 no PATH. A enumeração WSL foi negada pelo sistema (`E_ACCESSDENIED`). Não foi
@@ -99,7 +99,7 @@ um exemplo; sua instalação e a autorização OAuth/Drive são gates operaciona
 O dry-run de retenção deve ser revisado antes de qualquer `--apply`.
 
 Rollback do código não exige migration: desativar o timer/serviço exemplo e
-reverter o commit da tarefa. Não apagar arquivos de backup durante rollback;
+reverter os commits da tarefa. Não apagar arquivos de backup durante rollback;
 preservar as chaves e arquivos até validar uma restauração independente.
 
 ## Limitações restantes
