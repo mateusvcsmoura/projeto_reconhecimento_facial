@@ -124,3 +124,15 @@ já preparada externamente e verifica o processo de restore; ainda não cria o
 backup e compara conteúdo conhecido da origem e destino. Não houve alteração
 no serviço de backup sem uma falha reproduzida. O critério de roundtrip real
 permanece pendente; veja o [resultado 019A](../019a-fechamento-backend/RESULTADO.md).
+
+## Adendo — roundtrip concluído na task 019A (19/10/2026)
+
+Após autorização para usar containers e bancos descartáveis, a task019A executou
+o fluxo real PostgreSQL/rclone crypt com dump, 2 referências sintéticas,
+`cryptcheck`, restauração, hash de arquivo e comparação de registros conhecidos.
+Exclusões posteriores ao snapshot foram reaplicadas; chaves/sessões restauradas
+foram invalidadas. Chave incorreta, manifesto corrompido e destino sem marcador
+foram recusados sem alterar dados/sentinela. A falha injetada liberou manutenção
+e removeu staging em claro. O roundtrip local está comprovado; Google Drive,
+OAuth, custódia operacional das chaves e dados reais continuam pendentes. Ver
+[resultado final 019A](../019a-fechamento-backend/RESULTADO.md).

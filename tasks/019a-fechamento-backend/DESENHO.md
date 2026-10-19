@@ -28,11 +28,24 @@
   - PSS em Windows indisponível não é defeito; medir em Linux quando aplicável.
   - Integração/BDD legada da 008 deve permanecer registrada separadamente; executar regressões relevantes se as correções atingirem seus módulos.
 
-## Atualização de execução — 19/10/2026
+## Histórico da primeira etapa — 19/10/2026
 
-A execução implementou o rate limit das rotas públicas de cadastro e ampliou
-testes para o fluxo até painel/CSV, isolamento de professor, correção auditada,
-concorrência do contador e reinício com job pendente. O resultado ficou parcial:
-restore cifrado e runtime Compose/Linux não puderam ser executados por falta de
-ferramentas e acesso ao daemon. Consulte [RESULTADO.md](RESULTADO.md); o gate do
-backend permanece bloqueado por ambiente.
+A primeira etapa implementou o rate limit das rotas públicas de cadastro e
+ampliou testes para o fluxo até painel/CSV, isolamento de professor, correção
+auditada, concorrência do contador e reinício com job pendente. Naquele momento,
+restore cifrado e runtime Compose/Linux ficaram bloqueados por falta de acesso ao
+daemon e ferramentas no shell. Esse diagnóstico foi resolvido nesta continuação.
+
+## Resultado final — 19/10/2026
+
+Com autorização explícita para organizar containers e dados descartáveis, o
+gate foi executado em um projeto Docker Compose isolado, com secrets sintéticos,
+PostgreSQL/rclone locais e sem acesso ao banco `escola`, Drive, VPS ou imagens
+faciais reais. O roundtrip confirmou dump, cifra, restauração, exclusões e
+preservação de conteúdo conhecido. O runtime Linux foi construído e executado;
+defeitos reproduzidos no bootstrap PostgreSQL, target de Postgres, capability
+Caddy e dependência NumPy do runtime HTTP foram corrigidos com regressões.
+
+O resultado e os comandos verificáveis estão em [RESULTADO.md](RESULTADO.md).
+`GATE_BACKEND_PARA_INTERFACE` está aprovado. `GATE_OPERACIONAL_DADOS_REAIS`
+continua pendente; esta execução não implementou a interface 020.

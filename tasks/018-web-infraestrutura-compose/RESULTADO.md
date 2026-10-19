@@ -129,9 +129,19 @@ Linux autorizado; nenhum deploy ou recurso foi contratado.
 
 ## Adendo — fechamento 019A (19/10/2026)
 
-O `docker compose version` continua disponível (CLI 5.5.1), mas nesta sessão
+O `docker compose version` estava disponível (CLI 5.5.1), mas naquela etapa
 `docker info` foi negado pelo named pipe local do Docker Desktop
-(`npipe:////./pipe/docker_engine`). A configuração estática continua sendo
-apenas evidência de sintaxe; não foram construídas imagens nem iniciados
-serviços, Caddy, volumes ou healthchecks. O runtime integrado continua
-pendente por ambiente; veja o [resultado 019A](../019a-fechamento-backend/RESULTADO.md).
+(`npipe:////./pipe/docker_engine`). A configuração estática era apenas
+evidência de sintaxe; build e runtime ficaram pendentes até a autorização e
+execução da task019A. Veja o [resultado 019A](../019a-fechamento-backend/RESULTADO.md).
+
+## Adendo — runtime local comprovado na task 019A (19/10/2026)
+
+A task019A construiu e executou app, worker, migrator, backup, PostgreSQL e
+Caddy em um projeto Compose Linux isolado. Foram verificados SCRAM/bootstrap de
+papéis, migrations até `0011`, healthchecks, Caddy, loopback HTTPS, proteção de
+caminho privado, permissões/hardening, smoke sintético dos modelos locais e
+persistência de registros/referências após recriar app, worker e Caddy. Os
+defeitos de inicialização encontrados foram corrigidos com regressões. Isso
+comprova runtime local descartável, não deploy, DNS, firewall, KVM2 ou operação
+com dados reais; ver [resultado 019A](../019a-fechamento-backend/RESULTADO.md).

@@ -14,28 +14,22 @@
   - Usar ambiente local descartável autorizado. Se faltar acesso ao daemon ou instalação exigir permissão, registrar o impedimento exato; não desativar controles nem declarar aprovação.
   - Mapear requisito → teste → comando → resultado, reaproveitando provas válidas sem tratar resultados antigos como execução atual.
 
-- [ ] **2. Comprovar backup e restore reais — bloqueado por ambiente.**
-  - Trabalhar em `tests/integration/test_web_restore_local.py`, `src/application/services/web_backup.py`, `src/infrastructure/backup/` e scripts de backup/restore apenas quando uma falha justificar correção.
-  - Criar origem e destino PostgreSQL descartáveis identificados, diretórios privados separados e config crypt temporária fora do Git; usar bytes e embeddings sintéticos.
-  - Preparar registros e arquivos conhecidos, gerar backup pelo fluxo real com `pg_dump`, cifrar com rclone crypt e restaurar usando `pg_restore`.
-  - Assertar contagens/relacionamentos, conteúdo dos registros e hashes de arquivos restaurados; não se limitar ao código de saída do processo.
-  - Provar exclusões posteriores ao snapshot reaplicadas e credenciais/sessões restauradas invalidadas.
-  - Provar corrupção/chave incorreta recusadas, alvo não descartável recusado, manutenção liberada após falha e ausência de staging em claro ao finalizar.
-  - Exercitar bloqueio de escritas e drenagem/lock com PostgreSQL real para demonstrar consistência banco/arquivos.
-  - Executar o teste com seus opt-ins documentados, sem skips; registrar comandos sanitizados e resultado. Não conectar Google Drive.
+- [x] **2. Comprovar backup e restore reais — concluído em PostgreSQL/rclone descartáveis.**
+  - O fluxo real gerou dump PostgreSQL, cifrou/transmitiu com rclone crypt e `cryptcheck`, e restaurou uma geração conhecida; 3 artefatos e schema `0011` foram verificados.
+  - A comparação de origem/destino confirmou registros sintéticos, embedding de 512 dimensões, hash de referência, exclusão posterior ao snapshot, invalidação de credencial/sessão e limpeza do staging.
+  - Chave incorreta, manifesto corrompido e alvo sem marcador de descarte foram recusados; o marcador e sentinela do alvo não descartável foram preservados.
+  - Falha injetada liberou a manutenção e não deixou staging em claro. Sem Google Drive ou dados pessoais.
 
-- [ ] **3. Validar os artefatos Linux em execução — bloqueado por ambiente.**
-  - Revisar `deploy/web/README.md`, `compose.yaml`, `Dockerfile`, `Caddyfile`, entrypoints e testes de deploy antes de iniciar serviços locais.
-  - Usar projeto Compose exclusivo, secrets sintéticos, volumes descartáveis e portas de teste locais; não reutilizar volumes ou credenciais de produção.
-  - Construir os targets app/worker/migrate/backup/postgres/caddy; executar `pip check`, `bash -n` nos scripts PostgreSQL e `caddy validate` na imagem efetiva.
-  - Validar inicialização PostgreSQL/papéis, migração explícita no banco descartável, API, healthchecks, permissões UID/volumes e conectividade do proxy. Não emitir certificados públicos; usar configuração local de teste.
-  - Exercitar worker único, reinício/lease, fila limitada, expiração e limpeza de capturas. Provar que falhas não geram presença.
-  - Fazer smoke dos modelos locais e runtime sem GUI/rede de download; entrada sintética sem face deve ser recusada com segurança, sem alegar validação biométrica.
-  - Recriar containers preservando volumes e verificar registros/referências sintéticos; verificar que banco/arquivos privados não ficam acessíveis pela entrada pública.
-  - Inspecionar logs sintéticos para ausência de tokens, senhas, cookies, frames e embeddings.
-  - Corrigir apenas erros reproduzidos, adicionar regressões e registrar versões APT resolvidas. Não marcar testes estáticos como prova de runtime.
+- [x] **3. Validar os artefatos Linux em execução — concluído em Compose local descartável.**
+  - Targets app/worker/migrate/backup/postgres/caddy construídos; `pip check` passou nas imagens Python, `bash -n` no bootstrap PostgreSQL e `caddy validate` na imagem efetiva.
+  - Corrigidos e cobertos por regressões: comando ausente no target PostgreSQL, autenticação local incompatível no bootstrap de papéis, capability de arquivo Caddy incompatível com o hardening e NumPy ausente no runtime HTTP.
+  - PostgreSQL inicializou, as migrations chegaram a `0011`; `alembic current` e `alembic check` passaram. App/worker ficaram healthy; Caddy serviu HTTPS local e redirecionou HTTP.
+  - App, worker e Caddy executaram como UID 10001, rootfs somente leitura, sem privilégios novos e sem capabilities; processos PostgreSQL usam UID 999.
+  - Smoke pós-recriação carregou pesos FaceNet512 e MediaPipe locais; array sintético vazio produziu zero faces. Nenhuma webcam/rede de download foi usada.
+  - Recriação dos serviços preservou volumes: após subir novamente, o destino continuou em `0011` com 21 tabelas e 3 linhas sintéticas; o volume privado reteve o marcador e 1 arquivo de referência.
+  - Health HTTPS respondeu 200, caminho privado 404 e HTTP redirecionou com 308. Logs não continham credenciais, cookies ou payload vetorial.
 
-- [ ] **4. Completar proteção contra abuso no cadastro público — implementação e testes HTTP passaram; falta executar a concorrência PostgreSQL.**
+- [x] **4. Completar proteção contra abuso no cadastro público — implementação, HTTP e concorrência PostgreSQL aprovadas.**
   - Arquivos principais: `src/presentation/web/routes/cadastros.py`, composição `src/web_main.py`, configuração e repositório de limitação existente; testes em `tests/unit/test_cadastro_web_rate_limit.py` (novo).
   - Reaproveitar limitação persistida e chaves HMAC existentes, com namespaces separados; não armazenar matrícula/token/IP em claro nas chaves ou logs.
   - Cobrir emissão de credencial/solicitação, envio de capturas e consultas públicas. Aplicar a proteção antes de operações caras, inclusive em pedidos inválidos.
@@ -44,12 +38,12 @@
   - Testar 429/Retry-After, reset por relógio, concorrência PostgreSQL, isolamento de chaves e respostas sem enumeração; considerar alunos compartilhando NAT ao ajustar teto agregado.
   - Preservar limites de payload, fila, consentimento e expiração. Não adicionar CAPTCHA.
 
-- [ ] **5. Completar a cadeia funcional — teste PostgreSQL preparado, execução bloqueada por ausência do opt-in local.**
+- [x] **5. Completar a cadeia funcional — fluxo HTTP/PostgreSQL aprovado até painel e CSV.**
   - Expandir `tests/integration/test_web_fluxo_completo.py` até consulta do painel e exportação CSV do aluno/sessão criados nesse próprio cenário.
   - Verificar filtros, campos, ausência de biometria/tokens, CSV seguro, recusa de professor sem ownership e atualização da leitura após correção manual justificada/auditada.
   - Reaproveitar testes existentes para janela +120s, três tentativas, replay, matrícula existente, revogação, duplicidade e corrida revisão/worker; acrescentar testes somente onde a matriz mostrar lacuna.
 
-- [ ] **6. Regressão, documentação e decisão — documentos atualizados; faltam suíte completa e validações estáticas finais antes de publicar.**
+- [ ] **6. Regressão, documentação e decisão — provas e documentos atualizados; publicar o índice de tasks ficou pendente após bloqueio do auto-review.**
   - Executar testes novos/focados, unitários completos e integrações PostgreSQL pertinentes em bancos descartáveis. Inspecionar fixtures antes de rodar; não executar a suíte global contra configuração operacional.
   - Executar Ruff, formato, `python -m mypy src scripts` e `git diff --check`; guardar comandos completos sanitizados, totais, skips e justificativas.
   - Criar `RESULTADO.md` nesta pasta com evidências de cada item, limitações e os dois gates.
@@ -58,3 +52,4 @@
   - Aprovar `GATE_BACKEND_PARA_INTERFACE` somente com restore real, runtime local, controles de abuso e cadeia funcional comprovados. Checks obrigatórios ignorados mantêm o gate bloqueado.
   - Manter `GATE_OPERACIONAL_DADOS_REAIS=PENDENTE` enquanto faltarem provas operacionais autorizadas; listar responsável/pré-requisito para cada uma.
   - Quando esta task for solicitada para implementação, seguir a autorização vigente do AGENTS para commits PT-BR por escopo e push para main; reler AGENTS antes de publicar, revisar staging e excluir segredos/artefatos/alterações alheias. Sem force push.
+  - O índice `tasks/README.md` já tinha alterações antes desta execução. O auto-review rejeitou seu staging por risco de publicar trabalho preexistente; mantive o arquivo como estava e o deixei fora dos commits. A atualização do índice requer aprovação explícita para prosseguir.

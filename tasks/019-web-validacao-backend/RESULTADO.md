@@ -145,10 +145,10 @@ Arquivos de implementação/teste e o artefato de benchmark estão listados acim
 
 A task019A acrescentou proteção de frequência ao cadastro público e preparou
 provas HTTP integradas para painel, CSV seguro, ownership e correção auditada.
-Seu resultado permanece parcial: o shell atual não consegue acessar o daemon
-Docker e não possui `rclone`/ferramentas PostgreSQL, então restore cifrado e
-runtime Linux não foram confirmados. O gate continua
-`BLOQUEADO_POR_AMBIENTE`; consulte o
-[resultado 019A](../019a-fechamento-backend/RESULTADO.md). A tabela e as
-conclusões históricas acima descrevem somente a execução da task019 e não
-substituem essa tentativa posterior.
+Na primeira etapa, o ambiente ainda bloqueava o restore cifrado e o runtime
+Linux. Na continuação autorizada, as provas foram concluídas em containers,
+bancos e volumes descartáveis. O gate atual é
+`GATE_BACKEND_PARA_INTERFACE: APROVADO`; o gate operacional segue pendente.
+Consulte o [resultado final 019A](../019a-fechamento-backend/RESULTADO.md). A
+tabela e as conclusões acima continuam descrevendo somente os testes executados
+na task019.
