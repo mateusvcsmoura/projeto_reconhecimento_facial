@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 
@@ -28,6 +30,11 @@ from src.infrastructure.storage.temporary_capture_storage import TemporaryCaptur
 from src.infrastructure.workers.maintenance_gate import (
     ManutencaoAtiva,
     ManutencaoWeb,
+)
+from src.presentation.web.rate_limit import (
+    aplicar_limite,
+    bearer_token,
+    endereco_cliente,
 )
 from src.presentation.web.routes.auth import criar_rotas_auth
 from src.presentation.web.routes.cadastros import criar_rotas_cadastros
@@ -93,6 +100,88 @@ def _erro_publico(
     return JSONResponse(status_code=status_code, content=payload.model_dump())
 
 
+def _acao_cadastro_publico(metodo: str, caminho: str) -> str | None:
+    if metodo == "POST" and caminho == "/api/v1/acessos-link":
+        return "troca_credencial"
+    elif metodo == "POST" and caminho == "/api/v1/cadastros":
+        return "solicitacao"
+    elif metodo == "POST" and re.fullmatch(
+        r"/api/v1/cadastros/\d+/(capturas|consentimento)", caminho
+    ):
+        return caminho.rsplit("/", 1)[-1]
+    elif metodo == "GET" and re.fullmatch(r"/api/v1/cadastros/\d+", caminho):
+        return "consulta"
+    return None
+
+
+def _limitar_cadastro_publico(
+    request: Request, settings: WebSettings, services: WebServices
+) -> Response | None:
+    acao = _acao_cadastro_publico(request.method.upper(), request.url.path)
+    if acao is None:
+        return None
+
+    segredo = services.rate_limit_secret
+    repositorio = services.presenca_repository
+    if repositorio is None or not isinstance(segredo, bytes) or len(segredo) < 32:
+        if settings.environment != "production":
+            return None
+        resposta = _erro_publico(
+            request,
+            codigo="limite_indisponivel",
+            mensagem="O serviço está temporariamente indisponível.",
+            status_code=503,
+        )
+        resposta.headers["Retry-After"] = "60"
+        return resposta
+
+    origem = endereco_cliente(request, settings.trusted_proxy_cidrs)
+    agora = services.now_utc()
+    espera = aplicar_limite(
+        repositorio,
+        segredo,
+        namespace="cadastro:origem:publica",
+        origin=origem,
+        context="publico",
+        now=agora,
+        limit=settings.public_registration_origin_limit_per_minute,
+    )
+    if espera is None:
+        token = bearer_token(request)
+        if acao == "consulta":
+            if token is not None:
+                espera = aplicar_limite(
+                    repositorio,
+                    segredo,
+                    namespace="cadastro:consulta:credencial",
+                    origin="",
+                    context=token,
+                    now=agora,
+                    limit=settings.public_registration_query_limit_per_minute,
+                )
+        elif acao != "troca_credencial":
+            espera = aplicar_limite(
+                repositorio,
+                segredo,
+                namespace=f"cadastro:mutacao:{acao}",
+                origin=origem,
+                context=token or "credencial-ausente",
+                now=agora,
+                limit=settings.public_registration_context_limit_per_minute,
+            )
+
+    if espera is None:
+        return None
+    resposta = _erro_publico(
+        request,
+        codigo="limite_requisicoes",
+        mensagem="Limite temporário de requisições atingido.",
+        status_code=429,
+    )
+    resposta.headers["Retry-After"] = str(max(1, espera))
+    return resposta
+
+
 def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     """Cria uma API sem importar modelos, camera, engine ou composicao da CLI."""
 
@@ -134,6 +223,17 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
         request_id = str(uuid4())
         request.state.request_id = request_id
         response: Response
+
+        async def executar_com_rate_limit() -> Response:
+            if _acao_cadastro_publico(request.method.upper(), request.url.path) is None:
+                return await call_next(request)
+            limite = await run_in_threadpool(
+                _limitar_cadastro_publico, request, settings, services
+            )
+            if limite is not None:
+                return limite
+            return await call_next(request)
+
         try:
             if (
                 settings.purpose_end_at is not None
@@ -154,7 +254,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
             ):
                 try:
                     with services.maintenance_gate.mutacao_http():
-                        response = await call_next(request)
+                        response = await executar_com_rate_limit()
                 except ManutencaoAtiva:
                     response = _erro_publico(
                         request,
@@ -164,7 +264,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                     )
                     response.headers["Retry-After"] = "60"
             else:
-                response = await call_next(request)
+                response = await executar_com_rate_limit()
         except Exception:
             response = _erro_publico(
                 request,

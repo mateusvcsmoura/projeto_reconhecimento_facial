@@ -29,6 +29,7 @@ from src.infrastructure.repositories.postgres_presenca_web_repository import (
     TentativaIndisponivel,
 )
 from src.presentation.web.dependencies import DependenciasAuthWeb
+from src.presentation.web.rate_limit import endereco_cliente
 
 if TYPE_CHECKING:
     from src.presentation.web.app import WebServices
@@ -70,12 +71,13 @@ def _responder_rate_limit(
     link_id: UUID,
     agora: datetime,
     limite: int,
+    trusted_proxy_cidrs: str | None,
 ) -> None:
     repositorio = services.presenca_repository
     segredo = services.rate_limit_secret
     if repositorio is None or not isinstance(segredo, bytes) or len(segredo) < 32:
         raise HTTPException(status_code=503, detail="Servico de presenca indisponivel.")
-    host = request.client.host if request.client is not None else "unknown"
+    host = endereco_cliente(request, trusted_proxy_cidrs)
     digest = hmac.new(
         segredo,
         f"presenca:{acao}:{link_id}:{host}".encode(),
@@ -254,6 +256,7 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             link_id=link_id,
             agora=agora,
             limite=10,
+            trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
         )
         acesso = AcessoLinkEmitido(
             credencial=token,
@@ -337,6 +340,7 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             link_id=contexto["link_id"],
             agora=agora,
             limite=60,
+            trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
         )
         try:
             imagem = base64.b64decode(body.captura_base64, validate=True)

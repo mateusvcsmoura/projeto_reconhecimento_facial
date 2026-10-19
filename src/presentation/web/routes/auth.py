@@ -1,7 +1,6 @@
 """Rotas de autenticacao, administracao de contas e ownership de turmas."""
 
 import hmac
-import ipaddress
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -26,6 +25,7 @@ from src.infrastructure.repositories.postgres_conta_repository import (
     ResultadoLogin,
     normalizar_usuario,
 )
+from src.presentation.web.rate_limit import endereco_cliente
 
 
 class _Schema(BaseModel):
@@ -167,34 +167,8 @@ def criar_rotas_auth(
             samesite="lax",
         )
 
-    def _endereco_cliente(request: Request) -> str | None:
-        peer = request.client.host if request.client is not None else None
-        redes_confiaveis = tuple(
-            ipaddress.ip_network(item.strip(), strict=False)
-            for item in (settings.trusted_proxy_cidrs or "").split(",")
-            if item.strip()
-        )
-        if peer is None or not redes_confiaveis:
-            return peer
-        try:
-            peer_ip = ipaddress.ip_address(peer)
-        except ValueError:
-            return peer
-        if not any(peer_ip in rede for rede in redes_confiaveis):
-            return str(peer_ip)
-        encaminhados = request.headers.get("x-forwarded-for", "").split(",")
-        cadeia: list[str] = []
-        for item in encaminhados:
-            try:
-                cadeia.append(str(ipaddress.ip_address(item.strip())))
-            except ValueError:
-                continue
-        cadeia.append(str(peer_ip))
-        for endereco in reversed(cadeia):
-            ip = ipaddress.ip_address(endereco)
-            if not any(ip in rede for rede in redes_confiaveis):
-                return str(ip)
-        return str(peer_ip)
+    def _endereco_cliente(request: Request) -> str:
+        return endereco_cliente(request, settings.trusted_proxy_cidrs)
 
     @router.post("/auth/login", status_code=200)
     def login(

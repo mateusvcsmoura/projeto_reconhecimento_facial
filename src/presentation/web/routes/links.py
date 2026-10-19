@@ -17,6 +17,7 @@ from src.infrastructure.repositories.postgres_conta_repository import (
     ContaAutenticada,
 )
 from src.presentation.web.dependencies import DependenciasAuthWeb
+from src.presentation.web.rate_limit import aplicar_limite, endereco_cliente
 
 if TYPE_CHECKING:
     from src.presentation.web.app import WebServices
@@ -87,7 +88,34 @@ def criar_rotas_links(settings: WebSettings, services: WebServices) -> APIRouter
         }
 
     @router.post("/acessos-link", status_code=status.HTTP_200_OK)
-    def trocar_link(body: TrocarLinkRequest) -> dict[str, object]:
+    def trocar_link(body: TrocarLinkRequest, request: Request) -> dict[str, object]:
+        repositorio_rate_limit = services.presenca_repository
+        segredo_rate_limit = services.rate_limit_secret
+        if (
+            repositorio_rate_limit is None
+            or not isinstance(segredo_rate_limit, bytes)
+            or len(segredo_rate_limit) < 32
+        ):
+            if settings.environment == "production":
+                raise HTTPException(
+                    status_code=503, detail="Links de cadastro indisponíveis."
+                )
+        else:
+            espera = aplicar_limite(
+                repositorio_rate_limit,
+                segredo_rate_limit,
+                namespace="cadastro:troca_credencial:token",
+                origin=endereco_cliente(request, settings.trusted_proxy_cidrs),
+                context=body.token,
+                now=services.now_utc(),
+                limit=settings.public_registration_context_limit_per_minute,
+            )
+            if espera is not None:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Limite temporário de requisições atingido.",
+                    headers={"Retry-After": str(max(1, espera))},
+                )
         acesso = GerenciarLinks(links_repository(), relogio=services.now_utc).trocar(
             body.token
         )

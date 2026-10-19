@@ -50,6 +50,15 @@ class WebSettings(BaseSettings):
     job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
     job_deadline_seconds: Annotated[int, Field(gt=0)] = 900
     job_lease_seconds: Annotated[int, Field(gt=0)] = 120
+    public_registration_context_limit_per_minute: Annotated[
+        int, Field(gt=0, le=100_000)
+    ] = 10
+    public_registration_query_limit_per_minute: Annotated[
+        int, Field(gt=0, le=100_000)
+    ] = 60
+    public_registration_origin_limit_per_minute: Annotated[
+        int, Field(gt=0, le=100_000)
+    ] = 600
 
     @field_validator("database_url")
     @classmethod
