@@ -9,6 +9,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, select, text
 from sqlalchemy.engine import make_url
@@ -31,6 +33,14 @@ COMENTARIO_BANCO = (
     "projeto_reconhecimento_facial: task 010 disposable authentication database"
 )
 SEGREDO_TESTE = "somente-segredo-sintetico-task010-maior-que-trinta-e-dois"
+
+
+def _revisao_atual() -> str:
+    revisao = ScriptDirectory.from_config(
+        Config(str(ROOT / "alembic.ini"))
+    ).get_current_head()
+    assert revisao is not None
+    return revisao
 
 
 def _alembic(url: str, *argumentos: str) -> None:
@@ -136,7 +146,7 @@ def test_migration_unicidade_e_professor_associado(
             connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            == "0005"
+            == _revisao_atual()
         )
 
     admin_id = repositorio_auth.criar_admin_bootstrap("admin", "SenhaInicial!123")

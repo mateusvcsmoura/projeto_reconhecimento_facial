@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, create_engine, func, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
@@ -46,6 +48,14 @@ COMENTARIO_BANCO = (
 )
 UTC = ZoneInfo("UTC")
 AGORA = dt.datetime(2026, 10, 18, 12, tzinfo=UTC)
+
+
+def _revisao_atual() -> str:
+    revisao = ScriptDirectory.from_config(
+        Config(str(ROOT / "alembic.ini"))
+    ).get_current_head()
+    assert revisao is not None
+    return revisao
 
 
 class _StorageFake:
@@ -200,7 +210,7 @@ def test_migration_0006_cria_schema_e_indice_unico_ativo(
             connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            == "0006"
+            == _revisao_atual()
         )
         indices = connection.execute(
             text(
@@ -245,7 +255,7 @@ def test_downgrade_recusa_remover_solicitacao_persistida(
             connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            == "0006"
+            == _revisao_atual()
         )
         assert (
             connection.execute(
