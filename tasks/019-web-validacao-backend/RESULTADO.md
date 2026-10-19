@@ -140,3 +140,15 @@ Arquivos atualizados: `DESENHO.md`, `PLANO.md`, este `RESULTADO.md`,
 `tasks/README.md`, `docs/FACEDIFF-WEB-RUNTIME.md`,
 `docs/FACEDIFF-WEB-ROADMAP.md` e `docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`.
 Arquivos de implementação/teste e o artefato de benchmark estão listados acima.
+
+## Adendo — fechamento 019A (19/10/2026)
+
+A task019A acrescentou proteção de frequência ao cadastro público e preparou
+provas HTTP integradas para painel, CSV seguro, ownership e correção auditada.
+Seu resultado permanece parcial: o shell atual não consegue acessar o daemon
+Docker e não possui `rclone`/ferramentas PostgreSQL, então restore cifrado e
+runtime Linux não foram confirmados. O gate continua
+`BLOQUEADO_POR_AMBIENTE`; consulte o
+[resultado 019A](../019a-fechamento-backend/RESULTADO.md). A tabela e as
+conclusões históricas acima descrevem somente a execução da task019 e não
+substituem essa tentativa posterior.

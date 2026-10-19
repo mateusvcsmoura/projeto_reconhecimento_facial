@@ -126,3 +126,12 @@ persistência de volumes, desempenho ML em Linux ou recuperação de backup. A
 validação visual/biométrica com pessoas não foi feita nem é requisito desta
 tarefa. A entrega fica **parcial** até o build e ensaio integrado em ambiente
 Linux autorizado; nenhum deploy ou recurso foi contratado.
+
+## Adendo — fechamento 019A (19/10/2026)
+
+O `docker compose version` continua disponível (CLI 5.5.1), mas nesta sessão
+`docker info` foi negado pelo named pipe local do Docker Desktop
+(`npipe:////./pipe/docker_engine`). A configuração estática continua sendo
+apenas evidência de sintaxe; não foram construídas imagens nem iniciados
+serviços, Caddy, volumes ou healthchecks. O runtime integrado continua
+pendente por ambiente; veja o [resultado 019A](../019a-fechamento-backend/RESULTADO.md).

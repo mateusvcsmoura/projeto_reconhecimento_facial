@@ -1,6 +1,7 @@
 # Estado atual e evidências
 
 **Base analisada:** 16/10/2026, `main` na revisão `31028e706ec8a90f41747c241ea724e9e380d142`; migration `0004` aplicada ao PostgreSQL local configurado nesta data.
+**Atualização web:** 19/10/2026, após as tarefas 009–019 e execução parcial da task019A; resultados e limites descritos abaixo não são uma nova consulta ao banco `escola` nem validação operacional.
 **Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
@@ -39,6 +40,29 @@ ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
 | 006 — landmarks visuais no cadastro | Opt-in (`FACE_LANDMARKS_ENABLED=false`), provider MediaPipe Tasks em worker Python local isolado apenas na janela Cadastro facial. Desenha contornos sobre cópia; a imagem original segue inalterada. | `src/domain/services/facial_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks_worker.py`, `src/presentation/cli/landmarks_overlay.py`, `src/presentation/cli/viewer.py`, `src/main.py`; testes unitários sintéticos; [resultado 006](../tasks/006-facial-landmarks/RESULTADO.md). | 841 testes unitários; Ruff, mypy e formato dos arquivos alterados passaram; `pip check` passou nos dois ambientes. Smoke com o modelo local e frame sintético passou; inspeção visual manual ainda pendente. Não há evidência de reconhecimento, qualidade ou prova de vida. |
 | 007 — captura automática | Padrão (`FACE_AUTO_CAPTURE_ENABLED=true`): cadastro sonda sem gravar e prepara um frame final; reconhecimento exige pelo menos 3 análises distintas durante 5 s por padrão e confirma um frame novo da mesma identidade. `false` preserva os atalhos manuais. | `src/domain/services/captura_automatica.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/captura_automatica.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_captura_automatica.py`, `test_menu_automatico.py`, `test_main_automatico.py`; [resultado 007](../tasks/007-captura-automatica/RESULTADO.md). | Limites de tempo são valores de engenharia. Testes dublados comprovam contratos funcionais, não frescor físico da câmera, acurácia 1:N nem melhora biométrica. A inspeção visual manual permanece pendente. |
 | 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; [resultado 008](../tasks/008-turmas/RESULTADO.md). | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram na implementação. Migration `0003 -> 0004` aplicada ao banco local; `alembic check` passou. Testes de integração PostgreSQL e BDD não foram executados; atualizar outros ambientes exige coordenação dos escritores antigos. |
+
+## Backend web e fechamento anterior à interface
+
+As tarefas 009–019 implementam fundação HTTP, autenticação, referências,
+worker/fila, desafio, cadastro, presença, gestão, backup, Compose e validação
+sintética. Os respectivos relatórios registram quais migrations e integrações
+foram executadas em ambientes descartáveis; este resumo não autoriza consulta
+ao banco local `escola` nem indica implantação.
+
+A task019A adiciona rate limits HMAC persistidos às rotas públicas de cadastro
+(10 operações/minuto por origem/contexto, 60 consultas/minuto por credencial e
+teto inicial de 600/minuto por origem), confiança controlada de
+`X-Forwarded-For` e integração sintética prevista até painel/CSV e revisão
+manual auditada. Os testes focados locais passaram, mas as integrações novas
+dependentes de PostgreSQL não foram executadas nesta sessão. `rclone` e as
+ferramentas `pg_dump`, `pg_restore` e `psql` estão ausentes; o daemon Docker
+nega acesso ao named pipe local. Assim, restore cifrado e runtime Compose/Linux
+continuam sem prova real e
+`GATE_BACKEND_PARA_INTERFACE=BLOQUEADO_POR_AMBIENTE`. A tarefa 020 permanece
+condicionada à aprovação do gate nas tarefas 019 e 019A. Consulte
+[resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md),
+[resultado 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
+[runtime web](FACEDIFF-WEB-RUNTIME.md).
 
 Anti-spoofing continua habilitado por padrão (`FACE_ANTI_SPOOFING=true`). Sua
 eficácia contra ataques não foi medida. Captura automática vem habilitada por

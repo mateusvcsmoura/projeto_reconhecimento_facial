@@ -1,6 +1,6 @@
 # FaceDiff web — roadmap e plano de validação
 
-Data: 18/10/2026. **Tarefa 009 validada; tarefa 010 publicada na `main`; task012 implementada no workspace.**
+Data: 19/10/2026. **Tarefas 009–019 implementadas; task019A parcialmente implementada e bloqueada por ambiente.**
 O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
 24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
 futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
@@ -43,7 +43,8 @@ O [contrato comum](../tasks/WEB-CONTRATO-EXECUCAO.md) e o
 | 017 | Backup cifrado, retenção e restauração | 016 | [Executar 017](../tasks/017-web-backup-retencao/PROMPT.md) |
 | 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | [Resultado parcial](../tasks/018-web-infraestrutura-compose/RESULTADO.md) |
 | 019 | Validação integrada do backend e gate para a interface | 009–018 implementadas; não basta existirem seus documentos | [Executar 019](../tasks/019-web-validacao-backend/PROMPT.md) |
-| 020 | Interface web responsiva e validação ponta a ponta | 019 com GATE_BACKEND_PARA_INTERFACE=APROVADO; todas as funcionalidades009–018 prontas e testadas | [Executar 020](../tasks/020-web-interface-final/PROMPT.md) |
+| 019A | Fechamento do restore, runtime Compose, proteção pública e fluxo integrado | 019 parcial; gate continua bloqueado até provas reais | [Resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md) |
+| 020 | Interface web responsiva e validação ponta a ponta | 019 e 019A com GATE_BACKEND_PARA_INTERFACE=APROVADO; funcionalidades009–019A prontas e testadas | [Executar 020](../tasks/020-web-interface-final/PROMPT.md) |
 
 A sequência recomendada é linear009→020, embora os contratos descrevam
 dependências mais específicas. Não paralelizar alterações de schema/contratos
@@ -95,10 +96,13 @@ BLOQUEADO_POR_AMBIENTE. Ambos impedem começar020. Suíte apenas escrita, skip,
 mock de SQL ou relato histórico não aprova o gate.
 
 **Estado verificado em 19/10/2026:** a task019 passou nos testes unitários,
-HTTP sintéticos e integrações PostgreSQL descartáveis, mas está
-`BLOQUEADO_POR_AMBIENTE`: `rclone` não está instalado, então não foi possível
-executar o roundtrip local cifrado obrigatório. O gate de dados reais permanece
-`PENDENTE`; consulte o [resultado da task019](../tasks/019-web-validacao-backend/RESULTADO.md).
+HTTP sintéticos e integrações PostgreSQL descartáveis. A task019A acrescentou
+limites de frequência às rotas públicas e provas integradas preparadas, mas
+continua `BLOQUEADO_POR_AMBIENTE`: faltam `rclone`/ferramentas PostgreSQL para
+o roundtrip cifrado e o daemon Docker nega acesso, impedindo a execução do
+Compose/Linux. Ver os [resultados 019](../tasks/019-web-validacao-backend/RESULTADO.md)
+e [019A](../tasks/019a-fechamento-backend/RESULTADO.md). O gate de dados reais
+permanece `PENDENTE`.
 
 ### Gate operacional para dados reais e apresentação
 

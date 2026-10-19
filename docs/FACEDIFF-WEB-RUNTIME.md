@@ -1,12 +1,15 @@
 # Runtime web e compatibilidade Linux
 
-Atualizado em 18/10/2026 pelas tarefas
+Atualizado em 19/10/2026 pelas tarefas
 [009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md),
 [010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md) e
 [012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md) e
 [013 — desafio e verificação 1:1](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md) e
 [014 — API de cadastro e aprovação](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md) e
 [015 — sessões e presença por API](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
+O fechamento 019A adicionou rate limits às rotas públicas de cadastro e
+atualizou a matriz de validação; veja
+[`019A — resultado parcial`](../tasks/019a-fechamento-backend/RESULTADO.md).
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
 nem validação biométrica real. A migration `0005` foi aplicada ao banco local
 `escola`; `0007`–`0010` foram validadas em bancos descartáveis, não em `escola`.
@@ -102,6 +105,16 @@ export WEB_PUBLIC_ORIGIN='https://presenca.example.edu'
 # Configure WEB_TRUSTED_PROXY_CIDRS somente com o CIDR exato do proxy controlado.
 .venv-web/bin/uvicorn src.web_main:create_web_app --factory --host 127.0.0.1 --port 8000
 ```
+
+As rotas públicas de cadastro também usam o repositório persistente de rate
+limit. Os defaults iniciais são 10 operações por minuto por origem/contexto,
+60 consultas por minuto por credencial e teto agregado de 600 por minuto por
+origem; configure-os com `WEB_PUBLIC_REGISTRATION_CONTEXT_LIMIT_PER_MINUTE`,
+`WEB_PUBLIC_REGISTRATION_QUERY_LIMIT_PER_MINUTE` e
+`WEB_PUBLIC_REGISTRATION_ORIGIN_LIMIT_PER_MINUTE`. Os valores são guardas
+iniciais, ainda sem calibração operacional. O `X-Forwarded-For` só informa a
+origem quando a conexão vem de uma rede em `WEB_TRUSTED_PROXY_CIDRS`. Sem
+limitador/segredo em produção, a API falha fechada com 503.
 
 O comando configura e cria uma engine SQLAlchemy sem abrir conexão. A conexão
 ocorre somente em `/health/ready`. O exemplo não provisiona PostgreSQL nem

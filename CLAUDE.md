@@ -139,9 +139,19 @@ O banco não deve ser criado ou alterado silenciosamente durante a execução da
 
 Schema e migrations pertencem ao processo de infraestrutura/desenvolvimento.
 
-Na tarefa 008, a revisão `0004` permanece não aplicada. Não execute upgrade ou
-downgrade como parte de testes rotineiros: as fixtures PostgreSQL podem
-destruir tabelas e exigem autorização explícita e banco descartável marcado.
+Conforme o registro de estado em `AGENTS.md`, a revisão `0004` foi aplicada ao
+PostgreSQL local configurado na tarefa 008; em 19/10/2026, as revisões
+`0006–0011` foram aplicadas ao banco local `escola`, que estava na `0005`.
+Esses relatos não comprovam o estado atual de qualquer outro banco. Não execute
+upgrade ou downgrade como parte de testes rotineiros: fixtures PostgreSQL
+podem truncar tabelas e exigem opt-in e banco descartável com marcador.
+
+O backend web foi desenvolvido nas tarefas 009–019. A tarefa 019A adicionou
+rate limits configuráveis às rotas públicas de cadastro e ampliou testes
+sintéticos do painel/CSV, mas seu resultado é parcial: restore cifrado real e
+runtime Docker/Linux não puderam ser executados neste ambiente. Consulte
+`tasks/019a-fechamento-backend/RESULTADO.md`; a interface 020 segue bloqueada
+até `GATE_BACKEND_PARA_INTERFACE=APROVADO`.
 
 ---
 

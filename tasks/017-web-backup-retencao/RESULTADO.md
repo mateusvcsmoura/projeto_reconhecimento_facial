@@ -114,3 +114,13 @@ preservar as chaves e arquivos até validar uma restauração independente.
 - O estado é **parcial**, até executar a integração opt-in em ambiente
   PostgreSQL/rclone descartável e validar a restauração. A tarefa não autoriza
   implantação ou migração operacional.
+
+## Adendo — fechamento 019A (19/10/2026)
+
+A tentativa de fechamento revalidou o ambiente e confirmou que o roundtrip
+cifrado continua sem execução: `rclone`, `pg_dump`, `pg_restore` e `psql` não
+estão disponíveis no shell atual. O teste opt-in existente recebe uma geração
+já preparada externamente e verifica o processo de restore; ainda não cria o
+backup e compara conteúdo conhecido da origem e destino. Não houve alteração
+no serviço de backup sem uma falha reproduzida. O critério de roundtrip real
+permanece pendente; veja o [resultado 019A](../019a-fechamento-backend/RESULTADO.md).

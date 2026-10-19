@@ -177,13 +177,29 @@ push, publicação de trabalho alheio, deploy, nem operações de infraestrutura
 
 ## 7. Próxima direção sugerida
 
-O backend de presença remota por link e o escopo da tarefa 016 foram
-implementados. A revisão `0011` e a concorrência entre revisão/worker foram
-validadas em PostgreSQL; o gate integrado do backend continua na tarefa 019 e a
-interface fica para a tarefa 020. Não implementar a interface antes desse gate.
+As tarefas 017–019 implementam backup/retencao, artefatos Compose e validação
+sintética do backend. A tarefa 019A acrescenta limites às rotas públicas de
+cadastro e amplia as provas integradas até painel/CSV. Seu resultado em
+19/10/2026 é parcial: `GATE_BACKEND_PARA_INTERFACE` permanece
+`BLOQUEADO_POR_AMBIENTE` porque não foi possível executar o roundtrip real
+rclone/PostgreSQL nem iniciar o runtime Docker/Linux; ver
+[`tasks/019a-fechamento-backend/RESULTADO.md`](tasks/019a-fechamento-backend/RESULTADO.md).
+A interface da tarefa 020 não deve começar até o gate ser aprovado com as
+provas reais faltantes.
 O planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
 [`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
 não autorização para implementar, migrar, contratar hospedagem ou publicar.
 
-Manter o registro atual e as limitações das tarefas 001–016 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. Em 19/10/2026, as migrations `0006–0011` foram aplicadas em sequência ao banco local `escola`, que estava na `0005`; `alembic check` confirmou o schema em `0011`. As migrations `0009` e `0010` e os fluxos web das tarefas 014 e 015 também foram exercitados em bancos descartáveis locais; a migration `0011` e a corrida revisão/worker passaram em PostgreSQL descartável. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–019A atualizados. A
+migration `0004` foi aplicada ao PostgreSQL local configurado; testes de
+integração PostgreSQL/BDD da tarefa 008 continuam pendentes. Em 19/10/2026,
+as migrations `0006–0011` foram aplicadas em sequência ao banco local `escola`,
+que estava na `0005`; `alembic check` confirmou o schema em `0011`. Essas são
+evidências registradas, não uma autorização para acessar esse banco nesta
+tarefa. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de
+biometria real — calibração 1:N, validação representativa do anti-spoofing e
+eventual piloto — aguardam autorização específica e revisão institucional.
+Múltiplas referências operacionais também permanecem pendentes. O projeto é
+de **disciplina de IA**, não TCC; não transformar testes sintéticos ou
+benchmarks de engenharia em alegações de acurácia.

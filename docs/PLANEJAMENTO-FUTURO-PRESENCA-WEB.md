@@ -2,10 +2,11 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; a task019 concluiu testes sintéticos e
-PostgreSQL descartável, mas o gate do backend está `BLOQUEADO_POR_AMBIENTE`
-porque o `rclone` não está instalado para o roundtrip local cifrado. O gate
-operacional está `PENDENTE`; a task020 não pode começar.** As tarefas 009–016
+**Status: planejamento consolidado; a task019A permanece parcial.** A proteção
+de frequência e a cadeia sintética até painel/CSV foram implementadas e
+testadas em parte, mas o gate do backend segue `BLOQUEADO_POR_AMBIENTE`: faltam
+roundtrip local PostgreSQL/rclone e runtime Compose/Linux. O gate operacional
+está `PENDENTE`; a task020 não pode começar. As tarefas 009–016
 foram implementadas no workspace e as tarefas 010, 013, 014, 015 e 016 foram
 publicadas na `main`. A task017 foi publicada parcialmente na `main`, sem
 roundtrip local PostgreSQL/rclone ou Drive real. A task018 tem artefatos Compose
@@ -58,9 +59,9 @@ podem aumentar significativamente o número de imagens processadas.
 ## 2. Matriz de decisões
 
 **Ordem atualizada pelo usuário:** implementar e testar todas as funcionalidades
-do backend antes da interface. Pacotes009–019 cobrem fundação, APIs, modelos,
-gestão, operação e validação integrada. A interface completa fica exclusivamente
-na020, condicionada ao gate de backend aprovado na019. Testes móveis e E2E de
+do backend antes da interface. Pacotes009–019A cobrem fundação, APIs, modelos,
+gestão, operação e fechamento do backend. A interface completa fica exclusivamente
+na020, condicionada à aprovação do gate de backend após as tarefas 019 e 019A. Testes móveis e E2E de
 câmera ocorrem na020 após construção da interface. Ver [tasks](../tasks/README.md)
 e [roadmap](FACEDIFF-WEB-ROADMAP.md); a antiga ordem W01–W12 foi substituída.
 
@@ -448,6 +449,11 @@ opcional; importação em lote não foi adicionada.
 
 - 17/10/2026: gerados pacotes009–020 para Luna6High, somente documentação;
   interface movida para a última task por solicitação do usuário, após gate019.
+- 19/10/2026: task019A protege rotas públicas de cadastro com limites HMAC
+  configuráveis e amplia o fluxo sintético até painel/CSV e revisão auditada.
+  O roundtrip cifrado e a execução Compose não ocorreram: ferramentas
+  PostgreSQL/rclone ausentes e acesso ao daemon Docker negado. Gate permanece
+  `BLOQUEADO_POR_AMBIENTE`; [resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md).
 
 - 17/10/2026: proposta inicial de presença remota, cadastro, CSV e 10 dias.
 - 17/10/2026: usuário verificou oferta KVM 2 de um mês e escolheu opção principal.
