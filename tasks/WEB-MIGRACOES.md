@@ -11,7 +11,7 @@ bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
 quando necessário. O projeto ainda não está em uso e não há dados importantes.
 Esta autorização cobre a validação das migrations `0005` da task 010, `0006` da
 task 011, `0007` da task 012, `0008` da task 013, `0009` da task 014 e `0010`
-da task 015 em bancos descartáveis. Antes de cada escrita,
+da task 015 e `0011` da task 016 em bancos descartáveis. Antes de cada escrita,
 confirmar host, nome e marcador do destino; preferir banco
 descartável para testes. Ela não abrange produção, banco remoto/compartilhado
 ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
@@ -21,7 +21,7 @@ exibir credenciais.
 
 ## Estado confirmado por inspeção
 
-O repositório contém as revisões 0001–0010. A revisão `0005` da task 010 foi
+O repositório contém as revisões 0001–0011. A revisão `0005` da task 010 foi
 compilada offline e aplicada ao banco local `escola` em 18/10/2026; `alembic
 check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes no
 banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
@@ -67,6 +67,13 @@ depois do prazo, com sessões distintas no mesmo dia. A fixture apagou os dados
 sintéticos e retornou o schema a `base`. O banco `escola` não recebeu `0010` nem
 foi alterado.
 
+A revisão `0011` da task 016 foi adicionada depois da revisão `0010` e o comando
+`alembic upgrade head --sql` gerou a cadeia até `0011` em modo offline. Não foi
+conectado a banco, aplicado, revertido ou verificado por `alembic check`; não
+havia ambiente PostgreSQL descartável da task016 configurado para validação.
+Assim, nenhum banco recebeu `0011`. Executar o gate em banco descartável antes
+de ativar as rotas de gestão/revisão em qualquer ambiente.
+
 ## Donos das expansões
 
 | Task | Expansão esperada |
@@ -77,7 +84,7 @@ foi alterado.
 | 013 | Estado mínimo persistente de desafio 1:1, vinculado ao job, aluno e conjunto/versionamento (`0008`, validada em banco descartável) |
 | 014 | Link/credencial efêmera, associação de solicitações/jobs e nonce hash-only com direção/prazo (`0009`, validada em banco descartável) |
 | 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão (`0010`, validada em banco descartável) |
-| 016 | Revisão/correção/status/versão de presença, se não criados antes |
+| 016 | Estado/correção/versionamento da presença e revisões abertas por aluno/sessão (`0011`, SQL offline; validação PostgreSQL pendente) |
 
 Inspecionar head real a cada execução; não criar números fixos conflitantes nem
 uma segunda tabela para entidade já entregue. Não modificar silenciosamente

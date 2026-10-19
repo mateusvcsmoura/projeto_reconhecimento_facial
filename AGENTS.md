@@ -76,6 +76,16 @@ total de 80,09%. A entrega não inclui interface, deploy ou validação biométr
 com pessoas. O rate limit HMAC vale apenas para as rotas de presença. Consulte
 [`tasks/015-web-api-sessoes-presencas/RESULTADO.md`](tasks/015-web-api-sessoes-presencas/RESULTADO.md).
 
+A tarefa 016 implementa no workspace gestão web autorizada, revisão/correção
+manual de presença versionada e auditada, painel agregado, CSV seguro e
+reativação administrativa auditada de quota. A migration `0011` foi gerada em
+modo SQL offline, mas ainda não foi aplicada nem validada em PostgreSQL; teste
+de locks/concorrência real segue pendente. A suíte completa passou com 1209
+testes, 78 ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não
+houve validação biométrica com pessoas, interface ou deploy. Consulte
+[`tasks/016-web-gestao-revisao-relatorios/RESULTADO.md`](tasks/016-web-gestao-revisao-relatorios/RESULTADO.md)
+e [`docs/FACEDIFF-WEB-GESTAO.md`](docs/FACEDIFF-WEB-GESTAO.md).
+
 ## 3. Histórico dos experimentos de ML
 
 ### Etapa 0 — Infraestrutura experimental
@@ -161,10 +171,13 @@ push, publicação de trabalho alheio, deploy, nem operações de infraestrutura
 
 ## 7. Próxima direção sugerida
 
-O backend de presença remota por link foi implementado na tarefa 015. O
-planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
+O backend de presença remota por link e o escopo da tarefa 016 foram
+implementados. A revisão `0011` e a concorrência entre revisão/worker ainda
+precisam de validação em PostgreSQL descartável antes do gate integrado da
+task019 e da interface da task020. Não implementar a interface antes desse gate.
+O planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
 [`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
 não autorização para implementar, migrar, contratar hospedagem ou publicar.
 
-Manter o registro atual e as limitações das tarefas 001–015 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. As migrations `0009` e `0010` e os fluxos web das tarefas 014 e 015 foram exercitados em bancos descartáveis locais; somente `0004` e `0005` estão aplicadas ao banco `escola`. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–016 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. As migrations `0009` e `0010` e os fluxos web das tarefas 014 e 015 foram exercitados em bancos descartáveis locais; a revisão `0011` está só preparada e sem validação em banco; somente `0004` e `0005` estão aplicadas ao banco `escola`. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

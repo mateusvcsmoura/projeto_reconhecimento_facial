@@ -1,9 +1,10 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **As tarefas 009–015 foram implementadas no workspace; 010,
-013, 014 e 015 foram publicadas na `main` após autorização explícita. As migrations
-0006–0010 foram validadas em PostgreSQL descartável. A web não foi implantada.
-As tarefas 016–020 continuam pendentes.** O runtime web passou em testes no
+Data: 18/10/2026. **As tarefas 009–016 foram implementadas no workspace; 010,
+013, 014, 015 e 016 foram publicadas na `main` após autorização explícita. As
+migrations 0006–0010 foram validadas em PostgreSQL descartável. A revisão 0011
+da task016 foi gerada offline, mas não foi validada/aplicada em PostgreSQL. A
+web não foi implantada. As tarefas 017–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
@@ -254,6 +255,30 @@ dependem da medição019 e do gate operacional.
 - Os testes usaram dados e embeddings sintéticos; não houve inferência com
   pessoas, teste visual, uso de webcam, deploy, nem aplicação da migration ao
   banco `escola`. A interface continua exclusiva da task020.
+
+### Contratos estabelecidos na tarefa 016
+
+- A revisão `0011` adiciona estado/origem/versão e correção auditável à presença,
+  aceita reativação de quota auditada e cria revisões com uma solicitação aberta
+  por aluno/sessão. SQL foi gerado offline até `head`; aplicação, rollback,
+  `alembic check` e prova de concorrência PostgreSQL ainda estão pendentes. Não
+  foi conectado a banco nesta execução.
+- A API adiciona CRUD de turma/vínculos com escopo por professor, exclusão
+  lógica e exclusão global somente por admin com confirmação/justificativa.
+  Revisão pública exige bearer válido da sessão de presença e responde apenas
+  protocolo/estado; professores autorizados decidem com justificativa,
+  versão esperada e confirmação da verificação independente de identidade.
+- Resultado manual e auditoria são transacionais; controle de versão/locks
+  impede sobrescrita conhecida por worker tardio. Reativação de quota é evento
+  administrativo auditado. CSV UTF-8 é por intervalo inclusivo ou mês local,
+  neutraliza fórmulas e não inclui faltas inferidas, dados biométricos, tokens,
+  score ou justificativas.
+- Suíte: 1209 aprovados, 78 ignorados, cobertura 80,23%; Ruff, formatação,
+  mypy e compilação passaram. Os testes ignorados incluem integrações que
+  requerem ambiente PostgreSQL opt-in; SQLite/fakes não provam constraints ou
+  locks PostgreSQL. Sem pessoas, webcam, biometria real ou deploy. Consulte o
+  [resultado 016](016-web-gestao-revisao-relatorios/RESULTADO.md) e o
+  [contrato da API de gestão](../docs/FACEDIFF-WEB-GESTAO.md).
 
 ## 5. Permissões para futuras execuções
 

@@ -5,12 +5,14 @@ Requisitos e classificação C/R/V no [planejamento principal](PLANEJAMENTO-FUTU
 Execução depende de tarefas e autorização futuras; os procedimentos abaixo não
 foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa.
 
-Estado do código em 18/10/2026: as tasks 009–015 fornecem fundação, autenticação,
-referências, fila/worker, verificação 1:1, cadastro/aprovação e presença por
-sessão via API. As migrations `0006` a `0010` foram validadas em PostgreSQL
-descartável. Os fluxos de cadastro e presença foram exercitados com API/worker e
-dados sintéticos; tmpfs compartilhado de produção, validação com pessoas,
-interface e deploy continuam pendentes. O
+Estado do código em 18/10/2026: as tasks 009–016 fornecem fundação, autenticação,
+referências, fila/worker, verificação 1:1, cadastro/aprovação, presença por
+sessão e gestão/revisão/CSV via API. As migrations `0006` a `0010` foram
+validadas em PostgreSQL descartável; `0011` foi gerada offline, com validação
+PostgreSQL ainda pendente. Os fluxos de cadastro, presença e gestão foram
+exercitados com API e dados sintéticos; concorrência transacional de revisão e
+worker aguarda teste PostgreSQL. tmpfs compartilhado de produção, validação com
+pessoas, interface e deploy continuam pendentes. O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
 
@@ -23,6 +25,14 @@ com pesos locais ocorreu em Windows com entrada sintética; não prova desempenh
 ou inferência operacional em Linux. Veja [runtime web](FACEDIFF-WEB-RUNTIME.md)
 e [resultado 012](../tasks/012-web-worker-fila/RESULTADO.md).
 Veja também o [resultado 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
+
+A task016 adiciona operações administrativas por turma, correção manual de
+presença versionada e auditada, revisão solicitada pelo bearer de uma sessão,
+painel agregado e CSV seguro. A declaração de identidade conferida é uma ação
+auditável de operador, não uma conclusão biométrica. O contrato HTTP e a
+limitação de limpeza após exclusão global estão em
+[FACEDIFF-WEB-GESTAO.md](FACEDIFF-WEB-GESTAO.md); SQL da migration 0011 foi
+compilado offline, mas segue sem upgrade/rollback real em PostgreSQL.
 
 ## 1. Topologia proposta
 

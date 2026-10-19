@@ -2,8 +2,8 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009–015 foram implementadas no
-workspace e as tarefas 010, 013, 014 e 015 foram publicadas na `main`; implantação
+**Status: planejamento consolidado; as tarefas 009–016 foram implementadas no
+workspace e as tarefas 010, 013, 014, 015 e 016 foram publicadas na `main`; implantação
 web não executada.** Este documento substitui as propostas conflitantes das versões
 anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável;
 `escola` não recebeu `0006` a `0010`. O worker/fila, desafio 1:1 e fluxos HTTP de
@@ -12,6 +12,11 @@ pendente. A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
 validação com pessoas autorizadas seguem pendentes.
+
+A revisão `0011` da gestão foi preparada e gerada em modo offline, sem aplicação
+em banco. O gate de integração PostgreSQL da task016, incluindo locks entre
+revisão e worker, continua pendente. A gestão web está descrita em
+[FACEDIFF-WEB-GESTAO.md](FACEDIFF-WEB-GESTAO.md).
 
 Documentos complementares:
 
@@ -479,6 +484,14 @@ opcional; importação em lote não foi adicionada.
   foi revertida pela fixture no banco descartável `task015_presenca_test_20261018`;
   `escola` permaneceu intacta. Sem validação com pessoas, interface, medição na
   VPS ou deploy. Veja [RESULTADO 015](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
+- 18/10/2026: tarefa 016 adicionou CRUD autorizado, revisão manual auditada,
+  controle de versão/resultado tardio, reativação auditada de quota, painel e
+  CSV com proteção contra fórmulas. A migration `0011` foi compilada offline,
+  sem acesso a banco; integração PostgreSQL, aplicação/rollback e `alembic
+  check` permanecem pendentes. A suíte completa passou com 1209 aprovados, 78
+  ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não houve
+  biometria real, interface, deploy nem validação na VPS. Consulte
+  [RESULTADO 016](../tasks/016-web-gestao-revisao-relatorios/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;
