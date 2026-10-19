@@ -9,7 +9,7 @@ Em 18/10/2026, o usuário autorizou executar migrations e testes que escrevam em
 bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
 quando necessário. O projeto ainda não está em uso e não há dados importantes.
 Esta autorização cobre a validação das migrations `0005` da task 010, `0006` da
-task 011, `0007` da task 012 e `0008` da task 013 em bancos descartáveis. Antes de cada escrita,
+task 011, `0007` da task 012, `0008` da task 013 e `0009` da task 014 em bancos descartáveis. Antes de cada escrita,
 confirmar host, nome e marcador do destino; preferir banco
 descartável para testes. Ela não abrange produção, banco remoto/compartilhado
 ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
@@ -19,7 +19,7 @@ exibir credenciais.
 
 ## Estado confirmado por inspeção
 
-O repositório contém as revisões 0001–0007. A revisão `0005` da task 010 foi
+O repositório contém as revisões 0001–0009. A revisão `0005` da task 010 foi
 compilada offline e aplicada ao banco local `escola` em 18/10/2026; `alembic
 check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes no
 banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
@@ -46,6 +46,14 @@ reverter `0008` com um desafio existente foi recusada e preservou a linha e o
 schema. A fixture removeu os dados sintéticos e retornou o banco a `base`; o
 banco local `escola` não recebeu `0008`.
 
+A revisão `0009` da task 014 foi aplicada até `head`, conferida com `alembic
+check`, exercitada pelo teste PostgreSQL de cadastro/revogação e revertida pela
+fixture no banco local descartável `task014_cadastro_api_test_20261018`, com o
+comentário `projeto_reconhecimento_facial: task 014 disposable registration
+database`. O downgrade recusa remover links, credenciais, associações de jobs ou
+desafios persistidos. O banco local `escola` não recebeu `0009` nem foi alterado
+por esta tarefa.
+
 ## Donos das expansões
 
 | Task | Expansão esperada |
@@ -54,7 +62,7 @@ banco local `escola` não recebeu `0008`.
 | 011 | Solicitação, conjunto/referências versionadas e consentimento/estado web (`0006`, validada em banco descartável) |
 | 012 | Jobs/reservas/leases da fila, índices de admissão e idempotência |
 | 013 | Estado mínimo persistente de desafio 1:1, vinculado ao job, aluno e conjunto/versionamento (`0008`, validada em banco descartável) |
-| 014 | Link/credencial efêmera e associação de solicitações ao convite |
+| 014 | Link/credencial efêmera, associação de solicitações/jobs e nonce hash-only com direção/prazo (`0009`, validada em banco descartável) |
 | 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão |
 | 016 | Revisão/correção/status/versão de presença, se não criados antes |
 

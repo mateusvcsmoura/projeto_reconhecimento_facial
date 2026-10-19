@@ -2,13 +2,13 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009–013 foram implementadas no
-workspace e as tarefas 010 e 013 foram publicadas na `main`; implantação web não
+**Status: planejamento consolidado; as tarefas 009–014 foram implementadas no
+workspace e as tarefas 010, 013 e 014 foram publicadas na `main`; implantação web não
 executada.** Este documento substitui as propostas conflitantes das versões
 anteriores. As revisões `0006` a `0008` foram validadas em PostgreSQL descartável;
-`escola` não recebeu `0006` a `0008`. O worker/fila e o processador de desafio 1:1
-estão implementados; convites e rotas de submissão, integração HTTP e interface
-continuam pendentes. A stack ML foi instalada/importada em Ubuntu 24.04/Python
+`escola` não recebeu `0006` a `0009`. O worker/fila, desafio 1:1 e fluxo HTTP de
+cadastro/aprovação estão implementados; rotas de presença e interface continuam
+pendentes. A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
 validação com pessoas autorizadas seguem pendentes.
@@ -326,8 +326,9 @@ histórico 0,428179... nem ajustar `FACE_THRESHOLD` automaticamente.
 
 Nomes abaixo são propostas para futuras migrations, não tabelas existentes,
 exceto `SolicitacaoCadastro`, `ConjuntoReferencia` e `ReferenciaFacial`, criadas
-pela revisão `0006`, e `DesafioVerificacaoWeb`, criada pela revisão `0008`. As
-migrations web `0006` a `0008` foram aplicadas e revertidas em bancos descartáveis;
+pela revisão `0006`, `DesafioVerificacaoWeb`, criada pela revisão `0008`, e os
+links/desafios de cadastro criados pela revisão `0009`. As migrations web `0006`
+a `0009` foram aplicadas e revertidas em bancos descartáveis;
 não foram aplicadas ao banco local `escola`.
 
 | Entidade | Campos/regras principais |
@@ -343,6 +344,9 @@ não foram aplicadas ao banco local `escola`.
 | SessaoPresenca | id, turma, criador, título, início/fim UTC, estado/revogação, versão; início anterior ao fim |
 | Tentativa | UUID, aluno, sessão, ordinal UK aluno/sessão/ordinal, estado, desafio/nonce protegido, prazos do servidor, motivo/resultado, referência/política utilizadas, chave idempotente hash |
 | DesafioVerificacaoWeb (`0008`) | Job, aluno, conjunto/versão, hash do nonce, direção aleatória, etapas, prazo/estado e motivo técnico; sem frames, landmarks ou embeddings |
+| LinkCadastroWeb (`0009`) | Turma, emissor, finalidade cadastro, hash do token, validade/fim da finalidade e revogação; token em claro só na emissão |
+| CredencialLinkCadastroWeb (`0009`) | Hash da credencial efêmera, link, expiração e solicitação associada; sem persistir segredo em claro |
+| Desafio de cadastro (`0009`) | Solicitação, hash do nonce, direção aleatória e prazo; sem frames, landmarks ou embeddings |
 | Presenca | id, aluno, sessão, status presente/anulada, origem biométrica/manual, horário de evidência/registro, tentativa opcional, versão; UK aluno/sessão |
 | RevisaoManual | id, aluno/sessão, motivo, estado, solicitada/decidida_em, professor, justificativa da decisão; no máximo uma aberta por par |
 | Auditoria | id, ator/papel, ação, alvo interno, instante, justificativa e antes/depois mínimos; sem imagem/embedding/token/senha |
@@ -458,6 +462,13 @@ opcional; importação em lote não foi adicionada.
    suíte unitária e verificações estáticas passaram. O smoke Linux usou modelo
    local e imagem sintética; não há validação biométrica real, rotas HTTP,
    interface ou deploy. Veja [RESULTADO 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
+- 18/10/2026: tarefa 014 adicionou a revisão `0009`, links de cadastro, credencial
+  efêmera, consentimento, captura de três frames com nonce hash-only e sequência
+  de pose, aprovação/rejeição e atualização biométrica. Migration e um teste
+  PostgreSQL foram validados em banco descartável; 1127 unitários passaram com
+  81,87% de cobertura, Ruff, formato, mypy e `pip check` aprovados. Sem interface,
+  deploy ou validação biométrica com pessoas. Veja
+  [RESULTADO 014](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;

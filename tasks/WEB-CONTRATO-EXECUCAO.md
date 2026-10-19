@@ -1,9 +1,9 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **As tarefas 009–013 foram implementadas no workspace; 010 e
-013 foram publicadas na `main` após autorização explícita. As migrations 0006,
-0007 e 0008 foram validadas em PostgreSQL descartável. A web não foi implantada.
-As tarefas 014–020 continuam pendentes.** O runtime web passou em testes no
+Data: 18/10/2026. **As tarefas 009–014 foram implementadas no workspace; 010,
+013 e 014 foram publicadas na `main` após autorização explícita. As migrations
+0006–0009 foram validadas em PostgreSQL descartável. A web não foi implantada.
+As tarefas 015–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
@@ -163,9 +163,10 @@ dependem da medição019 e do gate operacional.
   inferência nativa bloqueada indefinidamente; o slot permanece ocupado até
   retorno ou reinício controlado, com invalidação antes do próximo claim.
 - Esta entrega não inclui rotas de upload/reserva/cancelamento nem handlers
-  biométricos habilitados; sem handler o job é recusado. Tasks 014/015 conectam
-  cadastro e presença. Rate limit de abuso nas rotas públicas de submissão
-  pertence a essas integrações; esta tarefa não declara limite de requisições
+  biométricos habilitados; sem handler o job é recusado. A task 014 conectou
+  cadastro; task 015 conecta presença. Rate limit de abuso nas rotas públicas
+  de submissão pertence a essas integrações; esta tarefa não declara limite de
+  requisições
   para a consulta de status. Não houve validação de tmpfs Linux ou VPS.
 
 ### Contratos estabelecidos na tarefa 013
@@ -203,6 +204,28 @@ dependem da medição019 e do gate operacional.
   autorização correspondente. Testes não usaram pessoas ou dados biométricos
   reais; movimentos, acessibilidade, eficácia anti-spoofing e desempenho real
   permanecem sem validação.
+
+### Contratos estabelecidos na tarefa 014
+
+- A revisão `0009` cria links revogáveis de turma, hashes de tokens, credenciais
+  efêmeras, vínculo de solicitação/job e campos para nonce hash-only, direção e
+  prazo do desafio de cadastro. Foi aplicada, verificada com `alembic check`,
+  testada e revertida no banco descartável `task014_cadastro_api_test_20261018`;
+  `escola` não recebeu a revisão.
+- A API expõe emissão/revogação de links, troca por credencial, cadastro,
+  captura/status com credencial do solicitante, listagem/revisão por professor
+  responsável e solicitação/consentimento/aprovação de atualização biométrica.
+  O token do link é trocado por credencial curta e não é persistido em claro;
+  respostas não incluem fotos, embeddings ou caminhos privados.
+- O cadastro aceita exatamente três frames codificados em Base64 depois do
+  consentimento. O nonce de 256 bits é devolvido uma vez, persiste apenas como
+  SHA-256 e expira em até 120 segundos; direção aleatória exige frente/virada/
+  retorno. O worker aplica pose da task013, face única, qualidade,
+  anti-spoofing e continuidade antes de anexar referências pendentes.
+- Essa sequência de coleta por lote não é uma sessão de presença nem prova
+  biométrica autônoma de vivacidade. Não houve teste com pessoa, validação
+  visual, tmpfs Linux, implantação ou avaliação de latência na VPS. Rate limiting
+  das rotas públicas continua para a etapa operacional de proteção contra abuso.
 
 ## 5. Permissões para futuras execuções
 

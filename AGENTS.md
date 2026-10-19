@@ -36,23 +36,35 @@ qualquer implantação.
 
 A tarefa 011 implementa no workspace solicitações de cadastro pendentes,
 conjuntos versionados com três referências privadas e casos de uso de aprovação,
-atualização e limpeza. Isso não ativa convite, API, worker ou interface. Consulte
+atualização e limpeza. O fluxo de convite/API/worker foi conectado pela tarefa
+014; não há interface. Consulte
 [`tasks/011-web-referencias-cadastro-pendente/RESULTADO.md`](tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
 
 A tarefa 012 implementa fila PostgreSQL limitada, reserva idempotente, leases,
 storage temporário privado, worker serial e consulta autenticada do status. A
 migration `0007` foi validada somente no banco descartável
-`task012_web_worker_test_20261018`; não foi aplicada a `escola`. Os fluxos HTTP
-de envio e os processadores de cadastro/presença ficam para as tasks 014/015;
-worker, runtime Linux e implantação ainda precisam de validação integrada na
-task 019. Consulte [`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
+`task012_web_worker_test_20261018`; não foi aplicada a `escola`. As rotas de
+captura de cadastro usam o worker da tarefa 014; a integração de presença fica
+para a tarefa 015. Worker, runtime Linux e implantação ainda precisam de
+validação integrada na tarefa 019. Consulte
+[`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
 
 A tarefa 013 implementa no worker a verificação web fechada 1:1 com três
 referências e desafio facial ordenado; a migration `0008` foi validada somente
-no banco descartável task012, não em `escola`. Não há rotas HTTP de submissão,
-interface, deploy ou validação biométrica com pessoas. Consulte
+no banco descartável task012, não em `escola`. A task014 reutiliza o desafio de
+pose em coleta de cadastro; a task013 não possui rota própria, interface, deploy
+ou validação biométrica com pessoas. Consulte
 [`tasks/013-web-desafio-verificacao-1a1/RESULTADO.md`](tasks/013-web-desafio-verificacao-1a1/RESULTADO.md)
 antes de integrar ou implantar.
+
+A tarefa 014 implementa links de cadastro revogáveis, credencial curta,
+consentimento, captura de três frames frente/virada/retorno, aprovação/rejeição
+por professor e atualização biométrica. A migration `0009` foi validada e
+revertida apenas no banco descartável `task014_cadastro_api_test_20261018`; não
+foi aplicada a `escola`. Foram aprovados 1127 testes unitários com 81,87% de
+cobertura e um teste PostgreSQL transacional. Não há UI, deploy, validação com
+pessoas ou proteção de taxa contra abuso das rotas públicas. Consulte
+[`tasks/014-web-api-cadastro-aprovacao/RESULTADO.md`](tasks/014-web-api-cadastro-aprovacao/RESULTADO.md).
 
 ## 3. Histórico dos experimentos de ML
 
@@ -145,4 +157,4 @@ navegador, janela de horário e hospedagem está em
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
 não autorização para implementar, migrar, contratar hospedagem ou publicar.
 
-Manter o registro atual e as limitações das tarefas 001–013 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; os testes de integração em banco descartável continuam pendentes. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.
+Manter o registro atual e as limitações das tarefas 001–014 atualizados. A migration `0004` foi aplicada ao banco PostgreSQL local configurado; testes de integração PostgreSQL/BDD da tarefa 008 continuam pendentes. A migration `0009` e o fluxo de cadastro da tarefa 014 foram exercitados em banco descartável local, conforme `tasks/014-web-api-cadastro-aprovacao/RESULTADO.md`. As decisões que dependem de biometria real — calibração 1:N, validação representativa do anti-spoofing e eventual piloto — aguardam autorização específica e revisão institucional. Múltiplas referências operacionais também permanecem pendentes. O projeto é de **disciplina de IA**, não TCC; não transformar testes sintéticos ou benchmarks de engenharia em alegações de acurácia.

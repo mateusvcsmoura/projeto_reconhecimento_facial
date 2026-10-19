@@ -1,7 +1,7 @@
 # Desenho — 014: API de cadastro por link e aprovação
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
-Data: 17/10/2026. Dependências: **010–013**.
+**Executor: Luna 6, esforço High. Estado: implementada e validada no workspace; não implantada.**
+Data do desenho: 17/10/2026. Execução: 18/10/2026. Dependências: **010–013**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.
 Especificação: [planejamento web](../../docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md)
@@ -40,6 +40,13 @@ POST /api/v1/cadastros/{id}/capturas aceita protocolo de013 e reserva012.
 GET /api/v1/cadastros/{id}; POST /api/v1/cadastros/{id}/aprovar ou /rejeitar.
 POST /api/v1/links/{id}/revogar; atualização biométrica usa /solicitacoes-biometria, com aprovação admin.
 Todas as respostas derivam estado persistido, sem blobs biométricos.
+
+Para a coleta em lote do cadastro, a API emite um nonce aleatório de 256 bits,
+persiste somente seu SHA-256, escolhe esquerda/direita e aceita três frames na
+ordem frente/virada/retorno por até 120 segundos. O worker 014 reutiliza a
+análise de pose 013 junto de qualidade, anti-spoofing e continuidade. Esse
+contrato não cria uma identidade de presença nem constitui prova biométrica
+isolada de vivacidade.
 
 Nomes de classes e caminhos novos são propostas deste pacote. Antes de criar,
 buscar equivalente no repositório e reutilizá-lo; documentar equivalência sem
