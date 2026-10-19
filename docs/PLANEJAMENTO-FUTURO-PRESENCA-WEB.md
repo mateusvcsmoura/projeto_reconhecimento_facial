@@ -2,11 +2,15 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009–016 foram implementadas no
-workspace e as tarefas 010, 013, 014, 015 e 016 foram publicadas na `main`. A
-task017 foi publicada parcialmente na `main`, sem roundtrip local PostgreSQL/rclone
-ou Drive real. A task018 tem artefatos Compose no workspace, sem build ou deploy
-porque o Docker Engine não estava acessível.** Este documento substitui as propostas conflitantes das versões
+**Status: planejamento consolidado; a task019 concluiu testes sintéticos e
+PostgreSQL descartável, mas o gate do backend está `BLOQUEADO_POR_AMBIENTE`
+porque o `rclone` não está instalado para o roundtrip local cifrado. O gate
+operacional está `PENDENTE`; a task020 não pode começar.** As tarefas 009–016
+foram implementadas no workspace e as tarefas 010, 013, 014, 015 e 016 foram
+publicadas na `main`. A task017 foi publicada parcialmente na `main`, sem
+roundtrip local PostgreSQL/rclone ou Drive real. A task018 tem artefatos Compose
+no workspace, sem build ou deploy porque o Docker Engine não estava acessível.
+Este documento substitui as propostas conflitantes das versões
 anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável.
 Em 19/10/2026, `0006–0011` também foram aplicadas em sequência ao banco local
 `escola`, que estava na revisão `0005`; `alembic check` confirmou `0011`. O worker/fila, desafio 1:1 e fluxos HTTP de
@@ -436,6 +440,11 @@ benchmark computacional e acurácia biométrica. QR Code continua conveniência
 opcional; importação em lote não foi adicionada.
 
 ## 11. Registro e limites desta consolidação
+
+- 19/10/2026: task019 executou 1228 testes unitários, provas HTTP sintéticas,
+  19 testes de integração em PostgreSQL descartável e `alembic check`. A
+  configuração Compose estática passou; o `rclone` ausente impede provar o
+  restore cifrado local. Ver [resultado da task019](../tasks/019-web-validacao-backend/RESULTADO.md).
 
 - 17/10/2026: gerados pacotes009–020 para Luna6High, somente documentação;
   interface movida para a última task por solicitação do usuário, após gate019.

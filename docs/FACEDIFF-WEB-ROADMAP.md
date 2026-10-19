@@ -94,6 +94,12 @@ Falha implica REPROVADO; ausência de ambiente/autorização necessária implica
 BLOQUEADO_POR_AMBIENTE. Ambos impedem começar020. Suíte apenas escrita, skip,
 mock de SQL ou relato histórico não aprova o gate.
 
+**Estado verificado em 19/10/2026:** a task019 passou nos testes unitários,
+HTTP sintéticos e integrações PostgreSQL descartáveis, mas está
+`BLOQUEADO_POR_AMBIENTE`: `rclone` não está instalado, então não foi possível
+executar o roundtrip local cifrado obrigatório. O gate de dados reais permanece
+`PENDENTE`; consulte o [resultado da task019](../tasks/019-web-validacao-backend/RESULTADO.md).
+
 ### Gate operacional para dados reais e apresentação
 
 Separado do gate acima, exige:

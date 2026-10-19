@@ -192,3 +192,16 @@ parar ambos os processos. A migration `0007` precisa ser revertida separadamente
 e somente quando não houver jobs a preservar; consulte o resultado da task012.
 Preserve os diretórios temporários preexistentes e outros trabalhos locais. Não
 remova `.venv-app`, `.venv-landmarks` nem modelos locais.
+
+## Benchmark sintético da task019
+
+Execute `python -m scripts.benchmark_web` para exportar JSON agregado de
+admissão e processamento nas cargas 1/2/5/10/excesso. A ferramenta usa a fila
+em memória e um processador fake com bytes sintéticos; não abre webcam, não lê
+fotos, não executa inferência facial e não estima capacidade de produção. Pode
+simular inicialização fria, tempo quente, taxa de chegada e falhas com
+`--atraso-frio-ms`, `--atraso-quente-ms`, `--chegada-por-segundo` e
+`--falha-falsa-a-cada`. CPU, RAM e RSS são coletados onde o sistema fornece os
+contadores; PSS depende de `/proc` e será `null` fora do Linux. O relatório da
+execução sintética Windows está em
+[`benchmark-fake-20261019.json`](../tasks/019-web-validacao-backend/evidencias/benchmark-fake-20261019.json).

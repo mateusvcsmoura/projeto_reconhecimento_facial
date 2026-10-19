@@ -1,7 +1,7 @@
 # Desenho — 019: Validação integrada do backend e gate para a interface
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
-Data: 17/10/2026. Dependências: **009–018 implementadas; não basta existirem seus documentos**.
+**Executor: Luna 6, esforço High. Estado: implementação e validação parcial concluídas; gate do backend bloqueado por ambiente.**
+Desenho: 17/10/2026; execução: 19/10/2026. Dependências: **009–018 implementadas; não basta existirem seus documentos**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.
 Especificação: [planejamento web](../../docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md)
