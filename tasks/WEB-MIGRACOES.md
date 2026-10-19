@@ -1,7 +1,8 @@
 # FaceDiff web — contrato de transição de schema
 
-Planejamento complementar às tasks 009–020. **Nenhuma migration será executada
-na geração dos pacotes.** Escrever revision/testes é diferente de executar SQL.
+Planejamento complementar às tasks 009–020. Migrations só são executadas com
+autorização explícita do ambiente; escrever revision/testes é diferente de
+executar SQL.
 
 ## Autorização explícita vigente
 
@@ -9,7 +10,8 @@ Em 18/10/2026, o usuário autorizou executar migrations e testes que escrevam em
 bancos de desenvolvimento/teste do projeto, inclusive reset e seed sintético
 quando necessário. O projeto ainda não está em uso e não há dados importantes.
 Esta autorização cobre a validação das migrations `0005` da task 010, `0006` da
-task 011, `0007` da task 012, `0008` da task 013 e `0009` da task 014 em bancos descartáveis. Antes de cada escrita,
+task 011, `0007` da task 012, `0008` da task 013, `0009` da task 014 e `0010`
+da task 015 em bancos descartáveis. Antes de cada escrita,
 confirmar host, nome e marcador do destino; preferir banco
 descartável para testes. Ela não abrange produção, banco remoto/compartilhado
 ou uso de imagens biométricas reais. O `DATABASE_URL` local existente pode ser
@@ -19,7 +21,7 @@ exibir credenciais.
 
 ## Estado confirmado por inspeção
 
-O repositório contém as revisões 0001–0009. A revisão `0005` da task 010 foi
+O repositório contém as revisões 0001–0010. A revisão `0005` da task 010 foi
 compilada offline e aplicada ao banco local `escola` em 18/10/2026; `alembic
 check` não detectou drift. O módulo de integração PostgreSQL passou 3 testes no
 banco descartável `task010_web_auth_test_20261018`; a fixture limpou os dados e
@@ -54,6 +56,17 @@ database`. O downgrade recusa remover links, credenciais, associações de jobs 
 desafios persistidos. O banco local `escola` não recebeu `0009` nem foi alterado
 por esta tarefa.
 
+A revisão `0010` da task 015 foi aplicada até `head`, validada com `alembic
+check` e revertida pela fixture no banco PostgreSQL descartável local
+`task015_presenca_test_20261018`, marcado com o comentário
+`projeto_reconhecimento_facial: task 015 disposable attendance database`.
+Cinco testes de integração passaram: índices legados/parciais, escritor CLI
+diário idempotente, reserva concorrente com uma tentativa ativa e limite de três,
+bloqueio do commit tardio após revogação e recebimento tempestivo finalizado
+depois do prazo, com sessões distintas no mesmo dia. A fixture apagou os dados
+sintéticos e retornou o schema a `base`. O banco `escola` não recebeu `0010` nem
+foi alterado.
+
 ## Donos das expansões
 
 | Task | Expansão esperada |
@@ -63,7 +76,7 @@ por esta tarefa.
 | 012 | Jobs/reservas/leases da fila, índices de admissão e idempotência |
 | 013 | Estado mínimo persistente de desafio 1:1, vinculado ao job, aluno e conjunto/versionamento (`0008`, validada em banco descartável) |
 | 014 | Link/credencial efêmera, associação de solicitações/jobs e nonce hash-only com direção/prazo (`0009`, validada em banco descartável) |
-| 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão |
+| 015 | Sessão de presença, tentativa/quota e novo ramo de presença por sessão (`0010`, validada em banco descartável) |
 | 016 | Revisão/correção/status/versão de presença, se não criados antes |
 
 Inspecionar head real a cada execução; não criar números fixos conflitantes nem

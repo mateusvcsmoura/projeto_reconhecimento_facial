@@ -1,9 +1,9 @@
 # Contrato de execução — FaceDiff web, tasks 009–020
 
-Data: 18/10/2026. **As tarefas 009–014 foram implementadas no workspace; 010,
-013 e 014 foram publicadas na `main` após autorização explícita. As migrations
-0006–0009 foram validadas em PostgreSQL descartável. A web não foi implantada.
-As tarefas 015–020 continuam pendentes.** O runtime web passou em testes no
+Data: 18/10/2026. **As tarefas 009–015 foram implementadas no workspace; 010,
+013, 014 e 015 foram publicadas na `main` após autorização explícita. As migrations
+0006–0010 foram validadas em PostgreSQL descartável. A web não foi implantada.
+As tarefas 016–020 continuam pendentes.** O runtime web passou em testes no
 Ubuntu 24.04; a task 013 validou o provider MediaPipe Linux com modelo local e
 imagem sintética em WSL/Python 3.14. Não houve validação biométrica real. Consulte
 [resultado 009](009-web-fundacao-linux/RESULTADO.md) e
@@ -224,8 +224,36 @@ dependem da medição019 e do gate operacional.
   anti-spoofing e continuidade antes de anexar referências pendentes.
 - Essa sequência de coleta por lote não é uma sessão de presença nem prova
   biométrica autônoma de vivacidade. Não houve teste com pessoa, validação
-  visual, tmpfs Linux, implantação ou avaliação de latência na VPS. Rate limiting
-  das rotas públicas continua para a etapa operacional de proteção contra abuso.
+  visual, tmpfs Linux, implantação ou avaliação de latência na VPS. A task015
+  adiciona rate limit com chave HMAC nas rotas de presença; limites gerais para
+  todas as rotas públicas continuam como gate operacional.
+
+### Contratos estabelecidos na tarefa 015
+
+- A revisão `0010` cria sessões de presença, tentativas com estados/ordinal,
+  hashes de idempotência e de payload, buckets de rate limit e vínculos das
+  presenças a sessão e tentativa. Foi aplicada até `head`, aprovada por
+  `alembic check`, exercitada por cinco testes PostgreSQL e revertida pela
+  fixture no banco descartável `task015_presenca_test_20261018`; `escola` não
+  recebeu `0010`.
+- A API publica criação de sessão e link de finalidade `presenca`, revogação,
+  início com `Idempotency-Key`, upload das três etapas e consulta de estado.
+  O aluno é resolvido pela matrícula informada, mas só pode iniciar quando há
+  vínculo ativo e conjunto aprovado com as três referências. A matrícula não é
+  autenticação.
+- A janela de início é `[inicio, fim)`. O servidor recebe o payload completo
+  até `min(início + 120s, fim + 120s)`, inclusive no instante-limite; timestamps
+  enviados pelo cliente são rejeitados. Capturas idênticas podem ser repetidas
+  sem persistir outra cópia; bytes diferentes na mesma etapa são recusados.
+- Até três emissões por aluno/sessão são reservadas em transação, com no máximo
+  uma ativa. A fila e o desafio 1:1 da task013 são reutilizados. A confirmação
+  só ocorre após transação que revalida sessão, vínculo, conjunto/referência,
+  desafio completo e lease; revogação durante processamento impede commit.
+  Índices parciais preservam a presença diária da CLI e o ramo web é único por
+  aluno/sessão.
+- Os testes usaram dados e embeddings sintéticos; não houve inferência com
+  pessoas, teste visual, uso de webcam, deploy, nem aplicação da migration ao
+  banco `escola`. A interface continua exclusiva da task020.
 
 ## 5. Permissões para futuras execuções
 

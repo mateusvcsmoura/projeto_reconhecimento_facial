@@ -5,10 +5,11 @@ Atualizado em 18/10/2026 pelas tarefas
 [010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md) e
 [012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md) e
 [013 — desafio e verificação 1:1](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md) e
-[014 — API de cadastro e aprovação](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md).
+[014 — API de cadastro e aprovação](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md) e
+[015 — sessões e presença por API](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
 nem validação biométrica real. A migration `0005` foi aplicada ao banco local
-`escola`; `0007`–`0009` foram validadas em bancos descartáveis, não em `escola`.
+`escola`; `0007`–`0010` foram validadas em bancos descartáveis, não em `escola`.
 
 ## Isolamento e dependências
 
@@ -37,7 +38,7 @@ psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
 | OpenCV | 4.13.0.92 importado; único fornecedor de `cv2` é `opencv-python` | Exigiu `libgl1`, `libglib2.0-0`, `libxcb1`, `libxkbcommon0`, `libxkbcommon-x11-0`, `libxcb-cursor0`, `libxcb-xinerama0`; sem câmera/display |
 | DeepFace / RetinaFace | 0.0.92 / 0.0.18 importados | Sem construção de modelo ou download de pesos |
 | MediaPipe 0.10.35 | Ambiente filho Linux isolado; `pip check` limpo; modelo local iniciou e inferiu em entrada sintética | Python 3.14.4/WSL; `libGLESv2.so.2` foi disponibilizada em diretório temporário; sem validação de pose com pessoa |
-| Worker task012–014 | Integração PostgreSQL descartável de migration 0009, fila de cadastro, revogação e worker sintético; 1127 testes unitários com 81,87% de cobertura | Sem tmpfs de produção, validação visual/biométrica com pessoa ou medição na VPS |
+| Worker e presença task012–015 | Migration 0010, escritor CLI legado, concorrência de tentativas, limite de três emissões e revogação durante o processamento em PostgreSQL descartável; contratos HTTP e suíte unitária | Sem tmpfs de produção, validação visual/biométrica com pessoa ou medição na VPS |
 
 O primeiro smoke em Ubuntu mínimo falhou ao carregar `cv2` porque faltava
 `libxcb.so.1`; com as bibliotecas de runtime listadas acima, a stack importou.
@@ -125,9 +126,10 @@ laboratório, não capacidade aprovada para produção. Com as mesmas variáveis
 `.venv-worker/bin/python -m src.face_worker_main`. Em produção, o startup exige
 tmpfs e pesos locais, sem download automático. A task014 conecta cadastro por
 link ao worker e reutiliza a análise de pose MediaPipe isolada da task013. Para
-processar cadastro, configure `WEB_REFERENCE_STORAGE_DIR`,
+processar cadastro e presença, configure `WEB_REFERENCE_STORAGE_DIR`,
 `WEB_MEDIAPIPE_MODEL_PATH` e `WEB_MEDIAPIPE_PYTHON_EXECUTABLE` no processo worker,
-além do diretório temporário. As rotas de presença pertencem à task015.
+além do diretório temporário. A task015 conecta as rotas de presença à mesma fila
+e ao desafio 1:1, mantendo a persistência sob transação PostgreSQL.
 Se uma inferência nativa ficar bloqueada indefinidamente, esta implementação
 não encerra o processo por watchdog: mantém o slot ocupado até o executor
 retornar ou um reinício controlado invalidar o job. A supervisão automática
@@ -151,12 +153,15 @@ precisa ser definida/validada antes da operação na task019/018.
 | `POST /api/v1/cadastros/{id}/capturas`, `GET /api/v1/cadastros/{id}` | Três frames com nonce e sequência frente/virada/retorno; status exige credencial da solicitação |
 | `GET /api/v1/turmas/{id}/cadastros`, `POST /api/v1/cadastros/{id}/aprovar`, `/rejeitar` | Revisão e aprovação/rejeição por professor autorizado, sem serializar artefatos biométricos |
 | `POST /api/v1/solicitacoes-biometria`, `POST /api/v1/cadastros/{id}/consentimento`, `POST /api/v1/admin/solicitacoes-biometria/{id}/aprovar` | Solicitação de atualização, consentimento do aluno e aprovação administrativa |
+| `POST /api/v1/turmas/{id}/sessoes`, `POST /api/v1/sessoes/{id}/links`, `/revogar` | Professor cria e revoga sessões; link compartilhado fica limitado à turma e à sessão |
+| `POST /api/v1/sessoes/{id}/tentativas`, `POST /api/v1/tentativas/{id}/capturas`, `GET /api/v1/tentativas/{id}` | Início idempotente, até três tentativas, envio das etapas no prazo do servidor e consulta autenticada por credencial de captura |
 | `/docs`, `/redoc` | Desabilitadas; nenhuma interface web foi criada |
 
-A task014 integra reserva/upload ao worker de cadastro e a revisão da solicitação;
-as rotas de presença permanecem para a task015. Jobs sem handler habilitado são
-recusados com segurança. A consulta de status usa `Cache-Control: no-store`;
-limite de requisições contra abuso nas rotas públicas continua pendente.
+A task014 integra cadastro ao worker e a task015 integra presença por sessão.
+O rate limit das rotas de presença usa somente hash HMAC de link/ação/IP e não
+armazena o IP; limites gerais para todas as rotas públicas seguem como gate
+operacional. Jobs sem handler habilitado são recusados com segurança. A consulta
+de status usa `Cache-Control: no-store`.
 
 Os erros têm `{codigo, mensagem, request_id}` e o mesmo identificador no header
 `X-Request-ID`. Erros HTTP, validação e falhas internas não retornam detalhes

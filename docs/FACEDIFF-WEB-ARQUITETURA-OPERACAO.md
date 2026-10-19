@@ -5,11 +5,12 @@ Requisitos e classificação C/R/V no [planejamento principal](PLANEJAMENTO-FUTU
 Execução depende de tarefas e autorização futuras; os procedimentos abaixo não
 foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa.
 
-Estado do código em 18/10/2026: as tasks 009–014 fornecem fundação, autenticação,
-referências, fila/worker, verificação 1:1 e API de cadastro/aprovação. As
-migrations `0006` a `0009` foram validadas em PostgreSQL descartável. O fluxo de
-cadastro foi exercitado por API/worker sintético; tmpfs compartilhado de
-produção, validação com pessoas, interface e deploy continuam pendentes. O
+Estado do código em 18/10/2026: as tasks 009–015 fornecem fundação, autenticação,
+referências, fila/worker, verificação 1:1, cadastro/aprovação e presença por
+sessão via API. As migrations `0006` a `0010` foram validadas em PostgreSQL
+descartável. Os fluxos de cadastro e presença foram exercitados com API/worker e
+dados sintéticos; tmpfs compartilhado de produção, validação com pessoas,
+interface e deploy continuam pendentes. O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
 

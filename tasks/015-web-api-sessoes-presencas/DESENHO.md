@@ -1,6 +1,6 @@
 # Desenho — 015: Sessões, tentativas e presença por API
 
-**Executor: Luna 6, esforço High. Estado: planejada, não implementada.**
+**Executor: Luna 6, esforço High. Estado: implementada; ver [RESULTADO.md](RESULTADO.md).**
 Data: 17/10/2026. Dependências: **014**.
 Decisões rotineiras aprovadas internamente. As instruções de segurança e autorização
 do [contrato comum](../WEB-CONTRATO-EXECUCAO.md) fazem parte deste pacote.

@@ -2,13 +2,13 @@
 
 ## FaceDiff: consolidação de 17/10/2026
 
-**Status: planejamento consolidado; as tarefas 009–014 foram implementadas no
-workspace e as tarefas 010, 013 e 014 foram publicadas na `main`; implantação web não
-executada.** Este documento substitui as propostas conflitantes das versões
-anteriores. As revisões `0006` a `0008` foram validadas em PostgreSQL descartável;
-`escola` não recebeu `0006` a `0009`. O worker/fila, desafio 1:1 e fluxo HTTP de
-cadastro/aprovação estão implementados; rotas de presença e interface continuam
-pendentes. A stack ML foi instalada/importada em Ubuntu 24.04/Python
+**Status: planejamento consolidado; as tarefas 009–015 foram implementadas no
+workspace e as tarefas 010, 013, 014 e 015 foram publicadas na `main`; implantação
+web não executada.** Este documento substitui as propostas conflitantes das versões
+anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável;
+`escola` não recebeu `0006` a `0010`. O worker/fila, desafio 1:1 e fluxos HTTP de
+cadastro/aprovação e presença por sessão estão implementados; a interface continua
+pendente. A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
 validação com pessoas autorizadas seguem pendentes.
@@ -469,6 +469,16 @@ opcional; importação em lote não foi adicionada.
   81,87% de cobertura, Ruff, formato, mypy e `pip check` aprovados. Sem interface,
   deploy ou validação biométrica com pessoas. Veja
   [RESULTADO 014](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md).
+- 18/10/2026: tarefa 015 adicionou a revisão `0010`, sessões, links de finalidade
+  presença, até três tentativas idempotentes, upload com prazo do servidor e
+  commit de presença revalidado pelo worker/lease. Cinco testes PostgreSQL
+  descartáveis cobriram migration/compatibilidade CLI, concorrência/quota e
+  bloqueio após revogação, recebimento tempestivo concluído após o prazo e
+  sessões distintas no mesmo dia; 11 testes HTTP cobrem o contrato e recusam
+  timestamps do cliente. A suíte unitária passou com 80,09% de cobertura. A migration
+  foi revertida pela fixture no banco descartável `task015_presenca_test_20261018`;
+  `escola` permaneceu intacta. Sem validação com pessoas, interface, medição na
+  VPS ou deploy. Veja [RESULTADO 015](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;
