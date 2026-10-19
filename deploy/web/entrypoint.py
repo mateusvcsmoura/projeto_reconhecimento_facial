@@ -21,7 +21,9 @@ def main() -> None:
         try:
             valor = Path(caminho).read_text(encoding="utf-8").rstrip("\r\n")
         except OSError:
-            raise SystemExit(f"Arquivo de segredo ausente para {variavel_valor}.") from None
+            raise SystemExit(
+                f"Arquivo de segredo ausente para {variavel_valor}."
+            ) from None
         if not valor:
             raise SystemExit(f"Arquivo de segredo vazio para {variavel_valor}.")
         os.environ[variavel_valor] = valor
