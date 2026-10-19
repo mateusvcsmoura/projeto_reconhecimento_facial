@@ -147,11 +147,11 @@ upgrade ou downgrade como parte de testes rotineiros: fixtures PostgreSQL
 podem truncar tabelas e exigem opt-in e banco descartável com marcador.
 
 O backend web foi desenvolvido nas tarefas 009–019. A tarefa 019A adicionou
-rate limits configuráveis às rotas públicas de cadastro e ampliou testes
-sintéticos do painel/CSV, mas seu resultado é parcial: restore cifrado real e
-runtime Docker/Linux não puderam ser executados neste ambiente. Consulte
-`tasks/019a-fechamento-backend/RESULTADO.md`; a interface 020 segue bloqueada
-até `GATE_BACKEND_PARA_INTERFACE=APROVADO`.
+rate limits configuráveis às rotas públicas de cadastro e aprovou o gate do
+backend com roundtrip de backup/restore e runtime Docker/Compose Linux descartáveis.
+Consulte `tasks/019a-fechamento-backend/RESULTADO.md`. A interface 020 ainda não
+foi implementada; operação com dados reais, deploy e validação biométrica
+continuam pendentes e são gates separados.
 
 ---
 

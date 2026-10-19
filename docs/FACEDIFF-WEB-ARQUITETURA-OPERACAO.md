@@ -1,9 +1,10 @@
 # FaceDiff web — arquitetura e operação na Hostinger KVM 2
 
-Data: 17/10/2026. **Desenho futuro, não infraestrutura existente.**
+Data: 19/10/2026. **Desenho da operação futura; infraestrutura de produção não existe.**
 Requisitos e classificação C/R/V no [planejamento principal](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
-Execução depende de tarefas e autorização futuras; os procedimentos abaixo não
-foram executados. Não conectar Google Drive nem acessar dados reais nesta etapa.
+Deploy e operação dependem de autorização futura. A task019A validou somente
+containers, banco e volumes locais descartáveis; os procedimentos de hospedagem
+abaixo não foram executados. Não conectar Google Drive nem acessar dados reais.
 
 Estado do código em 18/10/2026: as tasks 009–016 fornecem fundação, autenticação,
 referências, fila/worker, verificação 1:1, cadastro/aprovação, presença por
@@ -30,12 +31,13 @@ Veja também o [resultado 013](../tasks/013-web-desafio-verificacao-1a1/RESULTAD
 
 Em 19/10/2026, a task018 acrescentou artefatos revisáveis de deploy em
 `deploy/web`: Compose, imagens separadas para API/worker, Caddy, secrets por
-arquivo, migração manual e backup one-shot. A configuração Compose estática e
-os testes locais passaram com valores sintéticos. O Docker Engine não estava
-acessível para build ou validação do Caddy na imagem, e nenhum serviço foi
-iniciado; ensaio de volumes e operação permanecem pendentes. Consulte o
-[runbook de deploy](../deploy/web/README.md) e o
-[resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md).
+arquivo, migração manual e backup one-shot. A task019A construiu e executou
+esses targets localmente com projeto e volumes descartáveis, validou o Caddy,
+healthchecks, migrations e persistência após recriação. Isso não é deploy: DNS,
+firewall, KVM2, Drive e operação real continuam pendentes. Consulte o
+[runbook de deploy](../deploy/web/README.md), o
+[resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md) e o
+[resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md).
 
 A task016 adiciona operações administrativas por turma, correção manual de
 presença versionada e auditada, revisão solicitada pelo bearer de uma sessão,

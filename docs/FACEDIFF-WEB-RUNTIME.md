@@ -7,9 +7,9 @@ Atualizado em 19/10/2026 pelas tarefas
 [013 — desafio e verificação 1:1](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md) e
 [014 — API de cadastro e aprovação](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md) e
 [015 — sessões e presença por API](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
-O fechamento 019A adicionou rate limits às rotas públicas de cadastro e
-atualizou a matriz de validação; veja
-[`019A — resultado parcial`](../tasks/019a-fechamento-backend/RESULTADO.md).
+O fechamento 019A adicionou rate limits às rotas públicas de cadastro, corrigiu
+falhas do runtime Compose e aprovou o gate do backend com restore local cifrado;
+veja [`019A — resultado`](../tasks/019a-fechamento-backend/RESULTADO.md).
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
 nem validação biométrica real. A migration `0005` foi aplicada ao banco local
 `escola`; `0007`–`0010` foram validadas em bancos descartáveis, não em `escola`.
@@ -19,13 +19,13 @@ nem validação biométrica real. A migration `0005` foi aplicada ao banco local
 O novo serviço ASGI usa `src.web_main:create_web_app` e a fábrica
 `src.presentation.web.app:create_app`. A API não importa `src.main`, OpenCV,
 DeepFace, TensorFlow, PyTorch ou MediaPipe; o processo de CLI permanece
-separado. `requirements-web.txt` instala FastAPI/Uvicorn, Pydantic Settings,
-SQLAlchemy/psycopg e Argon2. O ambiente web não tem fornecedor de `cv2`.
+separado. `requirements-web.txt` instala FastAPI/Uvicorn, NumPy, Pydantic
+Settings, SQLAlchemy/psycopg e Argon2. O ambiente web não tem fornecedor de `cv2`.
 `requirements.txt` mantém a CLI/stack facial e fixa o `retina-face` compatível,
 além de incluir o índice CPU oficial do PyTorch.
 
 Os pins do serviço web são FastAPI 0.144.0, Uvicorn 0.54.0, SQLAlchemy 2.0.52,
-psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
+NumPy 2.5.3, psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
 `argon2-cffi-bindings==26.1.0`. A suíte usa HTTPX2 2.13.1 através de
 `requirements-dev.txt`; não é requisito de runtime.
 
@@ -42,6 +42,7 @@ psycopg 3.3.5, Pydantic Settings 2.15.0, `argon2-cffi==25.1.0` e
 | DeepFace / RetinaFace | 0.0.92 / 0.0.18 importados | Sem construção de modelo ou download de pesos |
 | MediaPipe 0.10.35 | Ambiente filho Linux isolado; `pip check` limpo; modelo local iniciou e inferiu em entrada sintética | Python 3.14.4/WSL; `libGLESv2.so.2` foi disponibilizada em diretório temporário; sem validação de pose com pessoa |
 | Worker e presença task012–015 | Migration 0010, escritor CLI legado, concorrência de tentativas, limite de três emissões e revogação durante o processamento em PostgreSQL descartável; contratos HTTP e suíte unitária | Sem tmpfs de produção, validação visual/biométrica com pessoa ou medição na VPS |
+| Compose Linux task019A | Targets app/worker/migrate/backup/PostgreSQL/Caddy construídos; migrations 0011, healthchecks, UID/rootfs, Caddy local e persistência após recriação aprovados | Projeto local descartável; sem deploy, firewall, KVM2 ou certificado público |
 
 O primeiro smoke em Ubuntu mínimo falhou ao carregar `cv2` porque faltava
 `libxcb.so.1`; com as bibliotecas de runtime listadas acima, a stack importou.
@@ -49,8 +50,9 @@ Isso prova compatibilidade das dependências e dos binários nesse container, n�
 funcionamento biométrico. O smoke com pesos da task012 foi sintético e executado
 no Windows. A task013 também carregou o modelo real do Face Landmarker no Linux
 e recebeu uma imagem sintética; isso não comprova pose nem comportamento com uma
-pessoa. O pipeline HTTP ponta a ponta, worker em host de produção, recursos do
-host e validação integrada permanecem para tasks futuras.
+pessoa. O pipeline HTTP ponta a ponta sintético e o worker no Compose Linux
+foram validados na task019A. Recursos de produção, host/VPS, dados legítimos e
+validação biométrica com pessoas permanecem para ensaios autorizados futuros.
 
 `retina-face==0.0.18` foi fixado porque DeepFace 0.0.92 aceita
 `retina-face>=0.0.1` e os metadados oficiais da versão 0.0.18 declaram

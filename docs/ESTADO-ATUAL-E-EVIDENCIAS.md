@@ -1,7 +1,7 @@
 # Estado atual e evidências
 
 **Base analisada:** 16/10/2026, `main` na revisão `31028e706ec8a90f41747c241ea724e9e380d142`; migration `0004` aplicada ao PostgreSQL local configurado nesta data.
-**Atualização web:** 19/10/2026, após as tarefas 009–019 e execução parcial da task019A; resultados e limites descritos abaixo não são uma nova consulta ao banco `escola` nem validação operacional.
+**Atualização web:** 19/10/2026, após as tarefas 009–019A; o gate do backend foi aprovado em Compose/PostgreSQL/rclone descartáveis. Isso não é deploy, acesso ao banco `escola` ou validação biométrica operacional.
 **Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
@@ -45,24 +45,26 @@ ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
 
 As tarefas 009–019 implementam fundação HTTP, autenticação, referências,
 worker/fila, desafio, cadastro, presença, gestão, backup, Compose e validação
-sintética. Os respectivos relatórios registram quais migrations e integrações
-foram executadas em ambientes descartáveis; este resumo não autoriza consulta
-ao banco local `escola` nem indica implantação.
+sintética. A task019A adiciona rate limits HMAC persistidos às rotas públicas de
+cadastro (10 operações/minuto por origem/contexto, 60 consultas/minuto por
+credencial e teto inicial de 600/minuto por origem), confiança controlada de
+`X-Forwarded-For` e integração até painel/CSV e revisão manual auditada.
 
-A task019A adiciona rate limits HMAC persistidos às rotas públicas de cadastro
-(10 operações/minuto por origem/contexto, 60 consultas/minuto por credencial e
-teto inicial de 600/minuto por origem), confiança controlada de
-`X-Forwarded-For` e integração sintética prevista até painel/CSV e revisão
-manual auditada. Os testes focados locais passaram, mas as integrações novas
-dependentes de PostgreSQL não foram executadas nesta sessão. `rclone` e as
-ferramentas `pg_dump`, `pg_restore` e `psql` estão ausentes; o daemon Docker
-nega acesso ao named pipe local. Assim, restore cifrado e runtime Compose/Linux
-continuam sem prova real e
-`GATE_BACKEND_PARA_INTERFACE=BLOQUEADO_POR_AMBIENTE`. A tarefa 020 permanece
-condicionada à aprovação do gate nas tarefas 019 e 019A. Consulte
+Em 19/10/2026, foram executados roundtrip local com `pg_dump`, rclone crypt e
+`pg_restore`, restore com conteúdo conhecido, exclusões, recusas de chave/
+manifesto/destino e cleanup de manutenção. Targets Docker foram construídos e
+executados em Compose Linux; migrations `0011`, healthchecks, Caddy, hardening,
+persistência após recriação e smoke local sintético foram verificados.
+`GATE_BACKEND_PARA_INTERFACE=APROVADO`. Os respectivos relatórios registram
+comandos e limites; este resumo não autoriza consulta ao banco local `escola`
+nem indica deploy. A tarefa 020 ainda não foi iniciada. Consulte
 [resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md),
 [resultado 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
 [runtime web](FACEDIFF-WEB-RUNTIME.md).
+
+`GATE_OPERACIONAL_DADOS_REAIS=PENDENTE`: não houve VPS, Drive, operação com
+participantes, webcam ou avaliação biométrica; limites públicos também não
+foram calibrados com tráfego real.
 
 Anti-spoofing continua habilitado por padrão (`FACE_ANTI_SPOOFING=true`). Sua
 eficácia contra ataques não foi medida. Captura automática vem habilitada por

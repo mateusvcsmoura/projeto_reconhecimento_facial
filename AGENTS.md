@@ -46,9 +46,9 @@ storage temporário privado, worker serial e consulta autenticada do status. A
 migration `0007` foi validada no banco descartável
 `task012_web_worker_test_20261018`; em 19/10/2026, foi aplicada também a
 `escola` como parte da cadeia `0006–0011` da tarefa 016. As rotas de cadastro e
-presença reutilizam esse worker nas tarefas 014 e 015. Worker,
-runtime Linux e implantação ainda precisam de
-validação integrada na tarefa 019. Consulte
+presença reutilizam esse worker nas tarefas 014 e 015. O worker, o runtime Linux
+e o Compose foram validados localmente com dados sintéticos descartáveis na tarefa
+019A; isso não equivale a deploy ou capacidade da VPS. Consulte
 [`tasks/012-web-worker-fila/RESULTADO.md`](tasks/012-web-worker-fila/RESULTADO.md).
 
 A tarefa 013 implementa no worker a verificação web fechada 1:1 com três
@@ -179,13 +179,12 @@ push, publicação de trabalho alheio, deploy, nem operações de infraestrutura
 
 As tarefas 017–019 implementam backup/retencao, artefatos Compose e validação
 sintética do backend. A tarefa 019A acrescenta limites às rotas públicas de
-cadastro e amplia as provas integradas até painel/CSV. Seu resultado em
-19/10/2026 é parcial: `GATE_BACKEND_PARA_INTERFACE` permanece
-`BLOQUEADO_POR_AMBIENTE` porque não foi possível executar o roundtrip real
-rclone/PostgreSQL nem iniciar o runtime Docker/Linux; ver
+cadastro e fecha as provas locais de backup/restore e runtime. Em 19/10/2026,
+`GATE_BACKEND_PARA_INTERFACE` foi aprovado com roundtrip PostgreSQL/rclone
+crypt, integrações descartáveis e Compose Linux; ver
 [`tasks/019a-fechamento-backend/RESULTADO.md`](tasks/019a-fechamento-backend/RESULTADO.md).
-A interface da tarefa 020 não deve começar até o gate ser aprovado com as
-provas reais faltantes.
+A interface da tarefa 020 continua não implementada e depende de solicitação
+própria; a aprovação do gate não autoriza deploy nem operação com dados reais.
 O planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
 [`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,
@@ -200,6 +199,8 @@ evidências registradas, não uma autorização para acessar esse banco nesta
 tarefa. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de
 biometria real — calibração 1:N, validação representativa do anti-spoofing e
 eventual piloto — aguardam autorização específica e revisão institucional.
-Múltiplas referências operacionais também permanecem pendentes. O projeto é
-de **disciplina de IA**, não TCC; não transformar testes sintéticos ou
-benchmarks de engenharia em alegações de acurácia.
+Múltiplas referências operacionais também permanecem pendentes. O gate operacional
+de dados reais da tarefa 019A segue `PENDENTE`: não houve deploy, VPS, Drive,
+webcam ou validação biométrica com pessoas. O projeto é de **disciplina de IA**,
+não TCC; não transformar testes sintéticos ou benchmarks de engenharia em
+alegações de acurácia.
