@@ -398,6 +398,10 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     await new Promise((resolve) => setImmediate(resolve));
     assert.match(raiz.innerHTML, /data-form="login"/);
     assert.match(raiz.innerHTML, /autocomplete="username"/);
+    assert.match(raiz.innerHTML, /class="login-layout login-layout--animated"/);
+    assert.match(raiz.innerHTML, /wordmark wordmark--inverse/);
+    assert.match(raiz.innerHTML, /assets\/img\/logo\.png/);
+    assert.match(raiz.innerHTML, /data-magnetic/);
   } finally {
     for (const chave of Object.keys(anteriores)) {
       if (anteriores[chave] === undefined) delete globalThis[chave];

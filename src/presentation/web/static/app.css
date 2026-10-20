@@ -238,6 +238,10 @@ p {
   color: var(--paper);
 }
 
+.wordmark--inverse .wordmark__logo {
+  filter: invert(1);
+}
+
 .site-nav {
   display: flex;
   align-items: center;
@@ -1156,6 +1160,39 @@ tbody tr:last-child td {
   display: grid;
   min-height: calc(100svh - var(--header-height));
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
+}
+
+.login-layout--animated .login-aside > *,
+.login-layout--animated .login-main > * {
+  animation: login-enter 640ms var(--ease) both;
+}
+
+.login-layout--animated .login-aside > :nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.login-layout--animated .login-aside > :nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.login-layout--animated .login-main > p {
+  animation-delay: 90ms;
+}
+
+.login-layout--animated .login-main > .login-form {
+  animation-delay: 160ms;
+}
+
+@keyframes login-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .login-aside {
