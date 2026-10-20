@@ -46,6 +46,8 @@ concluídos.
   título livre em desktop e mobile. É uma arte abstrata sem pessoa
   identificável; a exceção de CI e `.gitignore` vale somente para esse arquivo,
   enquanto as demais imagens continuam bloqueadas.
+- Na navegação móvel, o acionador textual foi substituído por um SVG de menu
+  preto, com área de toque de 44px e rótulo acessível preservado.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
   resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém doze
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
