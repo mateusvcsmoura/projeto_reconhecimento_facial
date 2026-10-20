@@ -159,6 +159,36 @@ test("revelações de scroll aparecem ao entrar na viewport e limpam o observer"
   assert.equal(primeiro.classList.contains("is-visible"), false);
 });
 
+test("revelações incluem os contêineres que animam a passagem entre seções", () => {
+  const fluxo = criarAlvo();
+  const perguntas = criarAlvo();
+  let seletorUsado = "";
+  const container = {
+    defaultView: { matchMedia: () => ({ matches: false }) },
+    classList: { add() {}, remove() {} },
+    querySelectorAll(seletor) {
+      seletorUsado = seletor;
+      return [fluxo, perguntas];
+    },
+  };
+  let callback;
+  class ObserverFake {
+    constructor(onChange) { callback = onChange; }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  container.defaultView.IntersectionObserver = ObserverFake;
+
+  iniciarRevelacaoScroll(container);
+
+  assert.match(seletorUsado, /#como-funciona \.steps/);
+  assert.match(seletorUsado, /#duvidas \.faq-list/);
+  callback([{ target: fluxo, isIntersecting: true }, { target: perguntas, isIntersecting: true }]);
+  assert.equal(fluxo.classList.contains("is-visible"), true);
+  assert.equal(perguntas.classList.contains("is-visible"), true);
+});
+
 test("revelações permanecem visíveis quando movimento reduzido está ativo", () => {
   const classesContainer = new Set();
   const container = {
