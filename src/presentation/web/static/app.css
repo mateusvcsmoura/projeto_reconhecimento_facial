@@ -445,6 +445,7 @@ p {
   align-items: center;
   overflow: hidden;
   padding: clamp(48px, 8vw, 96px) max(24px, calc((100vw - var(--content)) / 2));
+  border-radius: 0 0 clamp(44px, 8vw, 128px) clamp(44px, 8vw, 128px);
   color: var(--paper);
   background: var(--ink);
 }
@@ -613,7 +614,27 @@ p {
   padding-block: clamp(72px, 10vw, 128px);
 }
 
+#como-funciona {
+  position: relative;
+  isolation: isolate;
+}
+
+#como-funciona::before {
+  position: absolute;
+  z-index: -1;
+  top: 12%;
+  right: -28%;
+  width: min(62vw, 920px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(0 0 0 / 5%) 0 38%, transparent 70%);
+  content: "";
+  pointer-events: none;
+}
+
 .section--soft {
+  margin-inline: clamp(8px, 1.8vw, 32px);
+  border-radius: clamp(36px, 6vw, 96px) clamp(36px, 6vw, 96px) 0 0;
   background: var(--soft);
 }
 
@@ -792,6 +813,8 @@ p {
 }
 
 .site-footer {
+  margin-top: clamp(8px, 1.8vw, 32px);
+  border-radius: clamp(36px, 6vw, 96px) clamp(36px, 6vw, 96px) 0 0;
   padding-block: 32px max(32px, env(safe-area-inset-bottom));
   color: var(--paper);
   background: var(--ink);
@@ -1519,6 +1542,7 @@ tbody tr:last-child td {
     min-height: auto;
     grid-template-columns: minmax(0, 1fr);
     padding: 64px 20px 72px;
+    border-radius: 0 0 42px 42px;
   }
 
   .hero__copy {
@@ -1554,6 +1578,11 @@ tbody tr:last-child td {
     padding-block: 72px;
   }
 
+  .section--soft {
+    margin-inline: 8px;
+    border-radius: 32px 32px 0 0;
+  }
+
   .section-heading,
   .faq-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -1581,6 +1610,11 @@ tbody tr:last-child td {
 
   .site-footer__row {
     flex-direction: column;
+  }
+
+  .site-footer {
+    margin-top: 8px;
+    border-radius: 32px 32px 0 0;
   }
 
   .app-header {
