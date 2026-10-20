@@ -134,6 +134,12 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert logo_status == 200
     assert logo_headers["content-type"].startswith("image/png")
     assert logo[:8] == b"\x89PNG\r\n\x1a\n"
+    logo_dark_status, logo_dark_headers, logo_dark = _get(
+        app, "/assets/img/logo-white.png"
+    )
+    assert logo_dark_status == 200
+    assert logo_dark_headers["content-type"].startswith("image/png")
+    assert logo_dark[:8] == b"\x89PNG\r\n\x1a\n"
     assert api_status == 404
     assert api_headers["content-type"].startswith("application/json")
     assert b"FaceDiff" not in api

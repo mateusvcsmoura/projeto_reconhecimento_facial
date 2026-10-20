@@ -238,10 +238,6 @@ p {
   color: var(--paper);
 }
 
-.wordmark--inverse .wordmark__logo {
-  filter: invert(1);
-}
-
 .site-nav {
   display: flex;
   align-items: center;
