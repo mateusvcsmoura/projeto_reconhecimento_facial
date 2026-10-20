@@ -40,6 +40,12 @@ concluídos.
   storage persistente e não decide identidade, prova de vida ou presença. A animação
   é persistente e tem seus keyframes atualizados, evitando que o cursor volte ao
   canto da viewport entre frames.
+- `src/presentation/web/static/img/hero-section-img.jpg`, fornecida para a
+  landing, substitui o canvas e a moldura facial genérica do hero. O CSS cobre
+  apenas a área gráfica e ancora o recorte à direita, mantendo a área escura do
+  título livre em desktop e mobile. É uma arte abstrata sem pessoa
+  identificável; a exceção de CI e `.gitignore` vale somente para esse arquivo,
+  enquanto as demais imagens continuam bloqueadas.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
   resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém doze
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
