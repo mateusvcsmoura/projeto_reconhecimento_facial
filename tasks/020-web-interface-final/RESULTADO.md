@@ -52,8 +52,9 @@ concluídos.
   escuros preservam a wordmark textual, pois a logo fornecida foi desenhada para
   fundo claro. As exceções explícitas de CI e `.gitignore` permitem apenas essa
   logo e a arte abstrata do hero; todas as demais imagens seguem bloqueadas. A
-  derivação publicada recorta o espaço externo da imagem para 256×256px e usa
-  52px no cabeçalho, sem alterar o desenho do monograma.
+  derivação publicada recorta o espaço externo da imagem para 256×256px,
+  converte o fundo preto opaco em transparência e usa o monograma preto a 52px
+  no cabeçalho, sem o bloco escuro sobre o fundo claro.
 - Na navegação móvel, o acionador textual foi substituído por um SVG de menu
   preto, com área de toque de 44px e rótulo acessível preservado.
 - No FAQ, a pergunta aberta recebe realce de baixa opacidade somente no
