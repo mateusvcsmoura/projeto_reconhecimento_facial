@@ -259,6 +259,8 @@ escola.db
 *.tiff
 # Arte abstrata, sem pessoa identificavel, usada exclusivamente na landing web.
 !src/presentation/web/static/img/hero-section-img.jpg
+# Logo grafico da marca, usado exclusivamente na landing web.
+!src/presentation/web/static/img/logo.png
 # Gravacoes de webcam
 *.mp4
 *.avi

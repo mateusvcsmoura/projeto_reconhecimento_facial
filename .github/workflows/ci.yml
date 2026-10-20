@@ -77,10 +77,10 @@ jobs:
       - name: Nenhum dado sensivel versionado
         # Espelha o .gitignore: o ignore evita o acidente; este passo o pega
         # se alguem forcar (git add -f) ou se o ignore regredir. A unica
-        # excecao e a arte abstrata e nao biometrica da landing web.
+        # excecoes sao a arte abstrata e a logo nao biometrica da landing web.
         run: |
           arquivos_sensiveis="$(git ls-files | grep -Ei '\.db$|^\.env$|\.(jpe?g|png|bmp|webp|heic|tiff?)$|\.(mp4|avi|mov)$|\.(npy|npz|pkl|pickle)$|^storage/|^fotos/|^avaliacao/' || true)"
-          arquivos_proibidos="$(printf '%s\n' "$arquivos_sensiveis" | grep -Ev '^src/presentation/web/static/img/hero-section-img\.jpg$' || true)"
+          arquivos_proibidos="$(printf '%s\n' "$arquivos_sensiveis" | grep -Ev '^src/presentation/web/static/img/(hero-section-img\.jpg|logo\.png)$' || true)"
           if [ -n "$arquivos_proibidos" ]; then
             printf '%s\n' "$arquivos_proibidos"
             echo "ERRO: arquivo sensivel versionado"
