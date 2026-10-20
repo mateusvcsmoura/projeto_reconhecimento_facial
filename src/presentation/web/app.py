@@ -7,15 +7,17 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 
 from src.application.services.fila_facial import FilaCheia, FilaFacial
 from src.config.web_settings import WebSettings
@@ -202,6 +204,13 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     )
     app.state.environment = settings.environment
     app.state.web_services = services
+    web_dir = Path(__file__).resolve().parent
+    arquivo_interface = web_dir / "templates" / "index.html"
+    app.mount(
+        "/assets",
+        StaticFiles(directory=web_dir / "static", check_dir=True),
+        name="web-assets",
+    )
     app.include_router(
         criar_rotas_auth(
             settings,
@@ -214,6 +223,44 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     app.include_router(criar_rotas_cadastros(settings, services))
     app.include_router(criar_rotas_presencas(settings, services))
     app.include_router(criar_rotas_gestao(settings, services))
+
+    async def pagina_interface() -> FileResponse:
+        return FileResponse(arquivo_interface, media_type="text/html; charset=utf-8")
+
+    app.add_api_route("/", pagina_interface, methods=["GET"], include_in_schema=False)
+    app.add_api_route(
+        "/login", pagina_interface, methods=["GET"], include_in_schema=False
+    )
+    app.add_api_route(
+        "/trocar-senha", pagina_interface, methods=["GET"], include_in_schema=False
+    )
+    app.add_api_route(
+        "/professor", pagina_interface, methods=["GET"], include_in_schema=False
+    )
+    app.add_api_route(
+        "/professor/{caminho:path}",
+        pagina_interface,
+        methods=["GET"],
+        include_in_schema=False,
+    )
+    app.add_api_route(
+        "/cadastro", pagina_interface, methods=["GET"], include_in_schema=False
+    )
+    app.add_api_route(
+        "/cadastro/{credencial}",
+        pagina_interface,
+        methods=["GET"],
+        include_in_schema=False,
+    )
+    app.add_api_route(
+        "/presenca", pagina_interface, methods=["GET"], include_in_schema=False
+    )
+    app.add_api_route(
+        "/presenca/{credencial}",
+        pagina_interface,
+        methods=["GET"],
+        include_in_schema=False,
+    )
 
     @app.middleware("http")
     async def request_id_middleware(
@@ -291,6 +338,27 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                 "/api/v1/revisoes",
                 "/api/v1/alunos/",
             )
+        ):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(self), microphone=(), geolocation=()"
+        )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self'; "
+            "img-src 'self' data: blob:; media-src 'self' blob:; "
+            "connect-src 'self'; font-src 'self'; object-src 'none'; "
+            "base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+        )
+        if (
+            request.url.path == "/"
+            or request.url.path in {"/login", "/trocar-senha", "/professor"}
+            or request.url.path.startswith(("/professor/", "/cadastro", "/presenca"))
         ):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
