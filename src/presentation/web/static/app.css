@@ -223,22 +223,15 @@ p {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  gap: 10px;
   color: var(--ink);
-  font-size: 1.04rem;
-  font-weight: 700;
-  letter-spacing: -0.045em;
   text-decoration: none;
 }
 
-.wordmark__symbol {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid currentColor;
-  font-size: 0.68rem;
-  letter-spacing: -0.08em;
+.wordmark__logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
 }
 
 .wordmark--inverse {

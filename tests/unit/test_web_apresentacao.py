@@ -128,6 +128,10 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert hero_status == 200
     assert hero_headers["content-type"].startswith("image/jpeg")
     assert hero[:2] == b"\xff\xd8"
+    logo_status, logo_headers, logo = _get(app, "/assets/img/logo.png")
+    assert logo_status == 200
+    assert logo_headers["content-type"].startswith("image/png")
+    assert logo[:8] == b"\x89PNG\r\n\x1a\n"
     assert api_status == 404
     assert api_headers["content-type"].startswith("application/json")
     assert b"FaceDiff" not in api

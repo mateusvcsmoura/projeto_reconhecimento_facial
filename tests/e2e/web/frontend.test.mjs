@@ -386,6 +386,8 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     assert.match(raiz.innerHTML, /Presença, no seu tempo de aula/);
     assert.match(raiz.innerHTML, /id="duvidas"/);
     assert.match(raiz.innerHTML, /assets\/img\/hero-section-img\.jpg/);
+    assert.match(raiz.innerHTML, /assets\/img\/logo\.png/);
+    assert.doesNotMatch(raiz.innerHTML, /wordmark__symbol/);
     assert.doesNotMatch(raiz.innerHTML, /id="hero-particles"/);
     assert.match(raiz.innerHTML, /class="mobile-nav__icon"/);
     assert.doesNotMatch(raiz.innerHTML, /<span aria-hidden="true">Menu<\/span>/);
