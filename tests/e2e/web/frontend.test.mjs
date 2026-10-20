@@ -209,6 +209,7 @@ test("cursor magnetico acompanha o mouse, reage aos alvos e limpa recursos", () 
   const xComAtracao = extrairCoordenadaX(ambiente.cursor.animacoes.at(-1));
   assert.ok(xComAtracao > xSemAtracao);
   assert.ok(xComAtracao < 100);
+  assert.equal(ambiente.cursor.animacoes.length, 1);
   ambiente.alvo.disparar("pointerleave", { pointerType: "mouse" });
   assert.equal(ambiente.cursor.classList.contains("is-attracted"), false);
 
@@ -252,7 +253,14 @@ function criarAmbienteCursor({ coarse = false, reduzido = false } = {}) {
     classList: criarClasses(),
     setAttribute(chave, valor) { this.atributos[chave] = valor; },
     animate(keyframes, options) {
-      const animacao = { cancelada: false, keyframes, options, cancel() { this.cancelada = true; } };
+      const animacao = {
+        cancelada: false,
+        currentTime: 0,
+        keyframes,
+        options,
+        effect: { setKeyframes(proximos) { animacao.keyframes = proximos; } },
+        cancel() { this.cancelada = true; },
+      };
       this.animacoes.push(animacao);
       return animacao;
     },

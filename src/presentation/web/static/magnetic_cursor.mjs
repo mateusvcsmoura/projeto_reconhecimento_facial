@@ -68,12 +68,13 @@ export function iniciarCursorMagnetico(documento = globalThis.document) {
     velocidade.y = (velocidade.y + dy * 0.2) * 0.72;
     posicao.x += velocidade.x;
     posicao.y += velocidade.y;
-    animation?.cancel();
     const transform = `translate3d(${posicao.x}px, ${posicao.y}px, 0) translate(-50%, -50%)`;
-    animation = cursor.animate(
-      [{ transform }],
-      { duration: 16, fill: "forwards" },
-    );
+    if (!animation) {
+      animation = cursor.animate([{ transform }], { duration: 1, fill: "forwards" });
+    } else {
+      animation.effect.setKeyframes([{ transform }]);
+    }
+    animation.currentTime = 1;
     cursor.classList.add("is-visible");
     if (
       Math.abs(dx) > 0.1
