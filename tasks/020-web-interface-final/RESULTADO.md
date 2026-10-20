@@ -28,9 +28,11 @@ concluídos.
 - `src/presentation/web/static/` contém o cliente de API, fluxos de página,
   câmera, estilo responsivo monocromático, canvas do hero, revelações de
   conteúdo acionadas pela viewport e cursor magnético complementar somente na
-  landing. O cursor nativo permanece visível; o halo não intercepta eventos,
-  tem contraste adaptável e cresce nos dois links magnéticos. Capturas ficam em
-  memória durante o envio; a interface não guarda frames nem coordenadas em storage
+  landing. O cursor nativo permanece visível; o disco de 40px não intercepta
+  eventos, usa `mix-blend-mode: exclusion` para ficar branco sobre preto e preto
+  sobre branco, e é atraído aos dois links magnéticos com fator `0.55`. Capturas
+  ficam em memória durante o envio; a interface não guarda frames nem coordenadas em
+  storage
   persistente e não decide identidade, prova de vida ou presença.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
   resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém dez
@@ -66,7 +68,7 @@ git diff --check
 |---|---|
 | `pytest tests/unit -p no:cacheprovider -q -o 'addopts=' --disable-warnings --basetemp <temporário exclusivo>` | 1.255 aprovados; 1 aviso de depreciação do adaptador datetime do SQLite/SQLAlchemy |
 | `pytest tests/unit/test_web_apresentacao.py -q` | 3 aprovados |
-| `node --test tests/e2e/web/frontend.test.mjs` | 10 aprovados, incluindo cursor, alvos, cleanup, toque e movimento reduzido |
+| `node --test tests/e2e/web/frontend.test.mjs` | 10 aprovados, incluindo contraste, atração, alvos, cleanup, toque e movimento reduzido |
 | `node --check` nos módulos `.mjs` alterados | Aprovado |
 | `ruff check` nos arquivos Python alterados | Aprovado |
 | `ruff format --check src/presentation/web/app.py tests/unit/test_web_apresentacao.py` | Aprovado após formatar `app.py` |
