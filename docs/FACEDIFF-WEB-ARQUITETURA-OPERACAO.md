@@ -1,6 +1,6 @@
 # FaceDiff web — arquitetura e operação na Hostinger KVM 2
 
-Data: 19/10/2026. **Desenho da operação futura; infraestrutura de produção não existe.**
+Data: 20/10/2026. **Desenho da operação futura; infraestrutura de produção não existe.**
 Requisitos e classificação C/R/V no [planejamento principal](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Deploy e operação dependem de autorização futura. A task019A validou somente
 containers, banco e volumes locais descartáveis; os procedimentos de hospedagem
@@ -15,7 +15,9 @@ aplicadas em sequência ao banco local `escola`, que estava na revisão `0005`;
 exercitados com API e dados sintéticos; dois testes PostgreSQL task016 provaram
 o schema, a concorrência transacional revisão/worker e a recusa de downgrade
 com revisão persistida. tmpfs compartilhado de produção, validação com
-pessoas, interface e deploy continuam pendentes. O
+pessoas, inspeção visual/E2E da interface e deploy continuam pendentes. A tarefa
+020 já implementou parcialmente os templates e fluxos web; consulte seu
+[resultado](../tasks/020-web-interface-final/RESULTADO.md). O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
 

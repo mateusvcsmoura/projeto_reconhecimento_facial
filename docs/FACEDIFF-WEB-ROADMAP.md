@@ -1,6 +1,6 @@
 # FaceDiff web — roadmap e plano de validação
 
-Data: 19/10/2026. **Tarefas 009–019A implementadas; gate do backend aprovado em ambiente local descartável.**
+Data: 20/10/2026. **Tarefas 009–019A implementadas; gate do backend aprovado em ambiente local descartável. A interface 020 está parcialmente implementada.**
 O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
 24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
 futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
@@ -44,11 +44,11 @@ O [contrato comum](../tasks/WEB-CONTRATO-EXECUCAO.md) e o
 | 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | [Resultado parcial](../tasks/018-web-infraestrutura-compose/RESULTADO.md) |
 | 019 | Validação integrada do backend e gate para a interface | 009–018 implementadas; não basta existirem seus documentos | [Executar 019](../tasks/019-web-validacao-backend/PROMPT.md) |
 | 019A | Fechamento do restore, runtime Compose, proteção pública e fluxo integrado | 019; gate backend aprovado com PostgreSQL/rclone crypt e Compose Linux descartáveis | [Resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md) |
-| 020 | Interface web responsiva e validação ponta a ponta | 019 e 019A com GATE_BACKEND_PARA_INTERFACE=APROVADO; funcionalidades009–019A prontas e testadas | [Executar 020](../tasks/020-web-interface-final/PROMPT.md) |
+| 020 | Interface web responsiva e validação ponta a ponta | Backend aprovado; implementação parcial; browser/E2E visual ainda pendente | [Resultado 020](../tasks/020-web-interface-final/RESULTADO.md) |
 
 A sequência recomendada é linear009→020, embora os contratos descrevam
 dependências mais específicas. Não paralelizar alterações de schema/contratos
-por iniciativa própria. Criar RESULTADO.md ao executar, nunca antecipadamente.
+por iniciativa própria. Cada execução atualiza o RESULTADO.md com evidências reais.
 
 A task018 possui artefatos Compose, Dockerfiles, Caddy, preflight, healthcheck
 do worker e runbook. Em 19/10/2026, a task019A construiu e executou localmente os
@@ -102,7 +102,8 @@ roundtrip PostgreSQL/rclone crypt, runtime Compose/Linux, rate limit concorrente
 e fluxo completo até painel/CSV. `GATE_BACKEND_PARA_INTERFACE: APROVADO`; veja
 os [resultados 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
 [019A](../tasks/019a-fechamento-backend/RESULTADO.md). O gate de dados reais
-permanece `PENDENTE`; a interface 020 não foi iniciada nesta execução.
+permanece `PENDENTE`; a interface 020 está parcialmente implementada e ainda
+aguarda inspeção visual e E2E em navegador, conforme seu resultado.
 
 ### Gate operacional para dados reais e apresentação
 

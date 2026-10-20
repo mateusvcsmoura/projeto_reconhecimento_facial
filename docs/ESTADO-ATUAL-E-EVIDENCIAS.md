@@ -2,6 +2,7 @@
 
 **Base analisada:** 16/10/2026, `main` na revisão `31028e706ec8a90f41747c241ea724e9e380d142`; migration `0004` aplicada ao PostgreSQL local configurado nesta data.
 **Atualização web:** 19/10/2026, após as tarefas 009–019A; o gate do backend foi aprovado em Compose/PostgreSQL/rclone descartáveis. Isso não é deploy, acesso ao banco `escola` ou validação biométrica operacional.
+**Atualização da interface:** 20/10/2026, tarefa 020 parcialmente implementada no workspace; testes sintéticos/unitários e servidor local disponíveis. Revisão visual por navegador e E2E completo permanecem pendentes; ver [resultado 020](../tasks/020-web-interface-final/RESULTADO.md).
 **Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
@@ -57,7 +58,8 @@ executados em Compose Linux; migrations `0011`, healthchecks, Caddy, hardening,
 persistência após recriação e smoke local sintético foram verificados.
 `GATE_BACKEND_PARA_INTERFACE=APROVADO`. Os respectivos relatórios registram
 comandos e limites; este resumo não autoriza consulta ao banco local `escola`
-nem indica deploy. A tarefa 020 ainda não foi iniciada. Consulte
+nem indica deploy. A tarefa 020 tem implementação parcial de UI e consumo de
+APIs; inspeção visual/E2E em navegador ainda pendentes. Consulte
 [resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md),
 [resultado 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
 [runtime web](FACEDIFF-WEB-RUNTIME.md).

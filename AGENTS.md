@@ -183,8 +183,10 @@ cadastro e fecha as provas locais de backup/restore e runtime. Em 19/10/2026,
 `GATE_BACKEND_PARA_INTERFACE` foi aprovado com roundtrip PostgreSQL/rclone
 crypt, integrações descartáveis e Compose Linux; ver
 [`tasks/019a-fechamento-backend/RESULTADO.md`](tasks/019a-fechamento-backend/RESULTADO.md).
-A interface da tarefa 020 continua não implementada e depende de solicitação
-própria; a aprovação do gate não autoriza deploy nem operação com dados reais.
+A tarefa 020 foi iniciada conforme solicitação e tem implementação parcial no
+workspace; consulte `tasks/020-web-interface-final/RESULTADO.md`. A inspeção
+visual e o E2E em navegador continuam pendentes. A aprovação do gate não autoriza
+deploy nem operação com dados reais.
 O planejamento futuro da interface de câmera no navegador, operação e hospedagem está em
 [`docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md`](docs/PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Atualizar esse registro conforme novas decisões do usuário. É planejamento,

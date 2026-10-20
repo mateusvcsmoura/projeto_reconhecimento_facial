@@ -72,3 +72,13 @@ Antes de qualquer commit ou push, leia ou releia o arquivo AGENTS.md na raiz do 
 - Mensagens de commit sempre em PT-BR. Não se identifique como Co Author nem adicione Co-authored-by; use somente a identidade e as credenciais Git já configuradas do solicitante, sem reconfigurar autoria.
 - Se a entrega envolver muitos arquivos ou unidades lógicas distintas, divida-a em commits separados e organizados por escopo; não agrupe mudanças independentes em um commit monolítico.
 - Adicione ao staging apenas caminhos explícitos e revise git diff --cached --stat, git diff --cached --check e o conteúdo staged antes de cada commit. Faça push somente para o branch/remoto autorizado e sem force.
+
+## Direção visual obrigatória — atualização de 20/10/2026
+
+- Leia integralmente a seção “Direção visual consolidada” do DESENHO e o plano complementar visual.
+- Use predominantemente preto `#000000` e branco `#FFFFFF`. Use Helvetica Now Display 400/700 somente se houver arquivos autorizados; mantenha o fallback documentado.
+- Adapte as referências do desenho: hero monocromático inspirado em Aether Flow, FAQ para dúvidas reais do FaceDiff e cursor magnético discreto apenas na landing com mouse.
+- Preserve frontend simples na mesma origem. Os exemplos React não autorizam instalar React, Framer Motion, shadcn/ui, Tailwind ou GSAP; prefira HTML/CSS/JavaScript e verifique licenças antes de copiar componentes.
+- Produza identidade editorial própria, sem gradientes genéricos, grades repetitivas de cards, números inventados ou texto comercial copiado. Não use animações decorativas na câmera ou no painel.
+- Respeite movimento reduzido, cursor nativo, teclado, leitor de tela e controle de carga do canvas. A câmera e as regras da API têm prioridade.
+- Valide a matriz responsiva e registre evidências visuais sintéticas, acessibilidade e desempenho conforme o PLANO. Não alegue resoluções ou dispositivos testados sem evidência.

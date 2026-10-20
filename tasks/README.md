@@ -31,7 +31,7 @@ alheias ou fazer deploy.
 ### FaceDiff web — novo ciclo 009–020
 
 Decisão de 17/10/2026: **funcionalidades e testes primeiro; interface somente
-na tarefa 020**, após aprovação do backend na tarefa 019. API/testes HTTP não incluem telas
+na tarefa 020**, após aprovação do backend nas tarefas 019 e 019A. API/testes HTTP não incluem telas
 provisórias. As tarefas 009–016 foram implementadas no workspace; 010, 013,
 014, 015 e 016 foram publicadas na `main`. A migration 0011 da task016 está
 aplicada ao banco local `escola` e validada em PostgreSQL descartável. As migrations
@@ -72,13 +72,14 @@ a implementação de uma tarefa; não cobre deploy ou operações de infraestrut
 | 016 | [CRUD autorizado, revisão manual, auditoria e CSV](016-web-gestao-revisao-relatorios/DESENHO.md) | Luna 6, esforço High | Concluída; 1209 aprovados, 80 ignorados, 80,23% de cobertura; dois testes PostgreSQL e `alembic check` aprovados; migration 0011 aplicada a `escola`; sem deploy; veja [RESULTADO.md](016-web-gestao-revisao-relatorios/RESULTADO.md) |
 | 017 | [Backup cifrado, retenção e restauração](017-web-backup-retencao/DESENHO.md) | Luna 6, esforço High | Parcial e publicada na `main`; testes unitários e verificações locais registrados; roundtrip PostgreSQL/rclone e Drive pendentes; veja [RESULTADO.md](017-web-backup-retencao/RESULTADO.md) |
 | 018 | [Artefatos de implantação Ubuntu, Compose e Caddy](018-web-infraestrutura-compose/DESENHO.md) | Luna 6, esforço High | Artefatos implementados; configuração Compose estática e 24 testes focados aprovados; build/execução pendentes por Docker Engine inacessível; veja [RESULTADO.md](018-web-infraestrutura-compose/RESULTADO.md) |
-| 019 | [Validação integrada do backend e gate para a interface](019-web-validacao-backend/DESENHO.md) | Luna 6, esforço High | Validação sintética e PostgreSQL concluída; gate do backend bloqueado por falta do rclone para restore cifrado local; operação com dados reais pendente; veja [RESULTADO.md](019-web-validacao-backend/RESULTADO.md) |
-| 020 | [Interface web responsiva e validação ponta a ponta](020-web-interface-final/DESENHO.md) | Luna 6, esforço High | Planejada; não implementada |
+| 019 | [Validação integrada do backend e gate para a interface](019-web-validacao-backend/DESENHO.md) | Luna 6, esforço High | Gate atualizado pela 019A; backend aprovado após roundtrip PostgreSQL/rclone crypt e runtime Compose Linux descartáveis; veja [RESULTADO.md](019-web-validacao-backend/RESULTADO.md) |
+| 019A | [Fechamento das pendências do backend](019a-fechamento-backend/DESENHO.md) | Luna 6, esforço High | Gate `GATE_BACKEND_PARA_INTERFACE` aprovado; gate operacional com dados reais permanece pendente; veja [RESULTADO.md](019a-fechamento-backend/RESULTADO.md) |
+| 020 | [Interface web responsiva e validação ponta a ponta](020-web-interface-final/DESENHO.md) | Luna 6, esforço High | Implementação parcial no workspace; testes unitários e sintéticos aprovados; inspeção visual/E2E em navegador pendente; veja [RESULTADO.md](020-web-interface-final/RESULTADO.md) |
 
-Começar pelo [prompt da tarefa 009](009-web-fundacao-linux/PROMPT.md).
-Executar uma tarefa de cada vez e ler o resultado das dependências. A tarefa 020 não
-pode começar com testes apenas preparados: exige o gate da tarefa 019 aprovado. Testes de
-navegador/câmera e acessibilidade ficam na tarefa 020, depois da construção da interface.
+Executar uma tarefa de cada vez e ler o resultado das dependências. A tarefa 020
+exigia o gate da tarefa 019 e da 019A, agora aprovado. A interface foi iniciada;
+testes completos de navegador/câmera e inspeção visual seguem pendentes e estão
+registrados no resultado da tarefa 020.
 Medição real da VPS, conexão Drive e dados reais continuam sujeitos a gates
 operacionais próprios e autorização; não são aprovados por testes sintéticos.
 
@@ -109,3 +110,9 @@ A tarefa 004 aprofunda o benchmark existente conforme a ordem proposta nesta con
 A tarefa 005 consolida o estado atual e prepara uma demonstração offline: [desenho](005-consolidacao-demonstracao/DESENHO.md), [plano](005-consolidacao-demonstracao/PLANO.md) e [prompt](005-consolidacao-demonstracao/PROMPT.md). É uma entrega documental, distinta da Etapa 5 histórica de ML. Reutiliza as evidências de 001–004, sem novos datasets ou mudanças operacionais.
 
 O resultado 005 registra as divergências reconciliadas, os comandos offline executados e seus limites: [005-consolidacao-demonstracao/RESULTADO.md](005-consolidacao-demonstracao/RESULTADO.md).
+## Estado do gate e da interface
+
+O [resultado da tarefa 019A](019a-fechamento-backend/RESULTADO.md) aprovou
+`GATE_BACKEND_PARA_INTERFACE` após restore cifrado, runtime Compose Linux e
+fluxo integrado. A tarefa 020 está parcialmente implementada; browser/E2E visual
+continua pendente, conforme [seu resultado](020-web-interface-final/RESULTADO.md).

@@ -149,9 +149,10 @@ podem truncar tabelas e exigem opt-in e banco descartável com marcador.
 O backend web foi desenvolvido nas tarefas 009–019. A tarefa 019A adicionou
 rate limits configuráveis às rotas públicas de cadastro e aprovou o gate do
 backend com roundtrip de backup/restore e runtime Docker/Compose Linux descartáveis.
-Consulte `tasks/019a-fechamento-backend/RESULTADO.md`. A interface 020 ainda não
-foi implementada; operação com dados reais, deploy e validação biométrica
-continuam pendentes e são gates separados.
+Consulte `tasks/019a-fechamento-backend/RESULTADO.md`. A interface 020 tem
+implementação parcial no workspace; inspeção visual e E2E em navegador estão
+pendentes no resultado da tarefa. Operação com dados reais, deploy e validação
+biométrica continuam pendentes e são gates separados.
 
 ---
 

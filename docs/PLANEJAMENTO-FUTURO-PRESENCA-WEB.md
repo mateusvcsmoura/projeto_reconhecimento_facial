@@ -4,8 +4,9 @@
 
 **Status: planejamento consolidado; `GATE_BACKEND_PARA_INTERFACE` aprovado pela
 task019A em 19/10/2026 com roundtrip PostgreSQL/rclone crypt e runtime Compose
-Linux local descartáveis. O gate operacional está `PENDENTE`; esta execução não
-iniciou a interface 020.** As tarefas 009–016 foram implementadas no workspace
+Linux local descartáveis. A tarefa 020 tem implementação parcial no workspace;
+inspeção visual e E2E em navegador estão pendentes. O gate operacional está
+`PENDENTE`.** As tarefas 009–016 foram implementadas no workspace
 e as tarefas 010, 013, 014, 015 e 016 foram publicadas na `main`. A task017 tem
 roundtrip local comprovado, mas Drive real e custódia operacional continuam
 pendentes. A task018 foi construída e executada localmente em Compose descartável;
@@ -14,8 +15,9 @@ Este documento substitui as propostas conflitantes das versões
 anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartável.
 Em 19/10/2026, `0006–0011` também foram aplicadas em sequência ao banco local
 `escola`, que estava na revisão `0005`; `alembic check` confirmou `0011`. O worker/fila, desafio 1:1 e fluxos HTTP de
-cadastro/aprovação e presença por sessão estão implementados; a interface continua
-pendente. A stack ML foi instalada/importada em Ubuntu 24.04/Python
+cadastro/aprovação e presença por sessão estão implementados; templates, assets
+e fluxos da interface foram iniciados na tarefa 020. Veja o [resultado 020](../tasks/020-web-interface-final/RESULTADO.md)
+e o [roteiro de apresentação](FACEDIFF-WEB-APRESENTACAO.md). A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
 validação com pessoas autorizadas seguem pendentes.
@@ -60,8 +62,9 @@ podem aumentar significativamente o número de imagens processadas.
 **Ordem atualizada pelo usuário:** implementar e testar todas as funcionalidades
 do backend antes da interface. Pacotes009–019A cobrem fundação, APIs, modelos,
 gestão, operação e fechamento do backend. A interface completa fica exclusivamente
-na020, condicionada à aprovação do gate de backend após as tarefas 019 e 019A. Testes móveis e E2E de
-câmera ocorrem na020 após construção da interface. Ver [tasks](../tasks/README.md)
+na020, condicionada à aprovação do gate de backend após as tarefas 019 e 019A,
+aprovado em 19/10/2026. A interface está parcialmente implementada; testes móveis
+e E2E de câmera ainda precisam ser executados. Ver [tasks](../tasks/README.md)
 e [roadmap](FACEDIFF-WEB-ROADMAP.md); a antiga ordem W01–W12 foi substituída.
 
 Legenda: **C** = confirmado pelo usuário; **R** = recomendação técnica deste
