@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { acompanharOperacao, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
+import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
 
 function deferred() {
   let resolve;
@@ -120,6 +121,70 @@ test("câmera traduz indisponibilidade sem ocultar o controle acessível", async
     return true;
   });
 });
+
+test("revelações de scroll aparecem ao entrar na viewport e limpam o observer", () => {
+  const primeiro = criarAlvo();
+  const segundo = criarAlvo();
+  const classesContainer = new Set();
+  const container = {
+    defaultView: { matchMedia: () => ({ matches: false }) },
+    classList: {
+      add: (classe) => classesContainer.add(classe),
+      remove: (classe) => classesContainer.delete(classe),
+      contains: (classe) => classesContainer.has(classe),
+    },
+    querySelectorAll: () => [primeiro, segundo],
+  };
+  let callback;
+  let observados = [];
+  let desconectado = false;
+  class ObserverFake {
+    constructor(onChange) { callback = onChange; }
+    observe(alvo) { observados.push(alvo); }
+    unobserve(alvo) { observados = observados.filter((item) => item !== alvo); }
+    disconnect() { desconectado = true; observados = []; }
+  }
+  container.defaultView.IntersectionObserver = ObserverFake;
+
+  const parar = iniciarRevelacaoScroll(container);
+  assert.equal(container.classList.contains("scroll-reveal-ready"), true);
+  assert.deepEqual(observados, [primeiro, segundo]);
+  callback([{ target: primeiro, isIntersecting: true }]);
+  assert.equal(primeiro.classList.contains("is-visible"), true);
+  assert.deepEqual(observados, [segundo]);
+  parar();
+  assert.equal(desconectado, true);
+  assert.equal(container.classList.contains("scroll-reveal-ready"), false);
+  assert.equal(primeiro.classList.contains("is-visible"), false);
+});
+
+test("revelações permanecem visíveis quando movimento reduzido está ativo", () => {
+  const classesContainer = new Set();
+  const container = {
+    defaultView: { matchMedia: () => ({ matches: true }) },
+    classList: {
+      add: (classe) => classesContainer.add(classe),
+      remove: (classe) => classesContainer.delete(classe),
+      contains: (classe) => classesContainer.has(classe),
+    },
+    querySelectorAll: () => [criarAlvo()],
+  };
+
+  const parar = iniciarRevelacaoScroll(container);
+  assert.equal(container.classList.contains("scroll-reveal-ready"), false);
+  parar();
+});
+
+function criarAlvo() {
+  const classes = new Set();
+  return {
+    classList: {
+      add: (...nomes) => nomes.forEach((nome) => classes.add(nome)),
+      remove: (...nomes) => nomes.forEach((nome) => classes.delete(nome)),
+      contains: (classe) => classes.has(classe),
+    },
+  };
+}
 
 test("shell da interface monta landing e login em um navegador sintético", async () => {
   const anteriores = Object.fromEntries(["document", "window", "location", "sessionStorage", "fetch"].map((chave) => [chave, globalThis[chave]]));

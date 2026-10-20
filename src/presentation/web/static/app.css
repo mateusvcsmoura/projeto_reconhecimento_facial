@@ -531,6 +531,47 @@ p {
   color: rgb(255 255 255 / 62%);
 }
 
+#conteudo.scroll-reveal-ready .scroll-reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition: opacity 280ms var(--ease), transform 280ms var(--ease);
+}
+
+#conteudo.scroll-reveal-ready .hero__copy {
+  transition-duration: 440ms;
+}
+
+#conteudo.scroll-reveal-ready .hero__art {
+  transition-duration: 500ms;
+}
+
+#conteudo.scroll-reveal-ready .step:nth-child(2),
+#conteudo.scroll-reveal-ready .faq-item:nth-child(2) {
+  transition-delay: 50ms;
+}
+
+#conteudo.scroll-reveal-ready .step:nth-child(3),
+#conteudo.scroll-reveal-ready .faq-item:nth-child(3) {
+  transition-delay: 100ms;
+}
+
+#conteudo.scroll-reveal-ready .faq-item:nth-child(4) {
+  transition-delay: 150ms;
+}
+
+#conteudo.scroll-reveal-ready .faq-item:nth-child(5) {
+  transition-delay: 200ms;
+}
+
+#conteudo.scroll-reveal-ready .faq-item:nth-child(6) {
+  transition-delay: 250ms;
+}
+
+#conteudo.scroll-reveal-ready .scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
 .section {
   padding-block: clamp(72px, 10vw, 128px);
 }
@@ -1605,5 +1646,11 @@ tbody tr:last-child td {
 
   .hero__art canvas {
     display: none;
+  }
+
+  #conteudo.scroll-reveal-ready .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
