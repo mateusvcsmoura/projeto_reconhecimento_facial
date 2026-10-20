@@ -272,13 +272,28 @@ p {
   min-width: 44px;
   min-height: 44px;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
   cursor: pointer;
   list-style: none;
+  transition: background-color 160ms var(--ease);
 }
 
 .mobile-nav summary::-webkit-details-marker {
   display: none;
+}
+
+.mobile-nav summary:hover {
+  background: var(--soft);
+}
+
+.mobile-nav__icon {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
 }
 
 .mobile-nav[open] .mobile-nav__panel {
