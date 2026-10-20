@@ -100,6 +100,7 @@ pela009; acrescentar apenas dependência estritamente necessária ao escopo.
 - [x] Adaptar o canvas ao hero com coordenadas relativas, proteção contra distância zero, pares sem duplicação, opacidade limitada, DPR máximo 2, pausa em aba/viewport oculta e cleanup. Respeitar movimento reduzido.
 - [x] Usar `<details>` para FAQ, com controles nativos acessíveis e respostas alinhadas aos contratos.
 - [x] Adicionar magnetismo discreto apenas na landing, com cursor nativo, limites de deslocamento e desativação para toque/movimento reduzido.
+- [x] Implementar revelação progressiva das seções da landing via `IntersectionObserver`, sem controlar scroll, com fallback visível e respeito a movimento reduzido.
 - [x] Adicionar testes sintéticos em `tests/e2e/web/` para câmera fake, poller/backoff/cancelamento e montagem da landing/login. Esses testes não simulam um browser completo nem validam todos os fluxos por HTTP.
 - [ ] Revisar visualmente 320/360/390/768/1024/1440/1920/2560px, paisagem, zoom 200%/400%, teclado virtual e safe areas. Não havia navegador disponível pelo CUA nesta execução.
 - [ ] Medir no navegador carregamento e custo de canvas/cursor; nenhum dado de performance foi inventado.

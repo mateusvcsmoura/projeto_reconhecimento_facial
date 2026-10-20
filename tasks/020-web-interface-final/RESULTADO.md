@@ -26,13 +26,15 @@ concluídos.
 - `src/presentation/web/templates/index.html` fornece estrutura acessível e
   monta os módulos locais.
 - `src/presentation/web/static/` contém o cliente de API, fluxos de página,
-  câmera, estilo responsivo monocromático e canvas do hero. Capturas ficam em
-  memória durante o envio; a interface não guarda frames nem coordenadas em
-  storage persistente e não decide identidade, prova de vida ou presença.
+  câmera, estilo responsivo monocromático, canvas do hero e revelações de
+  conteúdo acionadas pela viewport somente na landing. Capturas ficam em memória
+  durante o envio; a interface não guarda frames nem coordenadas em storage
+  persistente e não decide identidade, prova de vida ou presença.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
-  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém seis
+  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém oito
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
-  recusa de permissão e montagem da landing/login.
+  recusa de permissão, montagem da landing/login e comportamento do reveal com
+  `IntersectionObserver` e movimento reduzido.
 - Nenhuma dependência de frontend foi adicionada. A fonte usa fallback de sistema;
   não foi incluída Helvetica Now Display por falta de arquivo autorizado.
 
@@ -47,6 +49,7 @@ node --check src/presentation/web/static/app.mjs
 node --check src/presentation/web/static/api.mjs
 node --check src/presentation/web/static/camera.mjs
 node --check src/presentation/web/static/hero.mjs
+node --check src/presentation/web/static/scroll_reveal.mjs
 node --test tests/e2e/web/frontend.test.mjs
 .venv\Scripts\ruff.exe check src/presentation/web/app.py tests/unit/test_web_apresentacao.py
 .venv\Scripts\ruff.exe format --check src/presentation/web/app.py tests/unit/test_web_apresentacao.py
@@ -59,7 +62,7 @@ git diff --check
 |---|---|
 | `pytest tests/unit -p no:cacheprovider -q -o 'addopts=' --disable-warnings --basetemp <temporário exclusivo>` | 1.255 aprovados; 1 aviso de depreciação do adaptador datetime do SQLite/SQLAlchemy |
 | `pytest tests/unit/test_web_apresentacao.py -q` | 3 aprovados |
-| `node --test tests/e2e/web/frontend.test.mjs` | 6 aprovados |
+| `node --test tests/e2e/web/frontend.test.mjs` | 8 aprovados |
 | `node --check` nos módulos `.mjs` alterados | Aprovado |
 | `ruff check` nos arquivos Python alterados | Aprovado |
 | `ruff format --check src/presentation/web/app.py tests/unit/test_web_apresentacao.py` | Aprovado após formatar `app.py` |

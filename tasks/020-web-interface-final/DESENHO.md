@@ -120,6 +120,7 @@ O pacote não contém resultado antecipado ou teste ficticiamente aprovado.
 - Referência [Magnetic Cursor](https://21st.dev/@jahed/components/magnetic-cursor): o trecho fornecido não é a implementação completa. Não presumir dependências nem copiar código não inspecionado.
 - Cursor magnético apenas como aprimoramento da landing, em `(hover: hover) and (pointer: fine)` e sem preferência por movimento reduzido. Limitar o deslocamento a ações selecionadas; não alterar hitbox, ocultar foco nem bloquear clique/seleção.
 - Manter cursor nativo como padrão. Desativar o efeito em formulários, painel, câmera, toque e movimento reduzido. Não instalar GSAP/React Three Fiber apenas por aparecerem nas referências.
+- Revelar progressivamente os blocos da landing quando entram na viewport, sem controlar a rolagem nem esconder conteúdo quando movimento reduzido estiver ativo. Não aplicar animações de scroll às telas operacionais.
 - Microinterações de 120–180ms; transições de conteúdo de 200–300ms; entrada do hero de até 500ms e deslocamento máximo de 12px. Conteúdo e ações ficam disponíveis sem esperar animação.
 - Preferir `opacity`/`transform`. Sem scroll hijacking, parallax obrigatório, splash ou animação em loop nas tarefas operacionais. `prefers-reduced-motion: reduce` remove deslocamentos, magnetismo e partículas; preservar indicadores textuais de espera.
 - Canvas somente no hero: dimensionar pelo contêiner, DPR até 2, 60 partículas em desktop e 24 em mobile, pausar fora da viewport/aba oculta e liberar listeners/requestAnimationFrame ao desmontar.
