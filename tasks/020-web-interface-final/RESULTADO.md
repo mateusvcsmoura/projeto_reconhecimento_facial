@@ -26,15 +26,18 @@ concluídos.
 - `src/presentation/web/templates/index.html` fornece estrutura acessível e
   monta os módulos locais.
 - `src/presentation/web/static/` contém o cliente de API, fluxos de página,
-  câmera, estilo responsivo monocromático, canvas do hero e revelações de
-  conteúdo acionadas pela viewport somente na landing. Capturas ficam em memória
-  durante o envio; a interface não guarda frames nem coordenadas em storage
+  câmera, estilo responsivo monocromático, canvas do hero, revelações de
+  conteúdo acionadas pela viewport e cursor magnético complementar somente na
+  landing. O cursor nativo permanece visível; o halo não intercepta eventos,
+  tem contraste adaptável e cresce nos dois links magnéticos. Capturas ficam em
+  memória durante o envio; a interface não guarda frames nem coordenadas em storage
   persistente e não decide identidade, prova de vida ou presença.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
-  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém oito
+  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém dez
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
   recusa de permissão, montagem da landing/login e comportamento do reveal com
-  `IntersectionObserver` e movimento reduzido.
+  `IntersectionObserver`, movimento reduzido e cursor magnético com suporte a
+  mouse, toque, alvos e cleanup.
 - Nenhuma dependência de frontend foi adicionada. A fonte usa fallback de sistema;
   não foi incluída Helvetica Now Display por falta de arquivo autorizado.
 
@@ -49,6 +52,7 @@ node --check src/presentation/web/static/app.mjs
 node --check src/presentation/web/static/api.mjs
 node --check src/presentation/web/static/camera.mjs
 node --check src/presentation/web/static/hero.mjs
+node --check src/presentation/web/static/magnetic_cursor.mjs
 node --check src/presentation/web/static/scroll_reveal.mjs
 node --test tests/e2e/web/frontend.test.mjs
 .venv\Scripts\ruff.exe check src/presentation/web/app.py tests/unit/test_web_apresentacao.py
@@ -62,7 +66,7 @@ git diff --check
 |---|---|
 | `pytest tests/unit -p no:cacheprovider -q -o 'addopts=' --disable-warnings --basetemp <temporário exclusivo>` | 1.255 aprovados; 1 aviso de depreciação do adaptador datetime do SQLite/SQLAlchemy |
 | `pytest tests/unit/test_web_apresentacao.py -q` | 3 aprovados |
-| `node --test tests/e2e/web/frontend.test.mjs` | 8 aprovados |
+| `node --test tests/e2e/web/frontend.test.mjs` | 10 aprovados, incluindo cursor, alvos, cleanup, toque e movimento reduzido |
 | `node --check` nos módulos `.mjs` alterados | Aprovado |
 | `ruff check` nos arquivos Python alterados | Aprovado |
 | `ruff format --check src/presentation/web/app.py tests/unit/test_web_apresentacao.py` | Aprovado após formatar `app.py` |
@@ -78,7 +82,9 @@ alterados.
 
 O smoke HTTP no servidor local retornou `200` para `/`, `/login`,
 `/cadastro/sintetico`, `/presenca/sintetico`, `/assets/app.css` e
-`/assets/app.mjs`. O endpoint desconhecido `/api/v1/rota-inexistente` retornou
+`/assets/app.mjs`. Após adicionar o cursor, `/assets/magnetic_cursor.mjs` e
+`/assets/app.css` também retornaram `200`. O endpoint desconhecido
+`/api/v1/rota-inexistente` retornou
 `404` JSON. Isso comprova publicação da shell e dos assets, não autenticação,
 acesso ao banco, autorização nem os fluxos de captura no browser.
 
