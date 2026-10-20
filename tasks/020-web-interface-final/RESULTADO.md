@@ -28,7 +28,9 @@ concluídos.
 - `src/presentation/web/static/` contém o cliente de API, fluxos de página,
   câmera, estilo responsivo monocromático, canvas do hero, revelações de
   conteúdo acionadas pela viewport e cursor magnético complementar somente na
-  landing. O cursor nativo permanece visível; o disco de 40px não intercepta
+  landing. As passagens entre as seções de fluxo e dúvidas também revelam suas
+  linhas estruturais, enquanto a lista abre cada resposta com deslocamento e
+  opacidade sutis. O cursor nativo permanece visível; o disco de 40px não intercepta
   eventos, usa `mix-blend-mode: exclusion` para ficar branco sobre preto e preto
   sobre branco, e é atraído aos dois links magnéticos com fator `0.55`. Capturas
   ficam em memória durante o envio; a interface não guarda frames nem coordenadas em
@@ -36,10 +38,11 @@ concluídos.
   é persistente e tem seus keyframes atualizados, evitando que o cursor volte ao
   canto da viewport entre frames.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
-  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém dez
+  resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém onze
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
   recusa de permissão, montagem da landing/login e comportamento do reveal com
-  `IntersectionObserver`, movimento reduzido e cursor magnético com suporte a
+  `IntersectionObserver`, incluindo os contêineres de transição das seções,
+  movimento reduzido e cursor magnético com suporte a
   mouse, toque, alvos e cleanup.
 - Nenhuma dependência de frontend foi adicionada. A fonte usa fallback de sistema;
   não foi incluída Helvetica Now Display por falta de arquivo autorizado.
@@ -69,7 +72,7 @@ git diff --check
 |---|---|
 | `pytest tests/unit -p no:cacheprovider -q -o 'addopts=' --disable-warnings --basetemp <temporário exclusivo>` | 1.255 aprovados; 1 aviso de depreciação do adaptador datetime do SQLite/SQLAlchemy |
 | `pytest tests/unit/test_web_apresentacao.py -q` | 3 aprovados |
-| `node --test tests/e2e/web/frontend.test.mjs` | 10 aprovados, incluindo atração persistente, alvos, cleanup, toque e movimento reduzido |
+| `node --test tests/e2e/web/frontend.test.mjs` | 11 aprovados, incluindo as transições estruturais, atração persistente, alvos, cleanup, toque e movimento reduzido |
 | `node --check` nos módulos `.mjs` alterados | Aprovado |
 | `ruff check` nos arquivos Python alterados | Aprovado |
 | `ruff format --check src/presentation/web/app.py tests/unit/test_web_apresentacao.py` | Aprovado após formatar `app.py` |
