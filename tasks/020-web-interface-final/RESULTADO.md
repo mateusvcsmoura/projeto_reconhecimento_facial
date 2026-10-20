@@ -48,6 +48,9 @@ concluídos.
   enquanto as demais imagens continuam bloqueadas.
 - Na navegação móvel, o acionador textual foi substituído por um SVG de menu
   preto, com área de toque de 44px e rótulo acessível preservado.
+- No FAQ, a pergunta aberta recebe realce de baixa opacidade somente no
+  cabeçalho; a resposta mantém o fundo da seção para evitar blocos cinza
+  desproporcionais.
 - `tests/unit/test_web_apresentacao.py` verifica shell, assets, cabeçalhos e
   resposta JSON para caminho de API desconhecido. `tests/e2e/web/` contém doze
   testes sintéticos Node para polling, backoff, cancelamento, câmera fake,
