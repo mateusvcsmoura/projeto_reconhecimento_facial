@@ -733,7 +733,7 @@ p {
   font-weight: 700;
   cursor: pointer;
   list-style: none;
-  transition: padding 180ms var(--ease);
+  transition: padding 180ms var(--ease), background-color 180ms var(--ease);
 }
 
 .faq-item summary::-webkit-details-marker {
@@ -757,11 +757,12 @@ p {
 }
 
 .faq-item[open] {
-  background: rgb(0 0 0 / 4%);
+  background: transparent;
 }
 
 .faq-item[open] summary {
   padding-left: 12px;
+  background: rgb(0 0 0 / 1.5%);
 }
 
 .faq-item__answer {
