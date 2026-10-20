@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { acompanharOperacao, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
+import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
 
 function deferred() {
@@ -174,6 +175,113 @@ test("revelações permanecem visíveis quando movimento reduzido está ativo", 
   assert.equal(container.classList.contains("scroll-reveal-ready"), false);
   parar();
 });
+
+test("cursor magnetico acompanha o mouse, reage aos alvos e limpa recursos", () => {
+  const ambiente = criarAmbienteCursor();
+  const parar = iniciarCursorMagnetico(ambiente.documento);
+
+  assert.equal(ambiente.cursor.atributos["aria-hidden"], "true");
+  assert.equal(ambiente.documento.body.children.includes(ambiente.cursor), true);
+  ambiente.documento.disparar("pointermove", {
+    pointerType: "touch", clientX: 12, clientY: 18,
+  });
+  assert.equal(ambiente.cursor.animacoes.length, 0);
+  ambiente.alvo.disparar("pointerenter", { pointerType: "touch" });
+  assert.equal(ambiente.cursor.classList.contains("is-attracted"), false);
+
+  ambiente.documento.disparar("pointermove", {
+    pointerType: "mouse", clientX: 84, clientY: 36,
+  });
+  ambiente.executarFrame();
+  assert.equal(ambiente.cursor.classList.contains("is-visible"), true);
+  assert.match(
+    ambiente.cursor.animacoes[0].keyframes.at(-1).transform,
+    /84px.*36px/,
+  );
+
+  ambiente.alvo.disparar("pointerenter", { pointerType: "mouse" });
+  assert.equal(ambiente.cursor.classList.contains("is-attracted"), true);
+  ambiente.alvo.disparar("pointerleave", { pointerType: "mouse" });
+  assert.equal(ambiente.cursor.classList.contains("is-attracted"), false);
+
+  parar();
+  assert.equal(ambiente.documento.body.children.includes(ambiente.cursor), false);
+  assert.equal(ambiente.cursor.animacoes[0].cancelada, true);
+});
+
+test("cursor magnetico fica desativado em toque ou movimento reduzido", () => {
+  for (const preferencias of [{ coarse: true }, { reduzido: true }]) {
+    const ambiente = criarAmbienteCursor(preferencias);
+    const parar = iniciarCursorMagnetico(ambiente.documento);
+    assert.equal(ambiente.criouCursor, false);
+    parar();
+  }
+});
+
+function criarAmbienteCursor({ coarse = false, reduzido = false } = {}) {
+  const criarClasses = () => {
+    const valores = new Set();
+    return {
+      add: (valor) => valores.add(valor),
+      remove: (valor) => valores.delete(valor),
+      contains: (valor) => valores.has(valor),
+    };
+  };
+  const criarEventos = () => {
+    const listeners = new Map();
+    return {
+      addEventListener(tipo, callback) {
+        listeners.set(tipo, [...(listeners.get(tipo) || []), callback]);
+      },
+      disparar(tipo, evento = {}) {
+        for (const callback of listeners.get(tipo) || []) callback(evento);
+      },
+    };
+  };
+  const cursor = {
+    atributos: {},
+    animacoes: [],
+    classList: criarClasses(),
+    setAttribute(chave, valor) { this.atributos[chave] = valor; },
+    animate(keyframes, options) {
+      const animacao = { cancelada: false, keyframes, options, cancel() { this.cancelada = true; } };
+      this.animacoes.push(animacao);
+      return animacao;
+    },
+    remove() {
+      this.removido = true;
+      const indice = this.parentNode?.children.indexOf(this) ?? -1;
+      if (indice >= 0) this.parentNode.children.splice(indice, 1);
+    },
+  };
+  const alvo = criarEventos();
+  let frame;
+  let criouCursor = false;
+  const documento = {
+    ...criarEventos(),
+    body: {
+      children: [],
+      appendChild(elemento) { elemento.parentNode = this; this.children.push(elemento); },
+    },
+    createElement() { criouCursor = true; return cursor; },
+    querySelectorAll() { return [alvo]; },
+    defaultView: {
+      ...criarEventos(),
+      matchMedia(query) {
+        return { matches: query.includes("prefers-reduced-motion") ? reduzido : !coarse };
+      },
+      requestAnimationFrame(callback) { frame = callback; return 1; },
+      cancelAnimationFrame() { frame = null; },
+    },
+  };
+  return {
+    documento,
+    cursor,
+    alvo,
+    get criouCursor() { return criouCursor; },
+    executarFrame() { frame?.(); },
+  };
+}
 
 function criarAlvo() {
   const classes = new Set();
