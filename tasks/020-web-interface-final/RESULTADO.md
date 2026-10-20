@@ -46,6 +46,12 @@ concluídos.
   título livre em desktop e mobile. É uma arte abstrata sem pessoa
   identificável; a exceção de CI e `.gitignore` vale somente para esse arquivo,
   enquanto as demais imagens continuam bloqueadas.
+- `src/presentation/web/static/img/logo.png`, fornecida para a marca, substitui
+  o monograma provisório `FD` e o texto adjacente nos cabeçalhos claros da
+  landing e dos links de aluno. O link mantém um rótulo acessível; os cabeçalhos
+  escuros preservam a wordmark textual, pois a logo fornecida foi desenhada para
+  fundo claro. As exceções explícitas de CI e `.gitignore` permitem apenas essa
+  logo e a arte abstrata do hero; todas as demais imagens seguem bloqueadas.
 - Na navegação móvel, o acionador textual foi substituído por um SVG de menu
   preto, com área de toque de 44px e rótulo acessível preservado.
 - No FAQ, a pergunta aberta recebe realce de baixa opacidade somente no
