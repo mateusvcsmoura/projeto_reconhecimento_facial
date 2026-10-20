@@ -115,6 +115,8 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert css_status == 200
     assert css_headers["content-type"].startswith("text/css")
     assert b"prefers-reduced-motion" in css
+    assert b".wordmark__logo" in css
+    assert b"width: 52px" in css
     assert js_status == 200
     assert js_headers["content-type"].startswith("text/javascript")
     assert b"localStorage" not in js
