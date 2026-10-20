@@ -27,8 +27,9 @@ concluídos.
   monta os módulos locais.
 - `src/presentation/web/static/` contém o cliente de API, fluxos de página,
   câmera, estilo responsivo monocromático, canvas do hero, revelações de
-  conteúdo acionadas pela viewport e cursor magnético complementar somente na
-  landing. As passagens entre as seções de fluxo e dúvidas também revelam suas
+  conteúdo acionadas pela viewport e cursor magnético complementar na landing
+  e nas telas de login/troca de senha. As passagens entre as seções de fluxo e
+  dúvidas também revelam suas
   linhas estruturais, enquanto a lista abre cada resposta com deslocamento e
   opacidade sutis. A landing usa curvas largas na base do hero, no FAQ e no
   rodapé, além de uma forma radial discreta no fluxo, para suavizar a sucessão
@@ -39,7 +40,10 @@ concluídos.
   ficam em memória durante o envio; a interface não guarda frames nem coordenadas em
   storage persistente e não decide identidade, prova de vida ou presença. A animação
   é persistente e tem seus keyframes atualizados, evitando que o cursor volte ao
-  canto da viewport entre frames.
+  canto da viewport entre frames. O login reaproveita a logo com inversão para
+  o painel escuro e anima a entrada ordenada de suas informações e do formulário;
+  o botão principal é um alvo magnético. Essas animações respeitam a preferência
+  por movimento reduzido.
 - `src/presentation/web/static/img/hero-section-img.jpg`, fornecida para a
   landing, substitui o canvas e a moldura facial genérica do hero. O CSS cobre
   apenas a área gráfica e ancora o recorte à direita, mantendo a área escura do
