@@ -261,6 +261,7 @@ escola.db
 !src/presentation/web/static/img/hero-section-img.jpg
 # Logo grafico da marca, usado exclusivamente na landing web.
 !src/presentation/web/static/img/logo.png
+!src/presentation/web/static/img/logo-white.png
 # Gravacoes de webcam
 *.mp4
 *.avi
