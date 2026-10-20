@@ -124,6 +124,10 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert camera_status == 200
     assert b"getUserMedia" in camera
     assert b"sessionStorage" not in camera
+    hero_status, hero_headers, hero = _get(app, "/assets/img/hero-section-img.jpg")
+    assert hero_status == 200
+    assert hero_headers["content-type"].startswith("image/jpeg")
+    assert hero[:2] == b"\xff\xd8"
     assert api_status == 404
     assert api_headers["content-type"].startswith("application/json")
     assert b"FaceDiff" not in api

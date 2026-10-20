@@ -385,6 +385,8 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     await new Promise((resolve) => setImmediate(resolve));
     assert.match(raiz.innerHTML, /Presença, no seu tempo de aula/);
     assert.match(raiz.innerHTML, /id="duvidas"/);
+    assert.match(raiz.innerHTML, /assets\/img\/hero-section-img\.jpg/);
+    assert.doesNotMatch(raiz.innerHTML, /id="hero-particles"/);
 
     globalThis.location.pathname = "/login";
     globalThis.location.href = "http://localhost/login";
