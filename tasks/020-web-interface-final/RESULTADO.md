@@ -30,7 +30,9 @@ concluídos.
   conteúdo acionadas pela viewport e cursor magnético complementar somente na
   landing. As passagens entre as seções de fluxo e dúvidas também revelam suas
   linhas estruturais, enquanto a lista abre cada resposta com deslocamento e
-  opacidade sutis. O cursor nativo permanece visível; o disco de 40px não intercepta
+  opacidade sutis. A landing usa curvas largas na base do hero, no FAQ e no
+  rodapé, além de uma forma radial discreta no fluxo, para suavizar a sucessão
+  de seções. O cursor nativo permanece visível; o disco de 40px não intercepta
   eventos, usa `mix-blend-mode: exclusion` para ficar branco sobre preto e preto
   sobre branco, e é atraído aos dois links magnéticos com fator `0.55`. Capturas
   ficam em memória durante o envio; a interface não guarda frames nem coordenadas em
