@@ -623,7 +623,7 @@ p {
   position: absolute;
   z-index: -1;
   top: 12%;
-  right: -28%;
+  right: 0;
   width: min(62vw, 920px);
   aspect-ratio: 1;
   border-radius: 50%;

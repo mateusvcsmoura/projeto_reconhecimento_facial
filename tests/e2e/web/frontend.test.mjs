@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { acompanharOperacao, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
@@ -204,6 +205,13 @@ test("revelações permanecem visíveis quando movimento reduzido está ativo", 
   const parar = iniciarRevelacaoScroll(container);
   assert.equal(container.classList.contains("scroll-reveal-ready"), false);
   parar();
+});
+
+test("ornamento do fluxo não ultrapassa horizontalmente a seção", () => {
+  const css = readFileSync(new URL("../../../src/presentation/web/static/app.css", import.meta.url), "utf8");
+  const ornamento = css.match(/#como-funciona::before \{([\s\S]*?)\n\}/)?.[1] || "";
+
+  assert.doesNotMatch(ornamento, /right:\s*-/);
 });
 
 test("cursor magnetico acompanha o mouse, reage aos alvos e limpa recursos", () => {
