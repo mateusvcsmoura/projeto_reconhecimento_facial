@@ -128,39 +128,3 @@ export function iniciarHero(canvas, root = globalThis.document) {
     pontos = [];
   };
 }
-
-export function iniciarMagnetismo(root = globalThis.document) {
-  const janela = root.defaultView;
-  if (!janela?.matchMedia?.("(hover: hover) and (pointer: fine)").matches
-      || janela.matchMedia("(prefers-reduced-motion: reduce)").matches) return () => {};
-  const abort = new AbortController();
-  const alvos = root.querySelectorAll("[data-magnetic]");
-  const animations = new WeakMap();
-  const mover = (rotulo, x, y) => {
-    animations.get(rotulo)?.cancel();
-    const animation = rotulo.animate(
-      [{ transform: "translate(0, 0)" }, { transform: `translate(${x}px, ${y}px)` }],
-      { duration: 140, easing: "ease-out", fill: "forwards" },
-    );
-    animations.set(rotulo, animation);
-  };
-  for (const alvo of alvos) {
-    const rotulo = alvo.querySelector(".magnetic-label") || alvo;
-    alvo.addEventListener("pointermove", (evento) => {
-      const caixa = alvo.getBoundingClientRect();
-      const dx = Math.max(-12, Math.min(12, (evento.clientX - caixa.left - caixa.width / 2) * 0.12));
-      const dy = Math.max(-8, Math.min(8, (evento.clientY - caixa.top - caixa.height / 2) * 0.12));
-      mover(rotulo, dx, dy);
-    }, { signal: abort.signal });
-    alvo.addEventListener("pointerleave", () => {
-      mover(rotulo, 0, 0);
-    }, { signal: abort.signal });
-  }
-  return () => {
-    abort.abort();
-    for (const alvo of alvos) {
-      const rotulo = alvo.querySelector(".magnetic-label") || alvo;
-      animations.get(rotulo)?.cancel();
-    }
-  };
-}

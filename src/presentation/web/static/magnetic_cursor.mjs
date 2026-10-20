@@ -1,4 +1,4 @@
-/** Acrescenta um halo visual ao cursor nativo somente na landing. */
+/** Acrescenta um cursor fluido com contraste invertido somente na landing. */
 export function iniciarCursorMagnetico(documento = globalThis.document) {
   const janela = documento?.defaultView;
   const noop = () => {};
@@ -25,33 +25,70 @@ export function iniciarCursorMagnetico(documento = globalThis.document) {
   let frame = 0;
   let animation = null;
   let ponteiro = null;
+  let posicao = null;
+  let velocidade = { x: 0, y: 0 };
+  let alvoAtivo = null;
 
   function ocultar() {
     if (frame) janela.cancelAnimationFrame(frame);
     frame = 0;
     ponteiro = null;
+    posicao = null;
+    velocidade = { x: 0, y: 0 };
+    alvoAtivo = null;
     animation?.cancel();
     animation = null;
     cursor.classList.remove("is-visible");
     cursor.classList.remove("is-attracted");
   }
 
+  function destino() {
+    if (!alvoAtivo?.getBoundingClientRect) return ponteiro;
+    const caixa = alvoAtivo.getBoundingClientRect();
+    const centroX = caixa.left + caixa.width / 2;
+    const centroY = caixa.top + caixa.height / 2;
+    return {
+      x: ponteiro.x + (centroX - ponteiro.x) * 0.55,
+      y: ponteiro.y + (centroY - ponteiro.y) * 0.55,
+    };
+  }
+
+  function agendar() {
+    if (!frame) frame = janela.requestAnimationFrame(posicionar);
+  }
+
   function posicionar() {
     frame = 0;
     if (!ponteiro) return;
+    const proxima = destino();
+    if (!posicao) posicao = { ...ponteiro };
+    const dx = proxima.x - posicao.x;
+    const dy = proxima.y - posicao.y;
+    velocidade.x = (velocidade.x + dx * 0.2) * 0.72;
+    velocidade.y = (velocidade.y + dy * 0.2) * 0.72;
+    posicao.x += velocidade.x;
+    posicao.y += velocidade.y;
     animation?.cancel();
-    const transform = `translate3d(${ponteiro.x}px, ${ponteiro.y}px, 0) translate(-50%, -50%)`;
+    const transform = `translate3d(${posicao.x}px, ${posicao.y}px, 0) translate(-50%, -50%)`;
     animation = cursor.animate(
       [{ transform }],
-      { duration: 1, fill: "forwards" },
+      { duration: 16, fill: "forwards" },
     );
     cursor.classList.add("is-visible");
+    if (
+      Math.abs(dx) > 0.1
+      || Math.abs(dy) > 0.1
+      || Math.abs(velocidade.x) > 0.1
+      || Math.abs(velocidade.y) > 0.1
+    ) {
+      agendar();
+    }
   }
 
   documento.addEventListener("pointermove", (evento) => {
     if (evento.pointerType && evento.pointerType !== "mouse") return;
     ponteiro = { x: evento.clientX, y: evento.clientY };
-    if (!frame) frame = janela.requestAnimationFrame(posicionar);
+    agendar();
   }, { passive: true, signal: abort.signal });
   documento.addEventListener("pointerout", (evento) => {
     if (!evento.relatedTarget) ocultar();
@@ -64,11 +101,15 @@ export function iniciarCursorMagnetico(documento = globalThis.document) {
   for (const alvo of alvos) {
     alvo.addEventListener("pointerenter", (evento) => {
       if (!evento.pointerType || evento.pointerType === "mouse") {
+        alvoAtivo = alvo;
         cursor.classList.add("is-attracted");
+        agendar();
       }
     }, { signal: abort.signal });
     alvo.addEventListener("pointerleave", () => {
+      if (alvoAtivo === alvo) alvoAtivo = null;
       cursor.classList.remove("is-attracted");
+      agendar();
     }, { signal: abort.signal });
   }
 

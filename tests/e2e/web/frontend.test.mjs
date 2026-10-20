@@ -198,9 +198,17 @@ test("cursor magnetico acompanha o mouse, reage aos alvos e limpa recursos", () 
     ambiente.cursor.animacoes[0].keyframes.at(-1).transform,
     /84px.*36px/,
   );
+  const xSemAtracao = extrairCoordenadaX(ambiente.cursor.animacoes.at(-1));
 
   ambiente.alvo.disparar("pointerenter", { pointerType: "mouse" });
   assert.equal(ambiente.cursor.classList.contains("is-attracted"), true);
+  ambiente.documento.disparar("pointermove", {
+    pointerType: "mouse", clientX: 84, clientY: 36,
+  });
+  ambiente.executarFrame();
+  const xComAtracao = extrairCoordenadaX(ambiente.cursor.animacoes.at(-1));
+  assert.ok(xComAtracao > xSemAtracao);
+  assert.ok(xComAtracao < 100);
   ambiente.alvo.disparar("pointerleave", { pointerType: "mouse" });
   assert.equal(ambiente.cursor.classList.contains("is-attracted"), false);
 
@@ -254,7 +262,10 @@ function criarAmbienteCursor({ coarse = false, reduzido = false } = {}) {
       if (indice >= 0) this.parentNode.children.splice(indice, 1);
     },
   };
-  const alvo = criarEventos();
+  const alvo = {
+    ...criarEventos(),
+    getBoundingClientRect() { return { left: 80, top: 20, width: 40, height: 40 }; },
+  };
   let frame;
   let criouCursor = false;
   const documento = {
@@ -281,6 +292,11 @@ function criarAmbienteCursor({ coarse = false, reduzido = false } = {}) {
     get criouCursor() { return criouCursor; },
     executarFrame() { frame?.(); },
   };
+}
+
+function extrairCoordenadaX(animacao) {
+  const transform = animacao.keyframes.at(-1).transform;
+  return Number(/translate3d\(([-\d.]+)px/.exec(transform)?.[1]);
 }
 
 function criarAlvo() {

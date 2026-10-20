@@ -358,31 +358,20 @@ p {
   z-index: 1001;
   top: 0;
   left: 0;
-  width: 30px;
-  height: 30px;
-  border: 1px solid #ffffff;
+  width: 40px;
+  height: 40px;
+  border: 0;
   border-radius: 50%;
+  background: #ffffff;
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
-  mix-blend-mode: difference;
+  mix-blend-mode: exclusion;
   transition:
     width 180ms var(--ease),
     height 180ms var(--ease),
     opacity 140ms ease,
     visibility 140ms ease;
-}
-
-.magnetic-cursor::after {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #ffffff;
-  content: "";
-  transform: translate(-50%, -50%);
 }
 
 .magnetic-cursor.is-visible {
@@ -391,8 +380,8 @@ p {
 }
 
 .magnetic-cursor.is-attracted {
-  width: 46px;
-  height: 46px;
+  width: 54px;
+  height: 54px;
 }
 
 .button--light {

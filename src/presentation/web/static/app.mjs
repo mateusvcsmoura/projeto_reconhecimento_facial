@@ -1,6 +1,6 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
 import { criarControladorCamera } from "./camera.mjs";
-import { iniciarHero, iniciarMagnetismo } from "./hero.mjs";
+import { iniciarHero } from "./hero.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
 
@@ -169,7 +169,6 @@ function landing() {
   const canvas = document.querySelector("#hero-particles");
   if (canvas) cleanup.push(iniciarHero(canvas));
   cleanup.push(iniciarRevelacaoScroll(document.querySelector("#conteudo")));
-  cleanup.push(iniciarMagnetismo(document));
   cleanup.push(iniciarCursorMagnetico(document));
 }
 
