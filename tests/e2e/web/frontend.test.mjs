@@ -375,17 +375,27 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     setItem(chave, valor) { armazenamento.set(chave, valor); },
   };
   globalThis.fetch = async (url) => {
-    if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/me")) {
+    if (["/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/me")) {
       return new Response(JSON.stringify({ id: 2, papel: "professor", troca_senha_obrigatoria: false }), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
-    if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/auth/csrf")) {
+    if (["/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/auth/csrf")) {
       return new Response(JSON.stringify({ csrf_token: "teste" }), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
     if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/turmas")) {
+      return new Response(JSON.stringify([]), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (globalThis.location.pathname === "/professor/turmas/1" && String(url).endsWith("/api/v1/turmas")) {
+      return new Response(JSON.stringify([{
+        id: 1, materia: "IA Aplicada", periodo: "noturno", responsavel_professor_id: 2,
+      }]), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    if (globalThis.location.pathname === "/professor/turmas/1" && String(url).endsWith("/api/v1/turmas/1/alunos")) {
       return new Response(JSON.stringify([]), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
@@ -429,6 +439,15 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     assert.match(raiz.innerHTML, /assets\/img\/logo\.png/);
     assert.match(raiz.innerHTML, /data-reveal/);
     assert.match(raiz.innerHTML, /data-magnetic/);
+
+    globalThis.location.pathname = "/professor/turmas/1";
+    globalThis.location.search = "";
+    globalThis.location.href = "http://localhost/professor/turmas/1";
+    await import(`${modulo}?turma-smoke=${Date.now()}`);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /Vínculos de alunos/);
+    assert.match(raiz.innerHTML, /Link de cadastro/);
+    assert.doesNotMatch(raiz.innerHTML, /Criar turma/);
   } finally {
     for (const chave of Object.keys(anteriores)) {
       if (anteriores[chave] === undefined) delete globalThis[chave];

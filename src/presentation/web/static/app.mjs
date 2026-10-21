@@ -35,7 +35,8 @@ function navLinks(ativo = "painel") {
     ["presencas", "Sessões e presenças"], ["revisoes", "Revisões"], ["relatorios", "Relatórios CSV"],
   ];
   if (sessao?.papel === "admin") links.push(["administracao", "Administração"]);
-  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" data-magnetic ${id === ativo ? 'aria-current="page"' : ""}><span class="magnetic-label">${nome}</span></a>`).join("");
+  const ativoNaNavegacao = ativo === "turma" ? "turmas" : ativo;
+  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" data-magnetic ${id === ativoNaNavegacao ? 'aria-current="page"' : ""}><span class="magnetic-label">${nome}</span></a>`).join("");
 }
 
 function limparRecursos() {
@@ -192,6 +193,8 @@ async function obterSessao() {
 }
 
 function lerView() {
+  const detalheTurma = location.pathname.match(/^\/professor\/turmas\/(\d+)\/?$/);
+  if (detalheTurma) return { view: "turma", turmaId: Number(detalheTurma[1]) };
   const parametros = new URLSearchParams(location.search);
   return { view: parametros.get("view") || "painel", turmaId: Number(parametros.get("turma")) || null };
 }
@@ -211,7 +214,7 @@ async function professor() {
     return;
   }
   const { view, turmaId } = lerView();
-  const allowed = ["painel", "turmas", "cadastros", "presencas", "revisoes", "relatorios", "administracao"];
+  const allowed = ["painel", "turmas", "turma", "cadastros", "presencas", "revisoes", "relatorios", "administracao"];
   const atual = allowed.includes(view) && (view !== "administracao" || conta.papel === "admin") ? view : "painel";
   root.innerHTML = `<div class="loading-screen" role="status">Carregando dados autorizados…</div>`;
   root.setAttribute("aria-busy", "true");
@@ -219,7 +222,7 @@ async function professor() {
     const turmas = await fetchTurmas();
     turmaAtual = turmas.find((turma) => turma.id === turmaId) || turmas[0] || null;
     const body = await construirTelaProfessor(atual, turmas, turmaAtual);
-    render(htmlBody(tituloView(atual), body));
+    render(htmlBody(tituloView(atual, turmaAtual), body));
     root.querySelector(`[data-view="${atual}"]`)?.setAttribute("aria-current", "page");
     root.querySelector("#conteudo h1")?.focus({ preventScroll: true });
     cleanup.push(iniciarRevelacaoScroll(root));
@@ -230,8 +233,9 @@ async function professor() {
   }
 }
 
-function tituloView(view) {
-  return ({ painel: "Painel da turma", turmas: "Turmas e vínculos", cadastros: "Solicitações de cadastro", presencas: "Sessões de presença", revisoes: "Revisões de presença", relatorios: "Relatórios CSV", administracao: "Administração de contas" })[view] || "Painel";
+function tituloView(view, turma = null) {
+  if (view === "turma") return turma ? `Turma: ${turma.materia}` : "Turma";
+  return ({ painel: "Painel da turma", turmas: "Turmas e v\u00ednculos", cadastros: "Solicita\u00e7\u00f5es de cadastro", presencas: "Sess\u00f5es de presen\u00e7a", revisoes: "Revis\u00f5es de presen\u00e7a", relatorios: "Relat\u00f3rios CSV", administracao: "Administra\u00e7\u00e3o de contas" })[view] || "Painel";
 }
 
 function seletorTurma(turmas, atual) {
@@ -241,12 +245,16 @@ function seletorTurma(turmas, atual) {
 
 function tabelaTurmas(turmas) {
   if (!turmas.length) return `<p class="empty-state">Nenhuma turma cadastrada.</p>`;
-  return `<div class="table-wrap" role="region" aria-label="Turmas" tabindex="0"><table><thead><tr><th>Turma</th><th>Período</th><th>Responsável</th><th>Ações</th></tr></thead><tbody>${turmas.map((turma) => `<tr><td>${texto(turma.materia)}</td><td>${texto(turma.periodo)}</td><td>${texto(turma.responsavel_professor_id)}</td><td><div class="table-actions">${button("Abrir", `select-class:${turma.id}`, "button--quiet")}<details><summary class="button button--quiet">Editar</summary><form class="form-grid" data-form="editar-turma" data-id="${turma.id}"><div class="field"><label for="materia-${turma.id}">Disciplina ou turma</label><input id="materia-${turma.id}" name="materia" value="${escapeHtml(turma.materia)}" required maxlength="120"></div><div class="field"><label for="periodo-${turma.id}">Período</label><select id="periodo-${turma.id}" name="periodo"><option value="matutino" ${turma.periodo === "matutino" ? "selected" : ""}>Matutino</option><option value="diurno" ${turma.periodo === "diurno" ? "selected" : ""}>Diurno</option><option value="noturno" ${turma.periodo === "noturno" ? "selected" : ""}>Noturno</option></select></div><button class="button button--dark" type="submit">Salvar alterações</button></form></details><details><summary class="button button--quiet">Excluir</summary><form class="form-grid" data-form="excluir-turma" data-id="${turma.id}">${field("Justificativa", "justificativa", 'required maxlength="500"')}<button class="button button--quiet" type="submit">Confirmar exclusão</button></form></details></div></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap" role="region" aria-label="Turmas" tabindex="0"><table><thead><tr><th>Turma</th><th>Período</th><th>Responsável</th><th>Ações</th></tr></thead><tbody>${turmas.map((turma) => `<tr><td>${texto(turma.materia)}</td><td>${texto(turma.periodo)}</td><td>${texto(turma.responsavel_professor_id)}</td><td><div class="table-actions">${button("Abrir", `open-class:${turma.id}`, "button--quiet")}<details><summary class="button button--quiet">Editar</summary><form class="form-grid" data-form="editar-turma" data-id="${turma.id}"><div class="field"><label for="materia-${turma.id}">Disciplina ou turma</label><input id="materia-${turma.id}" name="materia" value="${escapeHtml(turma.materia)}" required maxlength="120"></div><div class="field"><label for="periodo-${turma.id}">Período</label><select id="periodo-${turma.id}" name="periodo"><option value="matutino" ${turma.periodo === "matutino" ? "selected" : ""}>Matutino</option><option value="diurno" ${turma.periodo === "diurno" ? "selected" : ""}>Diurno</option><option value="noturno" ${turma.periodo === "noturno" ? "selected" : ""}>Noturno</option></select></div><button class="button button--dark" type="submit">Salvar alterações</button></form></details><details><summary class="button button--quiet">Excluir</summary><form class="form-grid" data-form="excluir-turma" data-id="${turma.id}">${field("Justificativa", "justificativa", 'required maxlength="500"')}<button class="button button--quiet" type="submit">Confirmar exclusão</button></form></details></div></td></tr>`).join("")}</tbody></table></div>`;
 }
 
 async function construirTelaProfessor(view, turmas, atual) {
   const seletor = seletorTurma(turmas, atual);
-  if (view === "turmas") return `<section class="section-block"><h2>Turmas acessíveis</h2>${tabelaTurmas(turmas)}</section><section class="section-block"><h2>Criar turma</h2><form class="form-grid" data-form="criar-turma">${field("Disciplina ou turma", "materia", 'required maxlength="120"') }<div class="field"><label for="periodo">Período</label><select id="periodo" name="periodo" required><option value="matutino">Matutino</option><option value="diurno">Diurno</option><option value="noturno">Noturno</option></select></div><div class="field field--wide"><button class="button button--dark" type="submit">Criar turma</button></div></form></section>${atual ? `<section class="section-block"><h2>Vínculos de alunos — ${texto(atual.materia)}</h2><form class="toolbar" data-form="vincular-aluno"><input aria-label="Matrícula do aluno" name="matricula" placeholder="Matrícula" maxlength="32" required><button class="button button--dark" type="submit">Vincular aluno existente</button></form><div data-lista-alunos>${await listaAlunos(atual.id)}</div><p class="field-hint">O vínculo não cria nem aprova cadastro facial.</p></section><section class="section-block"><h2>Link de cadastro</h2><p>O link dá acesso ao fluxo de coleta com aviso e consentimento. Compartilhe-o apenas com a pessoa destinada.</p>${button("Criar link de cadastro", "invite-create", "button--dark")}<div class="result-region" data-result="invite"></div></section>` : ""}`;
+  if (view === "turmas") return `<section class="section-block"><h2>Turmas acessíveis</h2><p class="field-hint">Abra uma turma para administrar os vínculos de alunos e gerar convites de cadastro.</p>${tabelaTurmas(turmas)}</section><section class="section-block"><h2>Criar turma</h2><form class="form-grid" data-form="criar-turma">${field("Disciplina ou turma", "materia", 'required maxlength="120"') }<div class="field"><label for="periodo">Período</label><select id="periodo" name="periodo" required><option value="matutino">Matutino</option><option value="diurno">Diurno</option><option value="noturno">Noturno</option></select></div><div class="field field--wide"><button class="button button--dark" type="submit">Criar turma</button></div></form></section>`;
+  if (view === "turma") {
+    if (!atual) return `<section class="section-block"><h2>Turma não encontrada</h2><p>A turma não está acessível para esta conta ou foi removida.</p><a class="button button--dark" href="/professor?view=turmas">Voltar para turmas</a></section>`;
+    return `<section class="section-block"><a class="inline-link" href="/professor?view=turmas">&larr; Todas as turmas</a><h2>Vínculos de alunos</h2><p class="field-hint">${texto(atual.materia)} &middot; ${texto(atual.periodo)}</p><form class="toolbar" data-form="vincular-aluno"><input aria-label="Matrícula do aluno" name="matricula" placeholder="Matrícula" maxlength="32" required><button class="button button--dark" type="submit">Vincular aluno existente</button></form><div data-lista-alunos>${await listaAlunos(atual.id)}</div><p class="field-hint">O vínculo não cria nem aprova cadastro facial.</p></section><section class="section-block"><h2>Link de cadastro</h2><p>O link dá acesso ao fluxo de coleta com aviso e consentimento. Compartilhe-o apenas com a pessoa destinada.</p>${button("Criar link de cadastro", "invite-create", "button--dark")}<div class="result-region" data-result="invite"></div></section>`;
+  }
   if (!atual && view !== "administracao") return `<section class="section-block"><h2>Comece por uma turma</h2><p>Crie ou vincule uma turma antes de abrir sessões.</p><a class="button button--dark" href="/professor?view=turmas">Ver turmas</a></section>`;
   if (view === "cadastros") {
     if (!atual) return `${seletor}<p class="empty-state">Selecione uma turma para revisar solicitações.</p>`;
@@ -931,13 +939,10 @@ document.addEventListener("click", async (event) => {
     sessao = null;
     location.assign("/");
   }
-  if (action?.startsWith("select-class:")) {
+  if (action?.startsWith("open-class:")) {
     event.preventDefault();
-    const id = action.slice("select-class:".length);
-    const url = new URL(location.href);
-    url.searchParams.set("turma", id);
-    history.pushState({}, "", url);
-    void professor();
+    const id = action.slice("open-class:".length);
+    location.assign(`/professor/turmas/${encodeURIComponent(id)}`);
   }
 });
 
