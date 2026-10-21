@@ -25,9 +25,9 @@ const dataLocal = (valor) => {
 };
 const apiPath = (path) => `/api/v1${path}`;
 const mensagem = (valor, tipo = "") => `<div class="notice ${tipo ? `notice--${tipo}` : ""}" role="status">${escapeHtml(valor)}</div>`;
-const button = (rotulo, action, extra = "") => `<button class="button ${extra}" type="button" data-action="${escapeHtml(action)}">${escapeHtml(rotulo)}</button>`;
+const button = (rotulo, action, extra = "") => `<button class="button ${extra}" type="button" data-action="${escapeHtml(action)}" data-magnetic><span class="magnetic-label">${escapeHtml(rotulo)}</span></button>`;
 const field = (label, name, attrs = "", hint = "") => `<div class="field"><label for="${escapeHtml(name)}">${escapeHtml(label)}</label><input id="${escapeHtml(name)}" name="${escapeHtml(name)}" ${attrs}>${hint ? `<p class="field-hint">${escapeHtml(hint)}</p>` : ""}</div>`;
-const htmlBody = (title, content) => `<div class="page-shell"><header class="app-header"><a class="app-identity" href="/" aria-label="FaceDiff, início"><strong>FaceDiff</strong><span>Presença acadêmica</span></a><div class="app-header__actions"><a class="button button--quiet" href="/">Página inicial</a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar"><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title"><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div>${content}</main></div></div>`;
+const htmlBody = (title, content) => `<div class="page-shell page-shell--animated"><header class="app-header" data-reveal><a class="app-identity" href="/" aria-label="FaceDiff, início"><img class="app-identity__logo" src="/assets/img/logo.png" alt="FaceDiff" fetchpriority="high"><span>Presença acadêmica</span></a><div class="app-header__actions"><a class="button button--quiet" href="/" data-magnetic><span class="magnetic-label">Página inicial</span></a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar" data-reveal><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title" data-reveal><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div><div class="app-content" data-reveal>${content}</div></main></div></div>`;
 
 function navLinks(ativo = "painel") {
   const links = [
@@ -35,7 +35,7 @@ function navLinks(ativo = "painel") {
     ["presencas", "Sessões e presenças"], ["revisoes", "Revisões"], ["relatorios", "Relatórios CSV"],
   ];
   if (sessao?.papel === "admin") links.push(["administracao", "Administração"]);
-  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" ${id === ativo ? 'aria-current="page"' : ""}>${nome}</a>`).join("");
+  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" data-magnetic ${id === ativo ? 'aria-current="page"' : ""}><span class="magnetic-label">${nome}</span></a>`).join("");
 }
 
 function limparRecursos() {
@@ -222,6 +222,8 @@ async function professor() {
     render(htmlBody(tituloView(atual), body));
     root.querySelector(`[data-view="${atual}"]`)?.setAttribute("aria-current", "page");
     root.querySelector("#conteudo h1")?.focus({ preventScroll: true });
+    cleanup.push(iniciarRevelacaoScroll(root));
+    cleanup.push(iniciarCursorMagnetico(document));
     bindProfessor(turmas, turmaAtual);
   } catch (erro) {
     render(`<main class="not-found wrap" id="conteudo"><p class="eyebrow">Área do professor</p><h1>Não foi possível carregar.</h1>${mensagem(mostrarErro(erro), "error")}<a class="button button--dark" href="/login">Voltar ao acesso</a></main>`);

@@ -358,7 +358,7 @@ function criarAlvo() {
 
 test("shell da interface monta landing e login em um navegador sintético", async () => {
   const anteriores = Object.fromEntries(["document", "window", "location", "sessionStorage", "fetch"].map((chave) => [chave, globalThis[chave]]));
-  const raiz = { innerHTML: "", setAttribute() {} };
+  const raiz = { innerHTML: "", setAttribute() {}, querySelector() { return null; } };
   const armazenamento = new Map();
   const fakeDocument = {
     hidden: false,
@@ -374,10 +374,27 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     getItem(chave) { return armazenamento.get(chave) ?? null; },
     setItem(chave, valor) { armazenamento.set(chave, valor); },
   };
-  globalThis.fetch = async () => new Response(JSON.stringify({ mensagem: "Sessão ausente" }), {
-    status: 401,
-    headers: { "Content-Type": "application/json" },
-  });
+  globalThis.fetch = async (url) => {
+    if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/me")) {
+      return new Response(JSON.stringify({ id: 2, papel: "professor", troca_senha_obrigatoria: false }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/auth/csrf")) {
+      return new Response(JSON.stringify({ csrf_token: "teste" }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/turmas")) {
+      return new Response(JSON.stringify([]), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ mensagem: "Sessão ausente" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
 
   try {
     const modulo = new URL("../../../src/presentation/web/static/app.mjs", import.meta.url).href;
@@ -401,6 +418,16 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     assert.match(raiz.innerHTML, /class="login-layout login-layout--animated"/);
     assert.match(raiz.innerHTML, /wordmark wordmark--inverse/);
     assert.match(raiz.innerHTML, /assets\/img\/logo-white\.png/);
+    assert.match(raiz.innerHTML, /data-magnetic/);
+
+    globalThis.location.pathname = "/professor";
+    globalThis.location.search = "?view=painel";
+    globalThis.location.href = "http://localhost/professor?view=painel";
+    await import(`${modulo}?professor-smoke=${Date.now()}`);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /page-shell--animated/);
+    assert.match(raiz.innerHTML, /assets\/img\/logo\.png/);
+    assert.match(raiz.innerHTML, /data-reveal/);
     assert.match(raiz.innerHTML, /data-magnetic/);
   } finally {
     for (const chave of Object.keys(anteriores)) {

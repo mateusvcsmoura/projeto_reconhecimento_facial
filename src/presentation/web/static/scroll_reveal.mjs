@@ -11,7 +11,8 @@ export function iniciarRevelacaoScroll(conteudo = globalThis.document) {
   const alvos = [...conteudo.querySelectorAll(
     ".hero__copy, .hero__art, #como-funciona .section-heading, "
     + "#como-funciona .steps, #como-funciona .step, #duvidas .faq-intro, "
-    + "#duvidas .faq-list, #duvidas .faq-item",
+    + "#duvidas .faq-list, #duvidas .faq-item, [data-reveal], "
+    + ".app-content .section-block",
   )];
   if (!alvos.length) return () => {};
 

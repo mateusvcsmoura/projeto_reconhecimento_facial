@@ -581,6 +581,31 @@ p {
   transform: translate3d(0, 0, 0);
 }
 
+.scroll-reveal-ready [data-reveal].scroll-reveal,
+.scroll-reveal-ready .app-content .section-block.scroll-reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition: opacity 360ms var(--ease), transform 360ms var(--ease);
+}
+
+.scroll-reveal-ready .app-sidebar.scroll-reveal {
+  transition-delay: 70ms;
+}
+
+.scroll-reveal-ready .app-content .section-block:nth-child(2) {
+  transition-delay: 80ms;
+}
+
+.scroll-reveal-ready .app-content .section-block:nth-child(3) {
+  transition-delay: 140ms;
+}
+
+.scroll-reveal-ready [data-reveal].scroll-reveal.is-visible,
+.scroll-reveal-ready .app-content .section-block.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
 .section {
   padding-block: clamp(72px, 10vw, 128px);
 }
@@ -836,6 +861,13 @@ p {
   gap: 1px;
 }
 
+.app-identity__logo {
+  width: 74px;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .app-identity strong {
   font-size: 0.92rem;
 }
@@ -874,6 +906,13 @@ p {
   border-left: 2px solid transparent;
   color: #3f3f3f;
   text-decoration: none;
+  transition: color 180ms var(--ease), background 180ms var(--ease), transform 180ms var(--ease);
+}
+
+.app-sidebar a:hover {
+  color: var(--ink);
+  background: #f0f0f0;
+  transform: translateX(3px);
 }
 
 .app-sidebar a[aria-current="page"] {
@@ -910,6 +949,30 @@ p {
 .section-block {
   padding-block: 24px;
   border-top: 1px solid var(--line);
+}
+
+.page-shell--animated .app-header {
+  animation: dashboard-enter 520ms var(--ease) both;
+}
+
+.page-shell--animated .app-sidebar {
+  animation: dashboard-enter 620ms 90ms var(--ease) both;
+}
+
+.page-shell--animated .page-title {
+  animation: dashboard-enter 620ms 140ms var(--ease) both;
+}
+
+@keyframes dashboard-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .section-block h2 {
