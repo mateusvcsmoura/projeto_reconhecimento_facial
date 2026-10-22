@@ -1603,6 +1603,18 @@ tbody tr:last-child td {
   transform: scaleX(-1);
 }
 
+.camera-instruction {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+  margin: 0;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .camera-stage__placeholder {
   position: absolute;
   inset: 0;

@@ -195,10 +195,16 @@ function iniciarNovoCadastroCompartilhado() {
   location.assign(caminho);
 }
 
-function cameraMarkup({ guiaFacial = false } = {}) {
+// "Cabeça" e não "olhe": o servidor mede a rotação do rosto, não a direção do olhar.
+const INSTRUCOES_POSE = { frente: "Olhe de frente para a câmera", esquerda: "Vire a cabeça para a esquerda", direita: "Vire a cabeça para a direita" };
+const instrucaoPose = (passo) => INSTRUCOES_POSE[passo] || passo;
+
+function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas>` : "";
+  // Legenda sobre o vídeo: a orientação fica visível junto da câmera, não só no topo da página.
+  const legenda = instrucao ? `<p class="camera-instruction" data-camera-instruction>${escapeHtml(instrucao)}</p>` : "";
   const statusGuia = guiaFacial ? `<p class="field-hint" data-landmarks-status aria-live="polite">O guia facial será iniciado junto com a câmera. Ele é local e não substitui a validação do servidor.</p>` : "";
-  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span></div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
+  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
 function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}) {
@@ -218,10 +224,10 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
     status.className = type ? `notice notice--${type}` : "field-hint";
     status.textContent = value;
   };
-  const scheduleAutomaticCapture = () => {
+  const scheduleAutomaticCapture = (prefixo = "") => {
     if (autoCaptureMs === null || !camera.stream || !video.isConnected || capturing || captureButton?.disabled) return;
     clearTimeout(automaticTimer);
-    setStatus("Captura automática em 3 segundos. Você também pode capturar antes ou encerrar a câmera.");
+    setStatus(`${prefixo}Captura automática em 3 segundos. Você também pode capturar antes ou encerrar a câmera.`, prefixo ? "success" : "");
     automaticTimer = setTimeout(() => { void takeCapture(); }, autoCaptureMs);
   };
   const takeCapture = async () => {
@@ -240,10 +246,15 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
       captureButton.textContent = "Capturando…";
     }
     setStatus("Registrando esta etapa localmente…");
+    let falhou = false;
+    let proximoStatus = null;
     try {
       const captura = camera.capturar(video, document.querySelector("#capture-canvas"));
-      await onCapture(captura);
+      proximoStatus = await onCapture(captura);
+      if (proximoStatus) setStatus(proximoStatus, "success");
+      else if (!camera.stream) setStatus("Câmera encerrada.");
     } catch (erro) {
+      falhou = true;
       setStatus(erro.message || "A imagem ainda não está pronta.", "error");
     } finally {
       capturing = false;
@@ -252,11 +263,14 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
           captureButton.disabled = false;
           captureButton.textContent = captureButtonLabel;
         }
-        scheduleAutomaticCapture();
+        // Após falha, só nova captura manual: reagendar reenviaria em laço a cada 3 s.
+        if (!falhou) scheduleAutomaticCapture(proximoStatus ? `${proximoStatus} ` : "");
       }
     }
   };
   const start = async () => {
+    // Só libera a captura depois do guia e do onStart (que pode renovar o desafio).
+    if (captureButton) captureButton.disabled = true;
     try {
       await camera.iniciar(video, deviceSelect.value || null);
       const modo = camera.stream?.getVideoTracks?.()[0]?.getSettings?.().facingMode;
@@ -274,8 +288,14 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
       const devices = await camera.enumerar();
       deviceSelect.replaceChildren(new Option("Câmera padrão", ""));
       devices.forEach((item, index) => deviceSelect.add(new Option(item.label || `Câmera ${index + 1}`, item.deviceId)));
+      if (captureButton) {
+        captureButton.disabled = false;
+        captureButton.textContent = captureButtonLabel;
+      }
       scheduleAutomaticCapture();
     } catch (erro) {
+      camera.encerrar(video);
+      landmarks?.encerrar(landmarksCanvas);
       setStatus(erro.message || "Não foi possível abrir a câmera.", "error");
       placeholder.hidden = false;
     }
@@ -751,27 +771,45 @@ async function mostrarFormularioCadastro(credencial, erroInicial = null) {
   });
 }
 
-function mostrarColetaCadastro(credencial, id, desafio) {
-  const sequencia = Array.isArray(desafio?.sequencia) ? desafio.sequencia : ["frente", "movimento indicado", "frente"];
+function mostrarColetaCadastro(credencial, id, desafioInicial) {
+  let desafio = desafioInicial;
+  const sequenciaDe = (atual) => Array.isArray(atual?.sequencia) ? atual.sequencia : ["frente", "movimento indicado", "frente"];
+  let sequencia = sequenciaDe(desafio);
   let capturas = [];
-  const labels = { frente: "Olhe para a câmera", esquerda: "Vire levemente para a esquerda", direita: "Vire levemente para a direita" };
-  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(labels[sequencia[0]] || sequencia[0])}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
+  const instrucao = instrucaoPose;
+  const legendaEtapa = (indice) => `Etapa ${indice + 1} de 3: ${instrucao(sequencia[indice])}`;
+  const mostrarEtapa = (indice) => {
+    const numero = document.querySelector("[data-stage-number]");
+    const orientacao = document.querySelector("[data-stage-instruction]");
+    const legenda = document.querySelector("[data-camera-instruction]");
+    if (numero) numero.textContent = String(indice + 1);
+    if (orientacao) orientacao.textContent = instrucao(sequencia[indice]);
+    if (legenda) legenda.textContent = legendaEtapa(indice);
+    document.querySelectorAll("[data-progress]").forEach((item, index) => {
+      if (index === indice) item.setAttribute("aria-current", "step");
+      else item.removeAttribute("aria-current");
+    });
+  };
+  // O servidor dá 120 s por sequência; renovar ao ligar a câmera evita gastar o prazo no formulário.
+  const renovarDesafio = async () => {
+    const atual = await api.post(apiPath(`/cadastros/${id}/desafio`), {}, { headers: { Authorization: `Bearer ${credencial}` } });
+    desafio = atual.desafio;
+    sequencia = sequenciaDe(desafio);
+    capturas = [];
+    salvarEstado("cadastro.desafio", desafio);
+    mostrarEtapa(0);
+    const result = document.querySelector("[data-capture-result]");
+    if (result) result.innerHTML = "";
+  };
+  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(instrucao(sequencia[0]))}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
   bindCamera(async (captura) => {
     capturas.push(captura.base64);
     const etapa = capturas.length;
-    document.querySelector(`[data-progress="${etapa - 1}"]`)?.setAttribute("aria-current", "step");
-    const numero = document.querySelector("[data-stage-number]");
-    const orientacao = document.querySelector("[data-stage-instruction]");
     const botao = document.querySelector('[data-action="capture-step"]');
     if (etapa < 3) {
-      if (numero) numero.textContent = String(etapa + 1);
-      if (orientacao) orientacao.textContent = labels[sequencia[etapa]] || sequencia[etapa];
-      document.querySelectorAll("[data-progress]").forEach((item, index) => {
-        if (index === etapa) item.setAttribute("aria-current", "step");
-        else item.removeAttribute("aria-current");
-      });
+      mostrarEtapa(etapa);
       avisar(`Captura ${etapa} recebida localmente. Siga a próxima orientação.`);
-      return;
+      return `Etapa ${etapa} de 3 registrada. Agora: ${instrucao(sequencia[etapa])}.`;
     }
     botao.disabled = true;
     const result = document.querySelector("[data-capture-result]");
@@ -788,6 +826,13 @@ function mostrarColetaCadastro(credencial, id, desafio) {
       iniciarAcompanhamentoCadastro(credencial, id);
       result.innerHTML = mensagem("Capturas recebidas. Acompanhe o estado informado pelo serviço.");
     } catch (erro) {
+      if (erro?.status === 409) {
+        // Nonce expirado ou já usado: reenviar as mesmas imagens nunca passa.
+        capturas = [];
+        mostrarEtapa(0);
+        result.innerHTML = mensagem("A sequência de captura expirou. Clique em “Iniciar câmera” para receber uma nova sequência e repita as três etapas.", "error");
+        return;
+      }
       result.innerHTML = `${mensagem(mostrarErro(erro), "error")}<p>As imagens continuam somente na memória desta página. Você pode tentar enviar novamente enquanto ela permanecer aberta.</p>${button("Tentar envio novamente", "cadastro-retry", "button--dark")}`;
       document.querySelector('[data-action="cadastro-retry"]')?.addEventListener("click", async () => {
         try {
@@ -799,7 +844,13 @@ function mostrarColetaCadastro(credencial, id, desafio) {
         } catch (falha) { result.innerHTML = mensagem(mostrarErro(falha), "error"); }
       });
     }
-  }, { autoCaptureMs: null, onStart: () => avisar("Câmera pronta. Confira o guia facial e capture cada etapa somente quando estiver na posição pedida.") });
+  }, {
+    autoCaptureMs: null,
+    onStart: async () => {
+      await renovarDesafio();
+      avisar(`Câmera pronta. Etapa 1: ${instrucao(sequencia[0])}. Capture cada etapa somente quando estiver na posição pedida.`);
+    },
+  });
   document.querySelector('[data-action="student-cancel"]')?.addEventListener("click", () => {
     camera.encerrar(document.querySelector("#camera-video"));
     capturas = [];
@@ -1010,31 +1061,56 @@ function mostrarAguardandoPresenca(estado, status) {
   });
 }
 
-function mostrarDesafioPresenca(estado, desafio) {
+function mostrarDesafioPresenca(estado, desafioInicial) {
+  let desafio = desafioInicial;
+  const instrucaoDe = (atual) => instrucaoPose(atual.orientacao || atual.direcao_movimento || "siga a orientação do servidor");
+  const legendaDe = (atual) => `Etapa ${texto(atual.etapa)} de 3: ${instrucaoDe(atual)}`;
+  const prazoDe = (atual) => `Prazo indicado pelo serviço: ${dataLocal(atual.expira_em || estado["presenca.expira_em"])}`;
   salvarEstado("presenca.desafio", desafio);
-  const orientacao = desafio.orientacao || desafio.direcao_movimento || "siga a orientação do servidor";
-  const instrucoes = { frente: "Olhe para a câmera", esquerda: "Vire levemente para a esquerda", direita: "Vire levemente para a direita" };
-  const instrucao = instrucoes[orientacao] || orientacao;
-  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação atual emitida pelo servidor. A captura é enviada para validação; este navegador não avalia movimento nem identidade.", `<p class="challenge-step"><span class="challenge-step__number">${texto(desafio.etapa)}</span><strong>${escapeHtml(instrucao)}</strong></p><p class="field-hint">Prazo indicado pelo serviço: ${dataLocal(desafio.expira_em || estado["presenca.expira_em"])}</p>${cameraMarkup()}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div><section class="accessibility-note"><h2>O desafio não é possível?</h2><p>Interrompa a câmera e solicite revisão manual na tela de início, com uma justificativa.</p>${button("Solicitar revisão acessível", "presenca-accessible", "button--quiet")}</section>` , "Presença");
+  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação atual emitida pelo servidor. A captura é enviada para validação; este navegador não avalia movimento nem identidade.", `<p class="challenge-step"><span class="challenge-step__number" data-stage-number>${texto(desafio.etapa)}</span><strong data-stage-instruction>${escapeHtml(instrucaoDe(desafio))}</strong></p><p class="field-hint" data-stage-deadline>${escapeHtml(prazoDe(desafio))}</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaDe(desafio) })}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}</div><div data-capture-result role="status" aria-live="polite"></div><section class="accessibility-note"><h2>O desafio não é possível?</h2><p>Interrompa a câmera e solicite revisão manual na tela de início, com uma justificativa.</p>${button("Solicitar revisão acessível", "presenca-accessible", "button--quiet")}</section>` , "Presença");
+  const controller = new AbortController();
+  cleanup.push(() => controller.abort());
+  // Atualiza a etapa na mesma tela: a câmera e o guia continuam ligados entre as etapas.
+  const mostrarEtapa = (atual) => {
+    desafio = atual;
+    salvarEstado("presenca.desafio", atual);
+    const definir = (seletor, valor) => { const elemento = document.querySelector(seletor); if (elemento) elemento.textContent = valor; };
+    definir("h1", `Etapa ${texto(atual.etapa)}`);
+    definir("[data-stage-number]", texto(atual.etapa));
+    definir("[data-stage-instruction]", instrucaoDe(atual));
+    definir("[data-stage-deadline]", prazoDe(atual));
+    definir("[data-camera-instruction]", legendaDe(atual));
+  };
   bindCamera(async (captura) => {
-    const boton = document.querySelector('[data-action="capture-step"]');
     const resultado = document.querySelector("[data-capture-result]");
-    boton.disabled = true;
-    resultado.textContent = "Enviando captura da etapa informada…";
+    const etapaEnviada = Number(desafio.etapa);
+    resultado.className = "";
+    resultado.textContent = `Enviando a captura da etapa ${etapaEnviada}…`;
     try {
       await api.post(apiPath(`/tentativas/${encodeURIComponent(estado["presenca.tentativa_id"])}/capturas`), {
-        etapa: Number(desafio.etapa), nonce: desafio.nonce, captura_base64: captura.base64,
+        etapa: etapaEnviada, nonce: desafio.nonce, captura_base64: captura.base64,
       }, { headers: { Authorization: `Bearer ${estado["presenca.credencial_captura"]}` } });
-      camera.encerrar(document.querySelector("#camera-video"));
       salvarEstado("presenca.desafio", null);
-      const atual = await consultarTentativa(estadoSalvo());
-      await continuarTentativa(estadoSalvo(), atual);
+      resultado.textContent = `Etapa ${etapaEnviada} enviada. Aguardando a validação do servidor…`;
+      // O servidor só avança de etapa ou encerra a tentativa; nunca reemite a mesma etapa.
+      const atual = await acompanharOperacao(() => consultarTentativa(estadoSalvo(), controller.signal), {
+        concluida: (valor) => terminalPresenca(valor.estado) || Number(valor.desafio?.etapa) > etapaEnviada,
+        intervaloMaximoMs: 4000,
+        signal: controller.signal,
+      });
+      if (terminalPresenca(atual.estado)) {
+        finalizarPresenca(atual.estado);
+        return undefined;
+      }
+      mostrarEtapa(atual.desafio);
+      resultado.textContent = "";
+      avisar(`Etapa ${etapaEnviada} validada. ${legendaDe(atual.desafio)}.`);
+      return `Etapa ${etapaEnviada} validada. Agora: ${instrucaoDe(atual.desafio)}.`;
     } catch (erro) {
-      boton.disabled = false;
-      resultado.textContent = mostrarErro(erro);
-      resultado.className = "notice notice--error";
+      resultado.textContent = "";
+      throw new Error(mostrarErro(erro));
     }
-  }, { autoCaptureMs: 3000, onStart: () => avisar("Câmera pronta. Posicione-se conforme a orientação; a captura começa em três segundos. Você pode capturar antes.") });
+  }, { autoCaptureMs: 3000, onStart: () => avisar(`Câmera pronta. ${legendaDe(desafio)}. A captura começa em três segundos; você pode capturar antes.`) });
   document.querySelector('[data-action="presenca-accessible"]')?.addEventListener("click", () => {
     camera.encerrar(document.querySelector("#camera-video"));
     const original = estadoSalvo();
