@@ -313,7 +313,9 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
                     media_type="application/octet-stream",
                     headers={"Cache-Control": "public, max-age=86400"},
                 )
-        raise HTTPException(status_code=404, detail="Modelo do guia facial indisponível.")
+        raise HTTPException(
+            status_code=404, detail="Modelo do guia facial indisponível."
+        )
 
     app.add_api_route(
         "/assets/models/face_landmarker.task",
@@ -465,7 +467,10 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
         )
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self'; "
+            # wasm-unsafe-eval só libera compilar WebAssembly (guia MediaPipe);
+            # eval de JavaScript continua bloqueado.
+            "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
+            "worker-src 'self' blob:; style-src 'self'; "
             "img-src 'self' data: blob:; media-src 'self' blob:; "
             "connect-src 'self'; font-src 'self'; object-src 'none'; "
             "base-uri 'self'; form-action 'self'; frame-ancestors 'none'",

@@ -80,9 +80,11 @@ def test_interface_entrega_shell_local_com_layout_responsivo_e_sem_cdn() -> None
     assert headers["x-content-type-options"] == "nosniff"
     assert "default-src 'self'" in headers["content-security-policy"]
     assert "worker-src 'self' blob:" in headers["content-security-policy"]
+    # O guia facial compila WebAssembly; sem isso o Chrome aborta o MediaPipe.
+    assert "script-src 'self' 'wasm-unsafe-eval';" in headers["content-security-policy"]
     assert 'name="viewport"' in html
-    assert 'href="/assets/app.css"' in html
-    assert 'src="/assets/app.mjs"' in html
+    assert 'href="/assets/app.css?v=' in html
+    assert 'src="/assets/app.mjs?v=' in html
     assert "FaceDiff" in html
     assert "https://" not in html
 
@@ -136,7 +138,9 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     )
     assert vision_status == 200
     assert b"FaceLandmarker" in vision
-    model_status, model_headers, model = _get(app, "/assets/models/face_landmarker.task")
+    model_status, model_headers, model = _get(
+        app, "/assets/models/face_landmarker.task"
+    )
     assert model_status == 200
     assert model_headers["content-type"].startswith("application/octet-stream")
     assert len(model) > 1_000_000
