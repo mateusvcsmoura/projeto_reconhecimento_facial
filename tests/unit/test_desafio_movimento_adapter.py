@@ -43,8 +43,10 @@ def _adapter(detector: DetectorFake) -> Any:
 def test_pose_admite_frente_e_movimentos_leves_nas_duas_direcoes() -> None:
     assert importlib.util.find_spec(MODULO) is not None, "Adapter ainda ausente."
     modulo = importlib.import_module(MODULO)
-    esquerda = _adapter(DetectorFake((_pontos(-0.18),)))
-    direita = _adapter(DetectorFake((_pontos(0.18),)))
+    # Frame cru da câmera frontal (não espelhado): quando a pessoa vira para a
+    # própria esquerda, o nariz se desloca para a direita da imagem (x maior).
+    esquerda = _adapter(DetectorFake((_pontos(0.18),)))
+    direita = _adapter(DetectorFake((_pontos(-0.18),)))
     frente = _adapter(DetectorFake((_pontos(0.0),)))
 
     assert esquerda.analisar(object()).orientacao is modulo.OrientacaoPose.ESQUERDA

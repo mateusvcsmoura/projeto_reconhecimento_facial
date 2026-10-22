@@ -85,8 +85,11 @@ class DesafioMovimentoAdapter:
         if magnitude <= self.FRENTE_MAXIMO:
             orientacao = OrientacaoPose.FRENTE
         elif self.VIRADA_MINIMA <= magnitude <= self.VIRADA_MAXIMA:
+            # O frame chega cru (sem espelhamento): a esquerda da pessoa fica à
+            # direita da imagem. A orientação segue a perspectiva da pessoa, a
+            # mesma das instruções exibidas na prévia espelhada.
             orientacao = (
-                OrientacaoPose.DIREITA if deslocamento > 0 else OrientacaoPose.ESQUERDA
+                OrientacaoPose.ESQUERDA if deslocamento > 0 else OrientacaoPose.DIREITA
             )
         else:
             orientacao = OrientacaoPose.INDETERMINADA
