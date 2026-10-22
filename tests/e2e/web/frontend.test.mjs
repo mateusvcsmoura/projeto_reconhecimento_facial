@@ -7,12 +7,37 @@ import { CameraError, criarControladorCamera } from "../../../src/presentation/w
 import { desenharLandmarks } from "../../../src/presentation/web/static/landmarks.mjs";
 import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
+import {
+  caminhoParaNovoAcessoPublico,
+  limparSolicitacaoPublica,
+  registrarTokenCompartilhado,
+} from "../../../src/presentation/web/static/public_link_session.mjs";
 
 function deferred() {
   let resolve;
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 }
+
+test("novo cadastro preserva o link compartilhado e descarta a solicitacao anterior", () => {
+  const estadoInicial = {
+    "cadastro.token_link": "convite-da-turma",
+    "cadastro.credencial": "credencial-da-aluna-anterior",
+    "cadastro.id": 41,
+    "cadastro.desafio": { nonce: "desafio-anterior" },
+    "cadastro.idempotency": "idempotencia-anterior",
+    "presenca.credencial": "nao-deve-ser-alterada",
+  };
+
+  const comLink = registrarTokenCompartilhado(estadoInicial, "cadastro", "convite-da-turma");
+  const proximo = limparSolicitacaoPublica(comLink, "cadastro");
+
+  assert.deepEqual(proximo, {
+    "cadastro.token_link": "convite-da-turma",
+    "presenca.credencial": "nao-deve-ser-alterada",
+  });
+  assert.equal(caminhoParaNovoAcessoPublico(proximo, "cadastro"), "/cadastro/convite-da-turma");
+});
 
 test("guia de landmarks desenha apenas os pontos locais detectados", () => {
   const operacoes = [];

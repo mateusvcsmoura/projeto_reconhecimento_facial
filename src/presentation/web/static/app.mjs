@@ -3,6 +3,11 @@ import { criarControladorCamera } from "./camera.mjs";
 import { criarVisualizadorLandmarks } from "./landmarks.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
+import {
+  caminhoParaNovoAcessoPublico,
+  limparSolicitacaoPublica,
+  registrarTokenCompartilhado,
+} from "./public_link_session.mjs";
 
 const api = criarClienteApi();
 const root = document.querySelector("#app");
@@ -164,10 +169,30 @@ function salvarEstado(chave, valor) {
   catch { /* Sessão privada indisponível: continua sem persistência local. */ }
 }
 
+function salvarEstadoCompleto(estado) {
+  try { sessionStorage.setItem(ESTADO_CHAVE, JSON.stringify(estado)); }
+  catch { /* Sessao privada indisponivel: continua sem persistencia local. */ }
+}
+
 function limparEstadoPublico(tipo) {
   const estado = estadoSalvo();
   for (const chave of Object.keys(estado)) if (chave.startsWith(`${tipo}.`)) delete estado[chave];
   try { sessionStorage.setItem(ESTADO_CHAVE, JSON.stringify(estado)); } catch { /* Sem armazenamento local. */ }
+}
+
+function prepararNovoAcessoPublico(tipo) {
+  const estado = limparSolicitacaoPublica(estadoSalvo(), tipo);
+  salvarEstadoCompleto(estado);
+  return caminhoParaNovoAcessoPublico(estado, tipo);
+}
+
+function iniciarNovoCadastroCompartilhado() {
+  const caminho = prepararNovoAcessoPublico("cadastro");
+  if (!caminho) {
+    studentLayout("Cadastro facial", "Não foi possível localizar o link compartilhado.", mensagem("Abra novamente o link da turma enviado pelo professor.", "error"));
+    return;
+  }
+  location.assign(caminho);
 }
 
 function cameraMarkup({ guiaFacial = false } = {}) {
@@ -481,7 +506,7 @@ function bindProfessor(turmas, atual) {
     try {
       const link = await api.post(apiPath(`/turmas/${atual.id}/links-cadastro`), {});
       const href = `${location.origin}/cadastro/${encodeURIComponent(link.token)}`;
-      result.innerHTML = `<div class="notice"><p>Link de uso único. Copie e compartilhe apenas com a pessoa destinada.</p><a class="code-line" href="${escapeHtml(href)}">${escapeHtml(href)}</a><p class="field-hint">Expira em ${dataLocal(link.expira_em)}. Não atualize a página antes de copiar.</p></div>`;
+      result.innerHTML = `<div class="notice"><p>Link da turma. Compartilhe com os alunos que precisam iniciar o próprio cadastro.</p><a class="code-line" href="${escapeHtml(href)}">${escapeHtml(href)}</a><p class="field-hint">Cada acesso recebe uma credencial temporária individual. Expira em ${dataLocal(link.expira_em)}.</p></div>`;
       result.querySelector("a")?.focus();
     } catch (erro) { result.innerHTML = mensagem(mostrarErro(erro), "error"); }
   });
@@ -620,8 +645,14 @@ function guardarCredencialPublica(tipo, acesso) {
 
 async function credencialDoLink(tipo, token) {
   if (token) {
+    const estadoAnterior = estadoSalvo();
+    if (
+      estadoAnterior[`${tipo}.token_link`] === token
+      && estadoAnterior[`${tipo}.credencial`]
+    ) return estadoAnterior[`${tipo}.credencial`];
     const acesso = await api.post(apiPath("/acessos-link"), { token }, { csrf: false });
     if (acesso.finalidade !== tipo) throw new ApiError("Este link não corresponde a este fluxo.", { status: 404 });
+    salvarEstadoCompleto(registrarTokenCompartilhado(estadoAnterior, tipo, token));
     guardarCredencialPublica(tipo, acesso);
     history.replaceState({}, "", `/${tipo}`);
     return acesso.credencial;
@@ -667,7 +698,9 @@ async function paginaCadastro(token) {
         return;
       }
     } catch (erro) {
-      studentLayout("Cadastro facial", "Não foi possível retomar esta solicitação.", mensagem(codigoErroPublico(erro), "error"));
+      const podeIniciarNovo = caminhoParaNovoAcessoPublico(estado, "cadastro");
+      studentLayout("Cadastro facial", "Não foi possível retomar esta solicitação.", `${mensagem(codigoErroPublico(erro), "error")}${podeIniciarNovo ? `<p class="field-hint">O link da turma continua disponível para outro cadastro.</p>${button("Iniciar novo cadastro", "cadastro-new", "button--dark")}` : ""}`);
+      document.querySelector('[data-action="cadastro-new"]')?.addEventListener("click", iniciarNovoCadastroCompartilhado);
       return;
     }
   }
@@ -766,10 +799,13 @@ function mostrarEstadoCadastro(estado) {
     expirada: ["Solicitação expirada", "O prazo desta solicitação terminou. Solicite ao professor um novo link se ainda for necessário."],
   };
   const [titulo, textoEstado] = mensagens[estado] || ["Cadastro em processamento", "O serviço ainda está processando a solicitação. O status será atualizado automaticamente."];
-  studentLayout(titulo, textoEstado, `<div class="notice ${["aprovada", "aprovado"].includes(estado) ? "notice--success" : ""}" role="status">Estado informado pelo serviço: <strong>${escapeHtml(estado)}</strong></div><p class="field-hint">Atualização automática com intervalo progressivo. Não feche a página se quiser acompanhar.</p>${button("Atualizar estado", "cadastro-status", "button--quiet")}`);
+  studentLayout(titulo, textoEstado, `<div class="notice ${["aprovada", "aprovado"].includes(estado) ? "notice--success" : ""}" role="status">Estado informado pelo serviço: <strong>${escapeHtml(estado)}</strong></div><p class="field-hint">A solicitação acima pertence a uma pessoa. Para cadastrar outra pessoa com este mesmo link da turma, inicie um novo cadastro.</p><div class="button-row">${button("Atualizar estado", "cadastro-status", "button--quiet")}${button("Iniciar novo cadastro", "cadastro-new", "button--dark")}</div>`);
   document.querySelector('[data-action="cadastro-status"]')?.addEventListener("click", () => {
     const estadoSalvoAtual = estadoSalvo();
     void consultarCadastro(estadoSalvoAtual["cadastro.credencial"], estadoSalvoAtual["cadastro.id"]);
+  });
+  document.querySelector('[data-action="cadastro-new"]')?.addEventListener("click", () => {
+    iniciarNovoCadastroCompartilhado();
   });
 }
 
