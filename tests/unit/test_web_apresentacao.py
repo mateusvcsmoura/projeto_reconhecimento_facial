@@ -126,6 +126,19 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert camera_status == 200
     assert b"getUserMedia" in camera
     assert b"sessionStorage" not in camera
+    landmarks_status, _landmarks_headers, landmarks = _get(app, "/assets/landmarks.mjs")
+    assert landmarks_status == 200
+    assert b"FaceLandmarker" in landmarks
+    assert b"https://" not in landmarks
+    vision_status, _vision_headers, vision = _get(
+        app, "/assets/vendor/mediapipe/vision_bundle.mjs"
+    )
+    assert vision_status == 200
+    assert b"FaceLandmarker" in vision
+    model_status, model_headers, model = _get(app, "/assets/models/face_landmarker.task")
+    assert model_status == 200
+    assert model_headers["content-type"].startswith("application/octet-stream")
+    assert len(model) > 1_000_000
     hero_status, hero_headers, hero = _get(app, "/assets/img/hero-section-img.jpg")
     assert hero_status == 200
     assert hero_headers["content-type"].startswith("image/jpeg")

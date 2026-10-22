@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -299,6 +299,28 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     app.state.web_services = services
     web_dir = Path(__file__).resolve().parent
     arquivo_interface = web_dir / "templates" / "index.html"
+
+    async def modelo_landmarks() -> FileResponse:
+        """Entrega o modelo local apenas para o guia visual transitório da câmera."""
+        candidatos = (
+            Path(__file__).resolve().parents[3] / "models" / "face_landmarker.task",
+            web_dir / "static" / "models" / "face_landmarker.task",
+        )
+        for arquivo in candidatos:
+            if arquivo.is_file():
+                return FileResponse(
+                    arquivo,
+                    media_type="application/octet-stream",
+                    headers={"Cache-Control": "public, max-age=86400"},
+                )
+        raise HTTPException(status_code=404, detail="Modelo do guia facial indisponível.")
+
+    app.add_api_route(
+        "/assets/models/face_landmarker.task",
+        modelo_landmarks,
+        methods=["GET"],
+        include_in_schema=False,
+    )
     app.mount(
         "/assets",
         StaticFiles(directory=web_dir / "static", check_dir=True),

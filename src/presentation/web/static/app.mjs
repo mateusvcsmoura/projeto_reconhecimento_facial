@@ -1,5 +1,6 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
 import { criarControladorCamera } from "./camera.mjs";
+import { criarVisualizadorLandmarks } from "./landmarks.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
 
@@ -169,19 +170,24 @@ function limparEstadoPublico(tipo) {
   try { sessionStorage.setItem(ESTADO_CHAVE, JSON.stringify(estado)); } catch { /* Sem armazenamento local. */ }
 }
 
-function cameraMarkup() {
-  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video><div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span></div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p></section>`;
+function cameraMarkup({ guiaFacial = false } = {}) {
+  const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas>` : "";
+  const statusGuia = guiaFacial ? `<p class="field-hint" data-landmarks-status aria-live="polite">O guia facial será iniciado junto com a câmera. Ele é local e não substitui a validação do servidor.</p>` : "";
+  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span></div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
 function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}) {
   const video = document.querySelector("#camera-video");
   const placeholder = document.querySelector("#camera-placeholder");
   const status = document.querySelector("[data-camera-status]");
+  const landmarksCanvas = document.querySelector("[data-face-landmarks]");
+  const landmarksStatus = document.querySelector("[data-landmarks-status]");
   const deviceSelect = document.querySelector("#camera-device");
   if (!video || !status || !deviceSelect) return;
   const captureButton = document.querySelector('[data-action="capture-step"]');
   let automaticTimer = null;
   let capturing = false;
+  const landmarks = landmarksCanvas ? criarVisualizadorLandmarks() : null;
   const setStatus = (value, type = "") => {
     status.className = type ? `notice notice--${type}` : "field-hint";
     status.textContent = value;
@@ -215,6 +221,11 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
       else stage?.classList.add("camera-stage--mirror");
       placeholder.hidden = true;
       setStatus("Câmera pronta. Siga a orientação exibida e use o controle de captura.", "success");
+      if (landmarks) await landmarks.iniciar(video, landmarksCanvas, (textoGuia, tipo = "") => {
+        if (!landmarksStatus) return;
+        landmarksStatus.className = tipo ? `notice notice--${tipo}` : "field-hint";
+        landmarksStatus.textContent = textoGuia;
+      });
       await onStart();
       const devices = await camera.enumerar();
       deviceSelect.replaceChildren(new Option("Câmera padrão", ""));
@@ -228,6 +239,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
   const stop = () => {
     clearTimeout(automaticTimer);
     camera.encerrar(video);
+    landmarks?.encerrar(landmarksCanvas);
     placeholder.hidden = false;
     setStatus("Câmera encerrada.");
   };
@@ -691,7 +703,7 @@ function mostrarColetaCadastro(credencial, id, desafio) {
   const sequencia = Array.isArray(desafio?.sequencia) ? desafio.sequencia : ["frente", "movimento indicado", "frente"];
   let capturas = [];
   const labels = { frente: "Olhe para a câmera", esquerda: "Vire levemente para a esquerda", direita: "Vire levemente para a direita" };
-  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(labels[sequencia[0]] || sequencia[0])}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup()}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
+  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(labels[sequencia[0]] || sequencia[0])}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
   bindCamera(async (captura) => {
     capturas.push(captura.base64);
     const etapa = capturas.length;
@@ -750,6 +762,7 @@ function mostrarEstadoCadastro(estado) {
     aprovada: ["Cadastro aprovado", "A decisão foi registrada pelo serviço. Isso não confirma presença em uma sessão."],
     rejeitado: ["Cadastro não aprovado", "A solicitação não foi aprovada. Procure o professor responsável para uma alternativa de registro."],
     rejeitada: ["Cadastro não aprovado", "A solicitação não foi aprovada. Procure o professor responsável para uma alternativa de registro."],
+    cancelada: ["Coleta não concluída", "As capturas não passaram pela validação técnica. Solicite um novo link e mantenha apenas um rosto bem iluminado no enquadramento."],
     expirada: ["Solicitação expirada", "O prazo desta solicitação terminou. Solicite ao professor um novo link se ainda for necessário."],
   };
   const [titulo, textoEstado] = mensagens[estado] || ["Cadastro em processamento", "O serviço ainda está processando a solicitação. O status será atualizado automaticamente."];
@@ -773,7 +786,7 @@ function iniciarAcompanhamentoCadastro(credencial, id) {
   studentLayout("Cadastro em processamento", "O serviço está verificando a solicitação. A aprovação depende de conferência do professor.", `<p data-status-state role="status">Aguardando a resposta do serviço…</p><p data-status-error class="field-hint"></p>${button("Consultar agora", "cadastro-status", "button--quiet")}`);
   const controller = new AbortController();
   cleanup.push(() => controller.abort());
-  const terminal = new Set(["pendente_aprovacao", "aprovada", "aprovado", "rejeitado", "rejeitada", "expirada"]);
+  const terminal = new Set(["pendente_aprovacao", "aprovada", "aprovado", "rejeitado", "rejeitada", "cancelada", "expirada"]);
   void acompanharOperacao(() => consultarCadastro(credencial, id, controller.signal), {
     concluida: (atual) => terminal.has(atual.estado),
     signal: controller.signal,

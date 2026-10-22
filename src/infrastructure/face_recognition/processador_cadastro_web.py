@@ -227,7 +227,7 @@ class ProcessadorCadastroWeb:
                 job, self._id_solicitacao(job), "modelo_indisponivel", tecnico=True
             )
         except Exception:
-            logger.error("Falha ao processar coleta facial web; detalhes suprimidos.")
+            logger.exception("Falha ao processar coleta facial web.")
             return self._falhar(
                 job, self._id_solicitacao(job), "falha_tecnica", tecnico=True
             )
@@ -256,7 +256,7 @@ class ProcessadorCadastroWeb:
                     agora=self._agora(),
                 )
             except Exception:
-                logger.error("Falha ao encerrar coleta facial web.")
+                logger.exception("Falha ao encerrar coleta facial web.")
         return ResultadoWorker(
             False,
             CodigoResultadoWorker.FALHA_TECNICA

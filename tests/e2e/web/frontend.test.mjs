@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
+import { desenharLandmarks } from "../../../src/presentation/web/static/landmarks.mjs";
 import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
 
@@ -12,6 +13,25 @@ function deferred() {
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 }
+
+test("guia de landmarks desenha apenas os pontos locais detectados", () => {
+  const operacoes = [];
+  const contexto = {
+    clearRect: (...args) => operacoes.push(["clearRect", ...args]),
+    beginPath: () => operacoes.push(["beginPath"]),
+    arc: (...args) => operacoes.push(["arc", ...args]),
+    fill: () => operacoes.push(["fill"]),
+  };
+  const canvas = { width: 200, height: 100, getContext: () => contexto };
+
+  const quantidade = desenharLandmarks(canvas, [[{ x: 0.25, y: 0.5 }, { x: 0.75, y: 0.5 }]]);
+
+  assert.equal(quantidade, 1);
+  assert.deepEqual(operacoes.filter(([nome]) => nome === "arc"), [
+    ["arc", 50, 50, 1.6, 0, Math.PI * 2],
+    ["arc", 150, 50, 1.6, 0, Math.PI * 2],
+  ]);
+});
 
 test("cliente API mostra mensagem e código estáveis enviados pelo servidor", async () => {
   const api = criarClienteApi({

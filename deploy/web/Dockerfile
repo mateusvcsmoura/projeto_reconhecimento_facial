@@ -22,6 +22,7 @@ RUN python -m pip install --no-cache-dir -r requirements-web.txt
 RUN python -m pip check
 COPY src ./src
 COPY scripts ./scripts
+COPY models/face_landmarker.task ./src/presentation/web/static/models/face_landmarker.task
 COPY deploy/web/entrypoint.py ./entrypoint.py
 ENTRYPOINT ["python", "/opt/facediff/entrypoint.py"]
 
