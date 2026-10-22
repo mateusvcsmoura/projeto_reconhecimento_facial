@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { acompanharOperacao, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
+import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
 import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
@@ -12,6 +12,70 @@ function deferred() {
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 }
+
+test("cliente API mostra mensagem e código estáveis enviados pelo servidor", async () => {
+  const api = criarClienteApi({
+    fetchImpl: async () => new Response(JSON.stringify({
+      codigo: "credenciais_invalidas",
+      mensagem: "Usuário ou senha inválidos.",
+      request_id: "request-sintetico",
+    }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    }),
+  });
+
+  await assert.rejects(api.post("/api/v1/auth/login", {}), (error) => {
+    assert.equal(error.status, 401);
+    assert.equal(error.code, "credenciais_invalidas");
+    assert.equal(error.message, "Usuário ou senha inválidos.");
+    return true;
+  });
+});
+
+test("cliente API usa fallback de autenticação, não mensagem de link", async () => {
+  const api = criarClienteApi({
+    fetchImpl: async () => new Response(null, { status: 401 }),
+  });
+
+  await assert.rejects(api.post("/api/v1/auth/login", {}), (error) => {
+    assert.equal(error.message, "Não foi possível autenticar. Confira os dados e tente novamente.");
+    assert.equal(error.code, "autenticacao_necessaria");
+    return true;
+  });
+});
+
+test("cliente API usa códigos estáveis nos fallbacks HTTP", async () => {
+  const codigosEsperados = new Map([
+    [400, "requisicao_invalida"],
+    [401, "autenticacao_necessaria"],
+    [403, "operacao_nao_autorizada"],
+    [404, "recurso_nao_encontrado"],
+    [405, "metodo_nao_permitido"],
+    [409, "conflito_estado"],
+    [410, "acesso_expirado"],
+    [413, "conteudo_excedeu_limite"],
+    [415, "tipo_midia_nao_suportado"],
+    [422, "requisicao_invalida"],
+    [429, "limite_requisicoes"],
+    [500, "erro_interno"],
+    [502, "servico_indisponivel"],
+    [503, "servico_indisponivel"],
+    [504, "servico_indisponivel"],
+  ]);
+
+  for (const [status, codigo] of codigosEsperados) {
+    const api = criarClienteApi({
+      fetchImpl: async () => new Response(null, { status }),
+    });
+    await assert.rejects(api.get("/api/v1/recurso"), (error) => {
+      assert.equal(error.status, status);
+      assert.equal(error.code, codigo);
+      assert.ok(error.message.length > 0);
+      return true;
+    });
+  }
+});
 
 test("poller usa intervalo de 15 segundos e não sobrepõe leituras", async () => {
   const primeira = deferred();
@@ -376,7 +440,7 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
   };
   globalThis.fetch = async (url) => {
     if (["/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/me")) {
-      return new Response(JSON.stringify({ id: 2, papel: "professor", troca_senha_obrigatoria: false }), {
+      return new Response(JSON.stringify({ id: 2, usuario: "professor.teste", papel: "professor", troca_senha_obrigatoria: false }), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
@@ -437,6 +501,10 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     await new Promise((resolve) => setImmediate(resolve));
     assert.match(raiz.innerHTML, /page-shell--animated/);
     assert.match(raiz.innerHTML, /assets\/img\/logo\.png/);
+    assert.match(
+      raiz.innerHTML,
+      /class="app-header__user" aria-label="Usuário conectado">professor\.teste<\/span><a class="button button--quiet" href="\/"/,
+    );
     assert.match(raiz.innerHTML, /data-reveal/);
     assert.match(raiz.innerHTML, /data-magnetic/);
 
