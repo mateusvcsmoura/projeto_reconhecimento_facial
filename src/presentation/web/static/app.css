@@ -856,6 +856,12 @@ p {
   gap: 10px;
 }
 
+.app-header__user {
+  color: var(--muted);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
 .app-identity {
   display: grid;
   gap: 1px;
@@ -1676,6 +1682,17 @@ tbody tr:last-child td {
 
   .app-header {
     padding-inline: 16px;
+  }
+
+  .app-header__actions {
+    gap: 4px;
+  }
+
+  .app-header__user {
+    max-width: 24vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem;
   }
 
   .app-header__actions .app-identity {

@@ -65,6 +65,7 @@ class ContaAutenticada:
     sessao_id: int
     csrf_hash: str
     csrf_token: str
+    usuario: str = ""
 
     def como_ator(self) -> AtorWeb:
         return AtorWeb(
@@ -455,6 +456,7 @@ class PostgresContaRepository:
             )
             return ContaAutenticada(
                 id=conta.id,
+                usuario=conta.usuario_normalizado,
                 papel=conta.papel,
                 ativa=conta.ativa,
                 troca_senha_obrigatoria=conta.troca_senha_obrigatoria,

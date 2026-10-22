@@ -237,6 +237,7 @@ def criar_rotas_auth(
     ) -> dict[str, object]:
         return {
             "id": conta.id,
+            "usuario": conta.usuario,
             "papel": conta.papel,
             "ativo": conta.ativa,
             "troca_senha_obrigatoria": conta.troca_senha_obrigatoria,

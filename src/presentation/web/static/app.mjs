@@ -27,7 +27,7 @@ const apiPath = (path) => `/api/v1${path}`;
 const mensagem = (valor, tipo = "") => `<div class="notice ${tipo ? `notice--${tipo}` : ""}" role="status">${escapeHtml(valor)}</div>`;
 const button = (rotulo, action, extra = "") => `<button class="button ${extra}" type="button" data-action="${escapeHtml(action)}" data-magnetic><span class="magnetic-label">${escapeHtml(rotulo)}</span></button>`;
 const field = (label, name, attrs = "", hint = "") => `<div class="field"><label for="${escapeHtml(name)}">${escapeHtml(label)}</label><input id="${escapeHtml(name)}" name="${escapeHtml(name)}" ${attrs}>${hint ? `<p class="field-hint">${escapeHtml(hint)}</p>` : ""}</div>`;
-const htmlBody = (title, content) => `<div class="page-shell page-shell--animated"><header class="app-header" data-reveal><a class="app-identity" href="/" aria-label="FaceDiff, início"><img class="app-identity__logo" src="/assets/img/logo.png" alt="FaceDiff" fetchpriority="high"><span>Presença acadêmica</span></a><div class="app-header__actions"><a class="button button--quiet" href="/" data-magnetic><span class="magnetic-label">Página inicial</span></a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar" data-reveal><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title" data-reveal><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div><div class="app-content" data-reveal>${content}</div></main></div></div>`;
+const htmlBody = (title, content, usuario = sessao?.usuario) => `<div class="page-shell page-shell--animated"><header class="app-header" data-reveal><a class="app-identity" href="/" aria-label="FaceDiff, início"><img class="app-identity__logo" src="/assets/img/logo.png" alt="FaceDiff" fetchpriority="high"><span>Presença acadêmica</span></a><div class="app-header__actions">${typeof usuario === "string" && usuario.trim() ? `<span class="app-header__user" aria-label="Usuário conectado">${escapeHtml(usuario)}</span>` : ""}<a class="button button--quiet" href="/" data-magnetic><span class="magnetic-label">Página inicial</span></a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar" data-reveal><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title" data-reveal><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div><div class="app-content" data-reveal>${content}</div></main></div></div>`;
 
 function navLinks(ativo = "painel") {
   const links = [
@@ -222,7 +222,7 @@ async function professor() {
     const turmas = await fetchTurmas();
     turmaAtual = turmas.find((turma) => turma.id === turmaId) || turmas[0] || null;
     const body = await construirTelaProfessor(atual, turmas, turmaAtual);
-    render(htmlBody(tituloView(atual, turmaAtual), body));
+    render(htmlBody(tituloView(atual, turmaAtual), body, conta.usuario));
     root.querySelector(`[data-view="${atual}"]`)?.setAttribute("aria-current", "page");
     root.querySelector("#conteudo h1")?.focus({ preventScroll: true });
     cleanup.push(iniciarRevelacaoScroll(root));

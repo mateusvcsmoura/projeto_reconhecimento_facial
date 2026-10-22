@@ -99,6 +99,18 @@ def test_usuario_normalizado_com_unicode_e_espacos() -> None:
     assert normalizar_usuario(" ＡDMIN ") == "admin"
 
 
+def test_sessao_autenticada_carrega_o_usuario_para_o_cabecalho(
+    repositorio: Any,
+) -> None:
+    _criar_admin(repositorio)
+    resultado = repositorio.autenticar(" ADMIN ", "SenhaInicial!123", "192.0.2.10")
+
+    conta = repositorio.autenticar_sessao(resultado.token_sessao)
+
+    assert conta is not None
+    assert conta.usuario == "admin"
+
+
 def test_login_sessao_csrf_e_me_sem_expor_segredos(
     repositorio: Any,
 ) -> None:
@@ -118,6 +130,7 @@ def test_login_sessao_csrf_e_me_sem_expor_segredos(
     csrf_refresh = client.get("/api/v1/auth/csrf")
     assert me.json() == {
         "id": conta_id,
+        "usuario": "admin",
         "papel": "admin",
         "ativo": True,
         "troca_senha_obrigatoria": False,
@@ -157,6 +170,8 @@ def test_login_nao_enumera_usuario_e_aplica_limite_por_conta_e_ip(
     assert usuario_inexistente.status_code == senha_errada.status_code == 401
     assert usuario_inexistente.json()["codigo"] == senha_errada.json()["codigo"]
     assert usuario_inexistente.json()["mensagem"] == senha_errada.json()["mensagem"]
+    assert usuario_inexistente.json()["codigo"] == "credenciais_invalidas"
+    assert usuario_inexistente.json()["mensagem"] == "Usuário ou senha inválidos."
     assert bloqueio.status_code == 429
     assert "admin" not in bloqueio.text
 

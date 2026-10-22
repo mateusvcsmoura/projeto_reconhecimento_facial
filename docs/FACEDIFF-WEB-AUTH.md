@@ -78,7 +78,7 @@ guarda senhas, tokens ou biometria; em PostgreSQL, trigger bloqueia `UPDATE` e
 | `POST /api/v1/auth/logout` | Exige sessão, Origin e CSRF; revoga sessão |
 | `POST /api/v1/auth/trocar-senha` | Exige sessão, Origin e CSRF; credencial temporária força troca e encerra sessões |
 | `GET /api/v1/auth/csrf` | Recupera token CSRF da sessão autenticada, sem alterar `/me` |
-| `GET /api/v1/me` | Retorna somente id, papel, ativo e troca obrigatória |
+| `GET /api/v1/me` | Retorna somente usuário autenticado, id, papel, ativo e troca obrigatória |
 | `POST /api/v1/admin/contas` | Admin cria conta e recebe credencial temporária uma vez |
 | `POST /api/v1/admin/contas/{id}/redefinir-senha` | Admin informa justificativa e referência de verificação independente |
 | `POST /api/v1/admin/contas/{id}/desativar` | Desativa conta e revoga sessões; preserva ao menos um admin ativo |
