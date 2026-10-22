@@ -103,7 +103,7 @@ def test_operacao_nao_configurada_responde_indisponivel_sem_ml() -> None:
     )
 
     assert response.status_code == 503
-    assert response.json()["codigo"] == "requisicao_recusada"
+    assert response.json()["codigo"] == "servico_indisponivel"
 
 
 @pytest.mark.parametrize("frames", [0, 4])

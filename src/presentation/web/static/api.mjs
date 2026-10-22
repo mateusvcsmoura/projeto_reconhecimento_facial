@@ -10,16 +10,81 @@ export class ApiError extends Error {
   }
 }
 
+const ERROS_HTTP = {
+  400: {
+    code: "requisicao_invalida",
+    message: "A solicitação contém dados inválidos. Revise e tente novamente.",
+  },
+  401: {
+    code: "autenticacao_necessaria",
+    message: "Não foi possível autenticar. Confira os dados e tente novamente.",
+  },
+  403: {
+    code: "operacao_nao_autorizada",
+    message: "Você não tem permissão para realizar esta ação.",
+  },
+  404: {
+    code: "recurso_nao_encontrado",
+    message: "O recurso solicitado não foi encontrado ou está indisponível.",
+  },
+  405: {
+    code: "metodo_nao_permitido",
+    message: "Esta ação não é permitida.",
+  },
+  409: {
+    code: "conflito_estado",
+    message: "A operação não pode ser concluída no estado atual.",
+  },
+  410: {
+    code: "acesso_expirado",
+    message: "Este acesso expirou. Solicite um novo link.",
+  },
+  413: {
+    code: "conteudo_excedeu_limite",
+    message: "O envio excede o limite permitido.",
+  },
+  415: {
+    code: "tipo_midia_nao_suportado",
+    message: "O formato enviado não é aceito.",
+  },
+  422: {
+    code: "requisicao_invalida",
+    message: "Revise os dados enviados e tente novamente.",
+  },
+  429: {
+    code: "limite_requisicoes",
+    message: "Muitas tentativas em pouco tempo. Aguarde e tente novamente.",
+  },
+  500: {
+    code: "erro_interno",
+    message: "Ocorreu um erro interno. Tente novamente em instantes.",
+  },
+  502: {
+    code: "servico_indisponivel",
+    message: "O serviço está temporariamente indisponível. Tente novamente em instantes.",
+  },
+  503: {
+    code: "servico_indisponivel",
+    message: "O serviço está temporariamente indisponível. Tente novamente em instantes.",
+  },
+  504: {
+    code: "servico_indisponivel",
+    message: "O serviço está temporariamente indisponível. Tente novamente em instantes.",
+  },
+};
+
+function erroHttp(status) {
+  return ERROS_HTTP[status] || {
+    code: "requisicao_recusada",
+    message: "A solicitação não foi concluída. Revise os dados e tente novamente.",
+  };
+}
+
 function mensagemErro(payload, status) {
   if (payload && typeof payload.mensagem === "string" && payload.mensagem.trim()) {
     return payload.mensagem;
   }
-  if (status === 401 || status === 404) {
-    return "Não foi possível localizar esse acesso. Confira o link ou entre novamente.";
-  }
-  if (status === 429) return "Muitas tentativas em pouco tempo. Aguarde e tente novamente.";
-  if (status === 503) return "O serviço está temporariamente indisponível. Tente novamente em instantes.";
-  return "A solicitação não foi concluída. Revise os dados e tente novamente.";
+  return erroHttp(status).message;
 }
 
 export function criarClienteApi({ fetchImpl = globalThis.fetch } = {}) {
@@ -62,7 +127,9 @@ export function criarClienteApi({ fetchImpl = globalThis.fetch } = {}) {
       const espera = Number.parseInt(response.headers.get("retry-after") || "", 10);
       throw new ApiError(mensagemErro(payload, response.status), {
         status: response.status,
-        code: typeof payload?.codigo === "string" ? payload.codigo : "requisicao_recusada",
+        code: typeof payload?.codigo === "string"
+          ? payload.codigo
+          : erroHttp(response.status).code,
         retryAfter: Number.isFinite(espera) ? espera : null,
       });
     }

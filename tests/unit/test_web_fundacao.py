@@ -9,12 +9,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from src.config.web_settings import WebSettings, get_web_settings
 from src.infrastructure.workers.maintenance_gate import ManutencaoWeb
-from src.presentation.web.app import WebServices, create_app, utc_now
+from src.presentation.web.app import (
+    WebServices,
+    _classificar_erro_http,
+    create_app,
+    utc_now,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATABASE_URL_TESTE = (
@@ -252,6 +258,180 @@ def test_erros_http_seguem_envelope_publico_com_request_id() -> None:
     assert set(response.json()) == {"codigo", "mensagem", "request_id"}
     assert response.json()["request_id"] == response.headers["X-Request-ID"]
     assert response.json()["codigo"] == "recurso_nao_encontrado"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "detail", "codigo", "mensagem"),
+    [
+        (
+            401,
+            "Usuario ou senha invalidos.",
+            "credenciais_invalidas",
+            "Usuário ou senha inválidos.",
+        ),
+        (
+            401,
+            "Autenticação necessária.",
+            "autenticacao_necessaria",
+            "Sua sessão expirou ou você precisa entrar novamente.",
+        ),
+        (
+            403,
+            "Verificação CSRF recusada.",
+            "csrf_recusado",
+            "Não foi possível validar sua sessão. Atualize a página e tente novamente.",
+        ),
+        (
+            503,
+            "Gestão indisponível.",
+            "servico_indisponivel",
+            "O serviço está temporariamente indisponível. "
+            "Tente novamente em instantes.",
+        ),
+    ],
+)
+def test_erro_http_tem_codigo_e_mensagem_publicos_coerentes(
+    status_code: int, detail: str, codigo: str, mensagem: str
+) -> None:
+    app = create_app(_settings(), WebServices())
+
+    @app.get("/erro-controlado")
+    def erro_controlado() -> None:
+        raise HTTPException(status_code=status_code, detail=detail)
+
+    with TestClient(app) as client:
+        response = client.get("/erro-controlado")
+
+    assert response.status_code == status_code
+    assert response.json()["codigo"] == codigo
+    assert response.json()["mensagem"] == mensagem
+    assert set(response.json()) == {"codigo", "mensagem", "request_id"}
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
+
+
+@pytest.mark.parametrize(
+    ("status_code", "detail", "esperado"),
+    [
+        (
+            401,
+            "Usuario ou senha invalidos.",
+            ("credenciais_invalidas", "Usuário ou senha inválidos."),
+        ),
+        (
+            401,
+            "Autenticação necessária.",
+            (
+                "autenticacao_necessaria",
+                "Sua sessão expirou ou você precisa entrar novamente.",
+            ),
+        ),
+        (
+            403,
+            "Verificação CSRF recusada.",
+            (
+                "csrf_recusado",
+                "Não foi possível validar sua sessão. "
+                "Atualize a página e tente novamente.",
+            ),
+        ),
+        (
+            403,
+            "Origem recusada.",
+            (
+                "origem_recusada",
+                "A origem da solicitação não foi autorizada. "
+                "Atualize a página e tente novamente.",
+            ),
+        ),
+        (
+            503,
+            "Gestão indisponível.",
+            (
+                "servico_indisponivel",
+                "O serviço está temporariamente indisponível. "
+                "Tente novamente em instantes.",
+            ),
+        ),
+        (
+            400,
+            "Dados inválidos.",
+            ("requisicao_invalida", "Dados inválidos."),
+        ),
+        (
+            403,
+            "Operacao nao autorizada.",
+            (
+                "operacao_nao_autorizada",
+                "Você não tem permissão para realizar esta ação.",
+            ),
+        ),
+        (
+            404,
+            "Not Found",
+            ("recurso_nao_encontrado", "Recurso não encontrado."),
+        ),
+        (
+            405,
+            "Method Not Allowed",
+            ("metodo_nao_permitido", "Método não permitido."),
+        ),
+        (
+            409,
+            "Conflito.",
+            ("conflito_estado", "Conflito."),
+        ),
+        (
+            410,
+            "Acesso expirado.",
+            ("acesso_expirado", "Acesso expirado."),
+        ),
+        (
+            413,
+            "Limite excedido.",
+            ("conteudo_excedeu_limite", "Limite excedido."),
+        ),
+        (
+            415,
+            "Formato inválido.",
+            ("tipo_midia_nao_suportado", "Formato inválido."),
+        ),
+        (
+            422,
+            "Campo inválido.",
+            ("requisicao_invalida", "Campo inválido."),
+        ),
+        (
+            429,
+            "Muitas tentativas.",
+            ("limite_requisicoes", "Muitas tentativas."),
+        ),
+        (
+            504,
+            "Detalhe interno que não deve aparecer.",
+            (
+                "servico_indisponivel",
+                "O serviço está temporariamente indisponível. "
+                "Tente novamente em instantes.",
+            ),
+        ),
+        (
+            418,
+            "Detalhe seguro.",
+            ("requisicao_recusada", "Detalhe seguro."),
+        ),
+        (
+            500,
+            "senha-interna-nao-deve-aparecer",
+            ("erro_interno", "Ocorreu um erro interno."),
+        ),
+    ],
+)
+def test_classificacao_http_mantem_codigo_semantico_e_mensagem_segura(
+    status_code: int,
+    detail: str,
+    esperado: tuple[str, str],
+) -> None:
+    assert _classificar_erro_http(status_code, detail) == esperado
 
 
 def test_erro_interno_nao_revela_excecao_nem_traceback() -> None:

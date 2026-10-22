@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -100,6 +101,98 @@ def _erro_publico(
         request_id=request_id,
     )
     return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+
+def _classificar_erro_http(status_code: int, detail: object) -> tuple[str, str]:
+    """Converte erros HTTP em códigos estáveis e mensagens próprias para a API."""
+    defaults = {
+        400: ("requisicao_invalida", "A requisição é inválida."),
+        401: (
+            "autenticacao_necessaria",
+            "Sua sessão expirou ou você precisa entrar novamente.",
+        ),
+        403: (
+            "operacao_nao_autorizada",
+            "Você não tem permissão para realizar esta ação.",
+        ),
+        404: ("recurso_nao_encontrado", "Recurso não encontrado."),
+        405: ("metodo_nao_permitido", "Método não permitido."),
+        409: (
+            "conflito_estado",
+            "A operação não pode ser concluída neste estado.",
+        ),
+        410: ("acesso_expirado", "Este acesso expirou."),
+        413: ("conteudo_excedeu_limite", "O envio excede o limite permitido."),
+        415: ("tipo_midia_nao_suportado", "O formato enviado não é aceito."),
+        422: (
+            "requisicao_invalida",
+            "Revise os dados enviados e tente novamente.",
+        ),
+        429: (
+            "limite_requisicoes",
+            "Muitas tentativas. Aguarde e tente novamente.",
+        ),
+        500: ("erro_interno", "Ocorreu um erro interno."),
+        502: (
+            "servico_indisponivel",
+            "O serviço está temporariamente indisponível. "
+            "Tente novamente em instantes.",
+        ),
+        503: (
+            "servico_indisponivel",
+            "O serviço está temporariamente indisponível. "
+            "Tente novamente em instantes.",
+        ),
+        504: (
+            "servico_indisponivel",
+            "O serviço está temporariamente indisponível. "
+            "Tente novamente em instantes.",
+        ),
+    }
+    codigo, mensagem = defaults.get(
+        status_code,
+        ("requisicao_recusada", "A requisição não pode ser atendida."),
+    )
+    detalhe = detail.strip() if isinstance(detail, str) else ""
+    detalhe_normalizado = (
+        unicodedata.normalize("NFKD", detalhe)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .casefold()
+        .rstrip(".")
+    )
+
+    if status_code == 401:
+        if detalhe_normalizado in {
+            "usuario ou senha invalidos",
+            "credenciais invalidas",
+        }:
+            return "credenciais_invalidas", "Usuário ou senha inválidos."
+        return codigo, mensagem
+    if status_code == 403:
+        if "csrf" in detalhe_normalizado:
+            return (
+                "csrf_recusado",
+                "Não foi possível validar sua sessão. "
+                "Atualize a página e tente novamente.",
+            )
+        if "origem" in detalhe_normalizado:
+            return (
+                "origem_recusada",
+                "A origem da solicitação não foi autorizada. "
+                "Atualize a página e tente novamente.",
+            )
+        return codigo, mensagem
+
+    if (
+        status_code < 500
+        and detalhe
+        and len(detalhe) <= 256
+        and all(caractere.isprintable() for caractere in detalhe)
+        and detalhe_normalizado not in {"not found", "method not allowed"}
+    ):
+        return codigo, detalhe
+    return codigo, mensagem
 
 
 def _acao_cadastro_publico(metodo: str, caminho: str) -> str | None:
@@ -368,15 +461,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     async def tratar_erro_http(
         request: Request, erro: StarletteHTTPException
     ) -> JSONResponse:
-        if erro.status_code == 404:
-            codigo, mensagem = "recurso_nao_encontrado", "Recurso não encontrado."
-        elif erro.status_code == 405:
-            codigo, mensagem = "metodo_nao_permitido", "Método não permitido."
-        else:
-            codigo, mensagem = (
-                "requisicao_recusada",
-                "A requisição não pode ser atendida.",
-            )
+        codigo, mensagem = _classificar_erro_http(erro.status_code, erro.detail)
         resposta = _erro_publico(
             request,
             codigo=codigo,
