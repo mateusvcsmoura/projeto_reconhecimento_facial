@@ -79,6 +79,7 @@ def test_interface_entrega_shell_local_com_layout_responsivo_e_sem_cdn() -> None
     assert headers["cache-control"] == "no-store"
     assert headers["x-content-type-options"] == "nosniff"
     assert "default-src 'self'" in headers["content-security-policy"]
+    assert "worker-src 'self' blob:" in headers["content-security-policy"]
     assert 'name="viewport"' in html
     assert 'href="/assets/app.css"' in html
     assert 'src="/assets/app.mjs"' in html

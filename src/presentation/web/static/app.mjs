@@ -210,6 +210,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
   const deviceSelect = document.querySelector("#camera-device");
   if (!video || !status || !deviceSelect) return;
   const captureButton = document.querySelector('[data-action="capture-step"]');
+  const captureButtonLabel = captureButton?.textContent;
   let automaticTimer = null;
   let capturing = false;
   const landmarks = landmarksCanvas ? criarVisualizadorLandmarks() : null;
@@ -225,8 +226,20 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
   };
   const takeCapture = async () => {
     clearTimeout(automaticTimer);
-    if (capturing || !camera.stream) return;
+    if (capturing) {
+      setStatus("Uma captura já está em andamento. Aguarde a confirmação.");
+      return;
+    }
+    if (!camera.stream) {
+      setStatus("Inicie a câmera antes de capturar.", "error");
+      return;
+    }
     capturing = true;
+    if (captureButton) {
+      captureButton.disabled = true;
+      captureButton.textContent = "Capturando…";
+    }
+    setStatus("Registrando esta etapa localmente…");
     try {
       const captura = camera.capturar(video, document.querySelector("#capture-canvas"));
       await onCapture(captura);
@@ -234,7 +247,13 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
       setStatus(erro.message || "A imagem ainda não está pronta.", "error");
     } finally {
       capturing = false;
-      if (video.isConnected && camera.stream && !captureButton?.disabled) scheduleAutomaticCapture();
+      if (video.isConnected && camera.stream) {
+        if (captureButton) {
+          captureButton.disabled = false;
+          captureButton.textContent = captureButtonLabel;
+        }
+        scheduleAutomaticCapture();
+      }
     }
   };
   const start = async () => {
