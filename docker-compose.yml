@@ -1,6 +1,7 @@
-# PostgreSQL de desenvolvimento.
+# PostgreSQL de desenvolvimento e runtime web local opcional.
 #   1. cp .env.example .env   (e ajuste POSTGRES_PASSWORD)
 #   2. docker compose up -d
+#   Para iniciar a interface e todo o processamento facial: docker compose --profile web up -d --build
 #
 # A porta publicada e 5433 por padrao para nao colidir com uma instalacao
 # nativa do PostgreSQL na 5432. Ajuste POSTGRES_PORT no .env se precisar.
@@ -25,5 +26,113 @@ services:
       timeout: 5s
       retries: 10
 
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web/Dockerfile
+      target: app
+    image: facediff/app:local
+    profiles: [web]
+    restart: unless-stopped
+    init: true
+    environment:
+      WEB_ENVIRONMENT: development
+      WEB_DATABASE_URL: ${WEB_DATABASE_URL:?defina WEB_DATABASE_URL no .env}
+      WEB_SECRET_KEY: ${WEB_SECRET_KEY:?defina WEB_SECRET_KEY no .env}
+      WEB_PUBLIC_ORIGIN: ${WEB_PUBLIC_ORIGIN:-http://127.0.0.1:8000}
+      # Prazo demonstrativo apenas para desenvolvimento local; pode ser sobrescrito no .env.
+      WEB_PURPOSE_END_AT: ${WEB_PURPOSE_END_AT:-2027-12-31T23:59:59-03:00}
+      WEB_RETENTION_DAYS: ${WEB_RETENTION_DAYS:-30}
+      WEB_DATABASE_DISPOSABLE: "true"
+      WEB_CAPTURE_TEMP_DIR: /run/facediff/captures
+      WEB_REFERENCE_STORAGE_DIR: /var/lib/facediff/references
+      WEB_MAINTENANCE_DIR: /run/facediff/maintenance
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - capture-tmpfs:/run/facediff/captures
+      - web-references:/var/lib/facediff/references
+      - maintenance-tmpfs:/run/facediff/maintenance
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  face-worker:
+    build:
+      context: .
+      dockerfile: deploy/web/Dockerfile
+      target: worker
+    image: facediff/face-worker:local
+    profiles: [web]
+    restart: unless-stopped
+    init: true
+    environment:
+      WEB_ENVIRONMENT: development
+      WEB_DATABASE_URL: ${WEB_DATABASE_URL:?defina WEB_DATABASE_URL no .env}
+      WEB_SECRET_KEY: ${WEB_SECRET_KEY:?defina WEB_SECRET_KEY no .env}
+      WEB_PURPOSE_END_AT: ${WEB_PURPOSE_END_AT:-2027-12-31T23:59:59-03:00}
+      WEB_RETENTION_DAYS: ${WEB_RETENTION_DAYS:-30}
+      WEB_DATABASE_DISPOSABLE: "true"
+      WEB_CAPTURE_TEMP_DIR: /run/facediff/captures
+      WEB_REFERENCE_STORAGE_DIR: /var/lib/facediff/references
+      WEB_MAINTENANCE_DIR: /run/facediff/maintenance
+      WEB_MEDIAPIPE_MODEL_PATH: /var/lib/facediff/models/face_landmarker.task
+      WEB_MEDIAPIPE_PYTHON_EXECUTABLE: /opt/facediff/landmarks-venv/bin/python
+      DEEPFACE_HOME: /var/lib/facediff/models/home
+    volumes:
+      - capture-tmpfs:/run/facediff/captures
+      - web-references:/var/lib/facediff/references
+      - maintenance-tmpfs:/run/facediff/maintenance
+      - type: bind
+        source: ./models/face_landmarker.task
+        target: /var/lib/facediff/models/face_landmarker.task
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR:?defina WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR no .env}
+        target: /var/lib/facediff/models/home/.deepface/weights
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - /opt/facediff/entrypoint.py
+        - python
+        - -m
+        - src.infrastructure.workers.web_worker_healthcheck
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 300s
+
 volumes:
   pgdata:
+  web-references:
+  capture-tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=314572800,uid=10001,gid=10001,mode=0700,nosuid,nodev,noexec
+  maintenance-tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=16777216,uid=10001,gid=10001,mode=0700,nosuid,nodev,noexec

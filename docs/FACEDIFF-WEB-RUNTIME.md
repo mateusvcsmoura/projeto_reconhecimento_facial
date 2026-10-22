@@ -91,6 +91,12 @@ configurada, a API recusa mutações de autenticação. `WEB_TRUSTED_PROXY_CIDRS
 deve listar somente redes controladas pelo serviço; sem isso, cabeçalhos
 `X-Forwarded-For` não são confiáveis.
 
+`WEB_PURPOSE_END_AT` define até quando a finalidade de cadastro pode ser usada.
+O Compose local fornece `2027-12-31T23:59:59-03:00` como prazo demonstrativo
+de desenvolvimento, sobrescrevível pelo `.env`; o Compose de deploy exige um
+valor explícito. Sem esse prazo, a emissão de links de cadastro falha fechada
+com HTTP 503.
+
 Exemplo para iniciar o serviço atrás de um proxy local. O endereço e as
 credenciais abaixo são marcadores; substitua-os por valores fornecidos por um
 gestor de segredos e banco de produção configurado. Não grave segredos no Git.
@@ -158,7 +164,7 @@ precisa ser definida/validada antes da operação na task019/018.
 | `GET /health/ready` | HTTP 200 com status `ready` ou HTTP 503 com `not_ready`; retorna nomes de componentes e estados, sem exceções |
 | `GET /api/v1/openapi.json` | Contrato OpenAPI JSON |
 | `POST /api/v1/auth/login`, `/logout`, `/trocar-senha` | Login, logout e troca de senha com Origin/CSRF |
-| `GET /api/v1/auth/csrf`, `/api/v1/me` | Token CSRF recuperável e estado mínimo da conta |
+| `GET /api/v1/auth/csrf`, `/api/v1/me` | Token CSRF recuperável e estado mínimo da conta autenticada, incluindo seu usuário |
 | `/api/v1/admin/contas` e operações de redefinição/desativação | Gestão auditada; credencial temporária entregue uma vez |
 | `GET /api/v1/turmas/{id}`, `POST /api/v1/admin/turmas/{id}/responsavel` | Ownership por professor e transferência administrativa auditada |
 | `GET /api/v1/operacoes/{id}` | Status autenticado por `Authorization: Bearer <credencial>`; credencial incorreta recebe 404 genérico |
@@ -184,11 +190,51 @@ brutos ou tracebacks. A fábrica recebe settings e serviços por injeção; o
 relógio exige `datetime` com UTC explícito. O probe de banco executa apenas
 `SELECT 1`.
 
+O tratamento HTTP atribui códigos estáveis por status e mantém mensagens
+seguras em português. Login inválido retorna `credenciais_invalidas`; sessão
+ausente retorna `autenticacao_necessaria`; falhas de CSRF e origem têm códigos
+próprios. Detalhes de erros 4xx só são encaminhados quando curtos e imprimíveis;
+falhas 5xx nunca encaminham detalhes internos, embora handlers específicos
+possam retornar mensagens públicas próprias. O cliente web usa mensagens de
+contingência correspondentes quando uma resposta não contém o envelope esperado.
+
 O admin inicial exige `python -m scripts.criar_admin_web`, com senha em prompt
 oculto e sem argumentos de credencial. A revisão `0005` está aplicada ao banco
 local; veja [FACEDIFF-WEB-AUTH.md](FACEDIFF-WEB-AUTH.md) e o resultado da tarefa.
 
 ## Validação e reversão
+
+### Runtime local pelo Docker Compose
+
+O Compose raiz mantém o PostgreSQL existente e oferece o perfil `web`, que
+inicia a API e o `face-worker` juntos. A API precisa de `WEB_CAPTURE_TEMP_DIR`
+para aceitar capturas; o worker consome a mesma fila e monta exatamente o mesmo
+volume temporário. Esse volume é um `tmpfs` limitado a 300 MiB, sem persistência
+em disco. Os pesos locais são montados somente para leitura no worker.
+
+Configure no `.env` as variáveis `WEB_DATABASE_URL` (URL acessível de dentro do
+container, normalmente `host.docker.internal:5433`), `WEB_SECRET_KEY` e
+`WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`, conforme o `.env.example`. A origem
+local padrão é `http://127.0.0.1:8000`; mantenha `WEB_PUBLIC_ORIGIN` igual ao
+endereço usado no navegador para que as mutações autenticadas passem pela
+validação de origem e CSRF. Depois, na raiz do projeto, use:
+
+```powershell
+docker compose --profile web up -d --build
+docker compose --profile web ps
+Invoke-RestMethod http://127.0.0.1:8000/health/ready
+```
+
+O primeiro comando também inicia o serviço `db` se ele estiver parado; não
+recria o volume PostgreSQL existente. A readiness da API confirma o banco. O
+worker leva mais tempo para ficar saudável porque carrega os modelos locais;
+acompanhe `docker compose --profile web logs -f face-worker` até o healthcheck
+ficar `healthy`. Sem pesos locais válidos, o Compose mostra o worker como
+indisponível e o processamento permanece incompleto. A tela de captura não deve
+ser usada até API e worker estarem saudáveis.
+
+Para parar somente os serviços web, preserve banco e volumes com
+`docker compose --profile web stop web face-worker`. Não use `down -v`.
 
 A validação Linux usa containers descartáveis Ubuntu 24.04 amd64/Python 3.12.3:
 um para `requirements-dev.txt`, testes sintéticos e smoke HTTP; outro para
