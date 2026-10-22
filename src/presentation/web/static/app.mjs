@@ -25,9 +25,83 @@ const dataLocal = (valor) => {
 };
 const apiPath = (path) => `/api/v1${path}`;
 const mensagem = (valor, tipo = "") => `<div class="notice ${tipo ? `notice--${tipo}` : ""}" role="status">${escapeHtml(valor)}</div>`;
-const button = (rotulo, action, extra = "") => `<button class="button ${extra}" type="button" data-action="${escapeHtml(action)}" data-magnetic><span class="magnetic-label">${escapeHtml(rotulo)}</span></button>`;
+const button = (rotulo, action, extra = "", magnetico = false) => `<button class="button ${extra}" type="button" data-action="${escapeHtml(action)}"${magnetico ? " data-magnetic" : ""}><span class="magnetic-label">${escapeHtml(rotulo)}</span></button>`;
 const field = (label, name, attrs = "", hint = "") => `<div class="field"><label for="${escapeHtml(name)}">${escapeHtml(label)}</label><input id="${escapeHtml(name)}" name="${escapeHtml(name)}" ${attrs}>${hint ? `<p class="field-hint">${escapeHtml(hint)}</p>` : ""}</div>`;
-const htmlBody = (title, content, usuario = sessao?.usuario) => `<div class="page-shell page-shell--animated"><header class="app-header" data-reveal><a class="app-identity" href="/" aria-label="FaceDiff, início"><img class="app-identity__logo" src="/assets/img/logo.png" alt="FaceDiff" fetchpriority="high"><span>Presença acadêmica</span></a><div class="app-header__actions">${typeof usuario === "string" && usuario.trim() ? `<span class="app-header__user" aria-label="Usuário conectado">${escapeHtml(usuario)}</span>` : ""}<a class="button button--quiet" href="/" data-magnetic><span class="magnetic-label">Página inicial</span></a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar" data-reveal><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title" data-reveal><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div><div class="app-content" data-reveal>${content}</div></main></div></div>`;
+const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const chaveData = (data) => [data.getFullYear(), String(data.getMonth() + 1).padStart(2, "0"), String(data.getDate()).padStart(2, "0")].join("-");
+const inicioDia = (data) => new Date(data.getFullYear(), data.getMonth(), data.getDate());
+const mesmaData = (primeira, segunda) => primeira && segunda && chaveData(primeira) === chaveData(segunda);
+const dataComHora = (data, hora) => { const [horas, minutos] = hora.split(":").map(Number); return new Date(data.getFullYear(), data.getMonth(), data.getDate(), horas, minutos, 0, 0); };
+const dataHoraLocal = (data) => chaveData(data) + "T" + String(data.getHours()).padStart(2, "0") + ":" + String(data.getMinutes()).padStart(2, "0");
+const nomeData = (data) => data ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(data) : "Selecione uma data";
+
+function agendadorSessaoMarkup() {
+  return '<section class="session-scheduler field--wide" data-session-scheduler aria-labelledby="session-scheduler-title"><div class="session-scheduler__header"><div><p class="eyebrow">Período da sessão</p><h3 id="session-scheduler-title">Defina início e fim</h3></div><p class="field-hint">Clique em uma data para o início e em outra para o fim.</p></div><div class="session-scheduler__layout"><div class="session-scheduler__calendar"><div class="session-scheduler__month"><button class="icon-button" type="button" data-scheduler-month="-1" aria-label="Mês anterior">‹</button><strong data-scheduler-month-label></strong><button class="icon-button" type="button" data-scheduler-month="1" aria-label="Próximo mês">›</button></div><div class="session-scheduler__weekdays">' + diasSemana.map((dia) => "<span>" + dia + "</span>").join("") + '</div><div class="session-scheduler__days" data-scheduler-calendar></div></div><div class="session-scheduler__details"><div class="session-scheduler__date"><span>Início</span><strong data-scheduler-start-date>Selecione uma data</strong><label>Horário<input type="time" value="09:00" data-scheduler-start-time></label></div><div class="session-scheduler__date"><span>Fim</span><strong data-scheduler-end-date>Seleciona uma data</strong><label>Horário<input type="time" value="10:00" data-scheduler-end-time></label></div><p class="session-scheduler__summary" data-scheduler-summary aria-live="polite">Selecione o período em que a sessão ficará disponível.</p></div></div><input type="hidden" name="inicio_em" data-scheduler-start required><input type="hidden" name="fim_em" data-scheduler-end required></section>';
+}
+
+function iniciarAgendadorSessao(form) {
+  if (!form) return;
+  const scheduler = form.querySelector("[data-session-scheduler]");
+  if (!scheduler) return;
+  const calendario = scheduler.querySelector("[data-scheduler-calendar]");
+  const mesLabel = scheduler.querySelector("[data-scheduler-month-label]");
+  const inicioInput = scheduler.querySelector("[data-scheduler-start]");
+  const fimInput = scheduler.querySelector("[data-scheduler-end]");
+  const inicioLabel = scheduler.querySelector("[data-scheduler-start-date]");
+  const fimLabel = scheduler.querySelector("[data-scheduler-end-date]");
+  const inicioHora = scheduler.querySelector("[data-scheduler-start-time]");
+  const fimHora = scheduler.querySelector("[data-scheduler-end-time]");
+  const resumo = scheduler.querySelector("[data-scheduler-summary]");
+  let mesAtual = inicioDia(new Date());
+  let inicio = null;
+  let fim = null;
+  const atualizar = () => {
+    inicioInput.value = inicio ? dataHoraLocal(inicio) : "";
+    fimInput.value = fim ? dataHoraLocal(fim) : "";
+    inicioLabel.textContent = nomeData(inicio);
+    fimLabel.textContent = nomeData(fim);
+    resumo.textContent = inicio && fim ? nomeData(inicio) + " às " + inicioHora.value + " até " + nomeData(fim) + " às " + fimHora.value + "." : "Selecione o período em que a sessão ficará disponível.";
+  };
+  const renderCalendario = () => {
+    mesLabel.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(mesAtual);
+    const primeiro = new Date(mesAtual.getFullYear(), mesAtual.getMonth(), 1);
+    const ultimo = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + 1, 0);
+    const primeiroGrid = new Date(primeiro);
+    primeiroGrid.setDate(primeiro.getDate() - primeiro.getDay());
+    const ultimoGrid = new Date(ultimo);
+    ultimoGrid.setDate(ultimo.getDate() + (6 - ultimo.getDay()));
+    const dias = [];
+    for (let dia = new Date(primeiroGrid); dia <= ultimoGrid; dia.setDate(dia.getDate() + 1)) {
+      const atual = new Date(dia);
+      const foraDoMes = atual.getMonth() !== mesAtual.getMonth();
+      const selecionado = mesmaData(atual, inicio) || mesmaData(atual, fim);
+      const noIntervalo = inicio && fim && atual > inicioDia(inicio) && atual < inicioDia(fim);
+      dias.push('<button class="session-scheduler__day' + (foraDoMes ? " is-outside" : "") + (selecionado ? " is-selected" : "") + (noIntervalo ? " is-in-range" : "") + '" type="button" data-scheduler-day="' + chaveData(atual) + '" aria-pressed="' + Boolean(selecionado) + '">' + atual.getDate() + "</button>");
+    }
+    calendario.innerHTML = dias.join("");
+  };
+  const selecionar = (data) => {
+    if (!inicio || fim) { inicio = dataComHora(data, inicioHora.value); fim = null; }
+    else if (data < inicioDia(inicio)) inicio = dataComHora(data, inicioHora.value);
+    else { fim = dataComHora(data, fimHora.value); if (fim <= inicio) fim = null; }
+    atualizar();
+    renderCalendario();
+  };
+  scheduler.addEventListener("click", (event) => {
+    const mes = event.target.closest("[data-scheduler-month]");
+    if (mes) { mesAtual = new Date(mesAtual.getFullYear(), mesAtual.getMonth() + Number(mes.dataset.schedulerMonth), 1); renderCalendario(); return; }
+    const dia = event.target.closest("[data-scheduler-day]");
+    if (!dia) return;
+    const [ano, numeroMes, numeroDia] = dia.dataset.schedulerDay.split("-").map(Number);
+    selecionar(new Date(ano, numeroMes - 1, numeroDia));
+  });
+  inicioHora.addEventListener("change", () => { if (inicio) inicio = dataComHora(inicio, inicioHora.value); if (fim && fim <= inicio) fim = null; atualizar(); renderCalendario(); });
+  fimHora.addEventListener("change", () => { if (fim) fim = dataComHora(fim, fimHora.value); if (fim && inicio && fim <= inicio) fim = null; atualizar(); renderCalendario(); });
+  form.addEventListener("session-scheduler-reset", () => { inicio = null; fim = null; mesAtual = inicioDia(new Date()); atualizar(); renderCalendario(); });
+  atualizar();
+  renderCalendario();
+}
+const htmlBody = (title, content, usuario = sessao?.usuario) => `<div class="page-shell page-shell--animated"><header class="app-header" data-reveal><a class="app-identity" href="/" aria-label="FaceDiff, início"><img class="app-identity__logo" src="/assets/img/logo.png" alt="FaceDiff" fetchpriority="high"><span>Presença acadêmica</span></a><div class="app-header__actions">${typeof usuario === "string" && usuario.trim() ? `<span class="app-header__user" aria-label="Usuário conectado">${escapeHtml(usuario)}</span>` : ""}<a class="button button--quiet" href="/"><span class="magnetic-label">Página inicial</span></a>${button("Sair", "logout", "button--quiet")}</div></header><div class="app-body"><aside class="app-sidebar" data-reveal><nav aria-label="Navegação do professor">${navLinks(lerView().view)}</nav></aside><main class="app-main" id="conteudo" tabindex="-1"><div class="page-title" data-reveal><div><p class="eyebrow">Área do professor</p><h1 tabindex="-1">${escapeHtml(title)}</h1></div></div><div class="app-content" data-reveal>${content}</div></main></div></div>`;
 
 function navLinks(ativo = "painel") {
   const links = [
@@ -36,7 +110,7 @@ function navLinks(ativo = "painel") {
   ];
   if (sessao?.papel === "admin") links.push(["administracao", "Administração"]);
   const ativoNaNavegacao = ativo === "turma" ? "turmas" : ativo;
-  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" data-magnetic ${id === ativoNaNavegacao ? 'aria-current="page"' : ""}><span class="magnetic-label">${nome}</span></a>`).join("");
+  return links.map(([id, nome]) => `<a href="/professor?view=${id}" data-view="${id}" ${id === ativoNaNavegacao ? 'aria-current="page"' : ""}><span class="magnetic-label">${nome}</span></a>`).join("");
 }
 
 function limparRecursos() {
@@ -176,8 +250,7 @@ async function loginPage() {
 }
 
 async function trocarSenha() {
-  render(`<div class="login-layout login-layout--animated"><aside class="login-aside"><a class="wordmark wordmark--inverse" href="/"><img class="wordmark__logo" src="/assets/img/logo-white.png" alt="FaceDiff" fetchpriority="high"></a><div><p class="eyebrow eyebrow--inverse">Segurança da conta</p><h1>Atualize sua senha.</h1></div><p>Escolha uma senha longa e exclusiva.</p></aside><main class="login-main" id="conteudo"><h2>Trocar senha</h2><p>O acesso exige uma senha nova com pelo menos 12 caracteres.</p><form class="login-form" data-form="trocar-senha">${field("Senha atual, se solicitada", "senha_atual", 'type="password" autocomplete="current-password" maxlength="256"')}${field("Nova senha", "nova_senha", 'type="password" autocomplete="new-password" required minlength="12" maxlength="256"')}<button class="button button--dark" type="submit" data-magnetic><span class="magnetic-label">Salvar nova senha</span></button></form></main></div>`);
-  cleanup.push(iniciarCursorMagnetico(document));
+  render(`<div class="login-layout login-layout--animated"><aside class="login-aside"><a class="wordmark wordmark--inverse" href="/"><img class="wordmark__logo" src="/assets/img/logo-white.png" alt="FaceDiff" fetchpriority="high"></a><div><p class="eyebrow eyebrow--inverse">Segurança da conta</p><h1>Atualize sua senha.</h1></div><p>Escolha uma senha longa e exclusiva.</p></aside><main class="login-main" id="conteudo"><h2>Trocar senha</h2><p>O acesso exige uma senha nova com pelo menos 12 caracteres.</p><form class="login-form" data-form="trocar-senha">${field("Senha atual, se solicitada", "senha_atual", 'type="password" autocomplete="current-password" maxlength="256"')}${field("Nova senha", "nova_senha", 'type="password" autocomplete="new-password" required minlength="12" maxlength="256"')}<button class="button button--dark" type="submit"><span class="magnetic-label">Salvar nova senha</span></button></form></main></div>`);
 }
 
 async function obterSessao() {
@@ -226,7 +299,6 @@ async function professor() {
     root.querySelector(`[data-view="${atual}"]`)?.setAttribute("aria-current", "page");
     root.querySelector("#conteudo h1")?.focus({ preventScroll: true });
     cleanup.push(iniciarRevelacaoScroll(root));
-    cleanup.push(iniciarCursorMagnetico(document));
     bindProfessor(turmas, turmaAtual);
   } catch (erro) {
     render(`<main class="not-found wrap" id="conteudo"><p class="eyebrow">Área do professor</p><h1>Não foi possível carregar.</h1>${mensagem(mostrarErro(erro), "error")}<a class="button button--dark" href="/login">Voltar ao acesso</a></main>`);
@@ -245,7 +317,8 @@ function seletorTurma(turmas, atual) {
 
 function tabelaTurmas(turmas) {
   if (!turmas.length) return `<p class="empty-state">Nenhuma turma cadastrada.</p>`;
-  return `<div class="table-wrap" role="region" aria-label="Turmas" tabindex="0"><table><thead><tr><th>Turma</th><th>Período</th><th>Responsável</th><th>Ações</th></tr></thead><tbody>${turmas.map((turma) => `<tr><td>${texto(turma.materia)}</td><td>${texto(turma.periodo)}</td><td>${texto(turma.responsavel_professor_id)}</td><td><div class="table-actions">${button("Abrir", `open-class:${turma.id}`, "button--quiet")}<details><summary class="button button--quiet">Editar</summary><form class="form-grid" data-form="editar-turma" data-id="${turma.id}"><div class="field"><label for="materia-${turma.id}">Disciplina ou turma</label><input id="materia-${turma.id}" name="materia" value="${escapeHtml(turma.materia)}" required maxlength="120"></div><div class="field"><label for="periodo-${turma.id}">Período</label><select id="periodo-${turma.id}" name="periodo"><option value="matutino" ${turma.periodo === "matutino" ? "selected" : ""}>Matutino</option><option value="diurno" ${turma.periodo === "diurno" ? "selected" : ""}>Diurno</option><option value="noturno" ${turma.periodo === "noturno" ? "selected" : ""}>Noturno</option></select></div><button class="button button--dark" type="submit">Salvar alterações</button></form></details><details><summary class="button button--quiet">Excluir</summary><form class="form-grid" data-form="excluir-turma" data-id="${turma.id}">${field("Justificativa", "justificativa", 'required maxlength="500"')}<button class="button button--quiet" type="submit">Confirmar exclusão</button></form></details></div></td></tr>`).join("")}</tbody></table></div>`;
+  const dialogs = turmas.map((turma) => `<dialog class="confirmation-dialog" data-delete-class-dialog data-id="${turma.id}" aria-labelledby="delete-class-title-${turma.id}"><form class="confirmation-dialog__card" data-form="excluir-turma" data-id="${turma.id}"><div class="confirmation-dialog__header"><p class="eyebrow">Excluir turma</p><h2 id="delete-class-title-${turma.id}">${texto(turma.materia)}</h2><p>Esta ação será registrada pelo servidor e poderá afetar vínculos existentes.</p></div><div class="field"><label for="justificativa-excluir-${turma.id}">Justificativa</label><textarea id="justificativa-excluir-${turma.id}" name="justificativa" required maxlength="500" rows="4" placeholder="Descreva o motivo da exclusão"></textarea></div><div class="confirmation-dialog__actions"><button class="button button--quiet" type="button" data-action="cancel-delete-class">Cancelar</button><button class="button button--danger" type="submit">Confirmar exclusão</button></div></form></dialog>`).join("");
+  return `<div class="table-wrap" role="region" aria-label="Turmas" tabindex="0"><table><thead><tr><th>Turma</th><th>Período</th><th>Responsável</th><th>Ações</th></tr></thead><tbody>${turmas.map((turma) => `<tr><td>${texto(turma.materia)}</td><td>${texto(turma.periodo)}</td><td>${texto(turma.responsavel_professor_id)}</td><td><div class="table-actions">${button("Abrir", `open-class:${turma.id}`, "button--quiet")}<details><summary class="button button--quiet">Editar</summary><form class="form-grid" data-form="editar-turma" data-id="${turma.id}"><div class="field"><label for="materia-${turma.id}">Disciplina ou turma</label><input id="materia-${turma.id}" name="materia" value="${escapeHtml(turma.materia)}" required maxlength="120"></div><div class="field"><label for="periodo-${turma.id}">Período</label><select id="periodo-${turma.id}" name="periodo"><option value="matutino" ${turma.periodo === "matutino" ? "selected" : ""}>Matutino</option><option value="diurno" ${turma.periodo === "diurno" ? "selected" : ""}>Diurno</option><option value="noturno" ${turma.periodo === "noturno" ? "selected" : ""}>Noturno</option></select></div><button class="button button--dark" type="submit">Salvar alterações</button></form></details>${button("Excluir", `open-delete-class:${turma.id}`, "button--danger")}</div></td></tr>`).join("")}</tbody></table></div>${dialogs}`;
 }
 
 async function construirTelaProfessor(view, turmas, atual) {
@@ -263,7 +336,7 @@ async function construirTelaProfessor(view, turmas, atual) {
     return `${seletor}<section class="section-block"><p>Esta lista contém apenas dados necessários à conferência. Imagens e embeddings não são exibidos neste painel.</p>${itens.length ? `<ul class="plain-list">${itens.map((item) => `<li><div class="row-between"><div><strong>${texto(item.nome)}</strong><div class="field-hint">Matrícula ${texto(item.matricula)} · ${texto(item.estado)} · solicitada ${dataLocal(item.criado_em)}</div></div><span>ID ${texto(item.id)}</span></div><form class="form-grid" data-form="decidir-cadastro" data-id="${escapeHtml(item.id)}"><div class="field"><label for="metodo-${item.id}">Conferência independente</label><select id="metodo-${item.id}" name="metodo_identidade"><option value="documento_presencial">Documento presencial</option><option value="codigo_institucional">Código institucional</option><option value="contato_institucional">Contato institucional</option></select></div>${field("Justificativa da decisão", "justificativa", 'required minlength="10" maxlength="500"') }<div class="button-row field--wide"><button class="button button--dark" name="decisao" value="aprovar">Aprovar cadastro</button><button class="button button--quiet" name="decisao" value="rejeitar">Rejeitar</button></div></form></li>`).join("")}</ul>` : `<p class="empty-state">Não há solicitações aguardando aprovação.</p>`}</section>`;
   }
   if (view === "painel") return `${seletor}<section class="section-block"><div class="row-between"><h2>Atividade registrada</h2>${button("Atualizar agora", "refresh-panel", "button--quiet")}</div><div class="status-line"><span data-updated>Atualização ainda não consultada</span><span data-poll-error></span></div><div data-panel class="panel-region"><p class="empty-state">Consultando painel autorizado…</p></div></section>`;
-  if (view === "presencas") return `${seletor}<section class="section-block"><h2>Abrir sessão</h2><form class="form-grid" data-form="criar-sessao">${field("Título", "titulo", 'required maxlength="120"')}${field("Início", "inicio_em", 'type="datetime-local" required')}${field("Fim", "fim_em", 'type="datetime-local" required')}<div class="field field--wide"><button class="button button--dark" type="submit">Criar sessão</button></div></form><div class="result-region" data-result="session"></div></section><section class="section-block"><h2>Sessões recentes</h2><div data-panel><p class="empty-state">Carregando sessões…</p></div></section>`;
+  if (view === "presencas") return `${seletor}<section class="section-block"><h2>Abrir sessão</h2><form class="form-grid" data-form="criar-sessao">${field("Título", "titulo", 'required maxlength="120"')}${agendadorSessaoMarkup()}<div class="field field--wide"><button class="button button--dark" type="submit">Criar sessão</button></div></form><div class="result-region" data-result="session"></div></section><section class="section-block"><h2>Sessões recentes</h2><div data-panel><p class="empty-state">Carregando sessões…</p></div></section>`;
   if (view === "revisoes") return `${seletor}<section class="section-block"><h2>Revisões abertas</h2><div data-reviews><p class="empty-state">Carregando revisões…</p></div></section>`;
   if (view === "relatorios") return `${seletor}<section class="section-block"><h2>Exportar presenças</h2><p>O arquivo é gerado pela API autorizada; o navegador não recalcula a decisão biométrica.</p><form class="form-grid" data-form="csv"><div class="field"><label for="filtro-csv">Intervalo</label><select id="filtro-csv" name="tipo"><option value="mes">Um mês</option><option value="datas">Datas de início e fim</option></select></div><div class="field" data-csv-mes><label for="mes">Mês</label><input id="mes" name="mes" type="month" required></div><div class="field" data-csv-inicio hidden><label for="inicio">Data inicial</label><input id="inicio" name="inicio" type="date"></div><div class="field" data-csv-fim hidden><label for="fim">Data final</label><input id="fim" name="fim" type="date"></div><div class="field field--wide"><button class="button button--dark" type="submit">Baixar CSV</button></div></form><div class="result-region" data-result="csv"></div></section>`;
   if (view === "administracao") return `<section class="section-block"><h2>Criar conta</h2><p>A credencial temporária é exibida uma vez. Entregue-a por canal institucional apropriado.</p><form class="form-grid" data-form="criar-conta">${field("Usuário", "usuario", 'required maxlength="160"') }<div class="field"><label for="papel">Papel</label><select id="papel" name="papel"><option value="professor">Professor</option><option value="admin">Administrador</option></select></div>${field("Justificativa", "justificativa", 'required maxlength="500"')}<div class="field field--wide"><button class="button button--dark" type="submit">Criar conta</button></div></form><div class="result-region" data-result="admin"></div></section><section class="section-block"><h2>Redefinir senha ou desativar conta</h2><p>Informe o identificador da conta consultado em canal autorizado. As ações ficam auditadas pelo servidor.</p><form class="form-grid" data-form="admin-conta">${field("ID da conta", "conta_id", 'type="number" min="1" required')}${field("Referência de verificação", "referencia_verificacao", 'required maxlength="160"')}${field("Justificativa", "justificativa", 'required maxlength="500"')}<div class="button-row field--wide"><button class="button button--dark" name="acao" value="reset">Redefinir senha</button><button class="button button--quiet" name="acao" value="desativar">Desativar conta</button></div></form><div class="result-region" data-result="admin-conta"></div></section>${atual ? `<section class="section-block"><h2>Transferir responsabilidade de turma</h2>${seletor}<form class="form-grid" data-form="transferir"><input type="hidden" name="turma_id" value="${atual.id}">${field("ID do novo professor responsável", "professor_id", 'type="number" min="1" required')}${field("Justificativa", "justificativa", 'required maxlength="500"')}<div class="field field--wide"><button class="button button--dark" type="submit">Transferir</button></div></form></section>` : ""}`;
@@ -348,9 +421,20 @@ function bindProfessor(turmas, atual) {
       location.reload();
     } catch (erro) { formularioErro(form, erro); }
   }));
+  document.querySelectorAll("[data-action^='open-delete-class:']").forEach((button) => button.addEventListener("click", () => {
+    const id = button.dataset.action.split(":")[1];
+    const dialog = document.querySelector(`[data-delete-class-dialog][data-id="${id}"]`);
+    if (!dialog) return;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }));
+  document.querySelectorAll('[data-action="cancel-delete-class"]').forEach((button) => button.addEventListener("click", () => {
+    const dialog = button.closest("dialog");
+    if (typeof dialog?.close === "function") dialog.close();
+    else dialog?.removeAttribute("open");
+  }));
   document.querySelectorAll('[data-form="excluir-turma"]').forEach((form) => form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!window.confirm("Excluir esta turma? A operação será registrada pelo servidor e pode afetar os vínculos existentes.")) return;
     const dados = new FormData(form);
     try {
       await api.delete(apiPath(`/turmas/${form.dataset.id}`), { justificativa: dados.get("justificativa") });
@@ -406,20 +490,29 @@ function bindProfessor(turmas, atual) {
       location.reload();
     } catch (erro) { formularioErro(form, erro); }
   }));
-  document.querySelector('[data-form="criar-sessao"]')?.addEventListener("submit", async (event) => {
+  const formularioSessao = document.querySelector('[data-form="criar-sessao"]');
+  iniciarAgendadorSessao(formularioSessao);
+  formularioSessao?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const dados = new FormData(form);
     const result = document.querySelector('[data-result="session"]');
+    const inicio = new Date(dados.get("inicio_em"));
+    const fim = new Date(dados.get("fim_em"));
+    if (!dados.get("inicio_em") || !dados.get("fim_em") || Number.isNaN(inicio.valueOf()) || Number.isNaN(fim.valueOf()) || fim <= inicio) {
+      formularioErro(form, new Error("Selecione um início e um fim posterior no calendário."));
+      return;
+    }
     try {
       const criada = await api.post(apiPath(`/turmas/${atual.id}/sessoes`), {
-        titulo: dados.get("titulo"), inicio_em: new Date(dados.get("inicio_em")).toISOString(), fim_em: new Date(dados.get("fim_em")).toISOString(),
+        titulo: dados.get("titulo"), inicio_em: inicio.toISOString(), fim_em: fim.toISOString(),
       });
       const link = await api.post(apiPath(`/sessoes/${criada.id}/links`), {});
       const href = `${location.origin}/presenca/${encodeURIComponent(link.token)}`;
       result.innerHTML = `<div class="notice"><p>Sessão criada. O link é de uso único; copie e compartilhe com a turma.</p><a class="code-line" href="${escapeHtml(href)}">${escapeHtml(href)}</a><p>Início ${dataLocal(criada.inicio_em)} · fim ${dataLocal(criada.fim_em)} · expira ${dataLocal(link.expira_em)}</p></div>`;
       result.querySelector("a")?.focus();
       form.reset();
+      form.dispatchEvent(new Event("session-scheduler-reset"));
     } catch (erro) { formularioErro(form, erro); }
   });
   document.querySelector('[data-form="csv"]')?.addEventListener("submit", async (event) => {

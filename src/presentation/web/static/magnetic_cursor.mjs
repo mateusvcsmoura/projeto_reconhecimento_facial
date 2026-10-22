@@ -1,4 +1,4 @@
-/** Acrescenta um cursor fluido com contraste invertido somente na landing. */
+/** Acrescenta um cursor fluido com contraste invertido à landing e ao login. */
 export function iniciarCursorMagnetico(documento = globalThis.document) {
   const janela = documento?.defaultView;
   const noop = () => {};

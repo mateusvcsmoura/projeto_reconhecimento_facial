@@ -439,18 +439,21 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     setItem(chave, valor) { armazenamento.set(chave, valor); },
   };
   globalThis.fetch = async (url) => {
-    if (["/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/me")) {
+    if (["/trocar-senha", "/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/me")) {
       return new Response(JSON.stringify({ id: 2, usuario: "professor.teste", papel: "professor", troca_senha_obrigatoria: false }), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
-    if (["/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/auth/csrf")) {
+    if (["/trocar-senha", "/professor", "/professor/turmas/1"].includes(globalThis.location.pathname) && String(url).endsWith("/api/v1/auth/csrf")) {
       return new Response(JSON.stringify({ csrf_token: "teste" }), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
     if (globalThis.location.pathname === "/professor" && String(url).endsWith("/api/v1/turmas")) {
-      return new Response(JSON.stringify([]), {
+      const turmas = ["?view=presencas", "?view=turmas"].includes(globalThis.location.search)
+        ? [{ id: 1, materia: "IA Aplicada", periodo: "noturno", responsavel_professor_id: 2 }]
+        : [];
+      return new Response(JSON.stringify(turmas), {
         status: 200, headers: { "Content-Type": "application/json" },
       });
     }
@@ -494,6 +497,13 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     assert.match(raiz.innerHTML, /assets\/img\/logo-white\.png/);
     assert.match(raiz.innerHTML, /data-magnetic/);
 
+    globalThis.location.pathname = "/trocar-senha";
+    globalThis.location.href = "http://localhost/trocar-senha";
+    await import(`${modulo}?password-smoke=${Date.now()}`);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /data-form="trocar-senha"/);
+    assert.doesNotMatch(raiz.innerHTML, /data-magnetic/);
+
     globalThis.location.pathname = "/professor";
     globalThis.location.search = "?view=painel";
     globalThis.location.href = "http://localhost/professor?view=painel";
@@ -506,7 +516,29 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
       /class="app-header__user" aria-label="Usuário conectado">professor\.teste<\/span><a class="button button--quiet" href="\/"/,
     );
     assert.match(raiz.innerHTML, /data-reveal/);
-    assert.match(raiz.innerHTML, /data-magnetic/);
+    assert.doesNotMatch(raiz.innerHTML, /data-magnetic/);
+
+    globalThis.location.pathname = "/professor";
+    globalThis.location.search = "?view=presencas";
+    globalThis.location.href = "http://localhost/professor?view=presencas";
+    await import(`${modulo}?presencas-smoke=${Date.now()}`);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /data-session-scheduler/);
+    assert.match(raiz.innerHTML, /data-scheduler-calendar/);
+    assert.match(raiz.innerHTML, /name="inicio_em"/);
+    assert.match(raiz.innerHTML, /name="fim_em"/);
+    assert.doesNotMatch(raiz.innerHTML, /type="datetime-local"/);
+
+    globalThis.location.pathname = "/professor";
+    globalThis.location.search = "?view=turmas";
+    globalThis.location.href = "http://localhost/professor?view=turmas";
+    await import(`${modulo}?turmas-smoke=${Date.now()}`);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /data-action="open-delete-class:1"/);
+    assert.match(raiz.innerHTML, /<dialog class="confirmation-dialog" data-delete-class-dialog data-id="1"/);
+    assert.match(raiz.innerHTML, /data-form="excluir-turma" data-id="1"/);
+    assert.match(raiz.innerHTML, /Cancelar/);
+    assert.doesNotMatch(raiz.innerHTML, /<details><summary class="button button--quiet">Excluir/);
 
     globalThis.location.pathname = "/professor/turmas/1";
     globalThis.location.search = "";

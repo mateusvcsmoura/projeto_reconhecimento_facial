@@ -1067,6 +1067,180 @@ p {
   font-size: 0.85rem;
 }
 
+.session-scheduler {
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid #282828;
+  border-radius: 18px;
+  background: #111111;
+  color: #f7f7f7;
+}
+
+.session-scheduler__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.session-scheduler__header .eyebrow {
+  margin: 0 0 4px;
+  color: #bdbdbd;
+}
+
+.session-scheduler__header h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+.session-scheduler__header .field-hint {
+  max-width: 30ch;
+  color: #bdbdbd;
+  text-align: right;
+}
+
+.session-scheduler__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(230px, 0.92fr);
+  gap: 28px;
+}
+
+.session-scheduler__month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  margin-bottom: 12px;
+  text-transform: capitalize;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: #f7f7f7;
+  cursor: pointer;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  border-color: #656565;
+  background: #252525;
+  outline: none;
+}
+
+.session-scheduler__weekdays,
+.session-scheduler__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.session-scheduler__weekdays {
+  margin-bottom: 6px;
+  color: #aaaaaa;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.session-scheduler__days {
+  gap: 3px;
+}
+
+.session-scheduler__day {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f7f7f7;
+  cursor: pointer;
+  transition: background 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease);
+}
+
+.session-scheduler__day:hover,
+.session-scheduler__day:focus-visible {
+  background: #303030;
+  outline: none;
+  transform: scale(1.04);
+}
+
+.session-scheduler__day.is-outside {
+  color: #656565;
+}
+
+.session-scheduler__day.is-in-range {
+  border-radius: 2px;
+  background: #393939;
+}
+
+.session-scheduler__day.is-selected {
+  background: #f1f1f1;
+  color: #111111;
+  font-weight: 700;
+}
+
+.session-scheduler__details {
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+}
+
+.session-scheduler__date {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 12px;
+  border: 1px solid #363636;
+  border-radius: 10px;
+  background: #171717;
+}
+
+.session-scheduler__date > span,
+.session-scheduler__date label {
+  color: #bdbdbd;
+  font-size: 0.78rem;
+}
+
+.session-scheduler__date strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.session-scheduler__date label {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  display: grid;
+  gap: 4px;
+}
+
+.session-scheduler__date input[type="time"] {
+  min-height: 30px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: #303030;
+  color: #f7f7f7;
+  font-size: 0.82rem;
+}
+
+.session-scheduler__summary {
+  margin: 4px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #363636;
+  color: #bdbdbd;
+  font-size: 0.82rem;
+}
+
 .check-field {
   display: flex;
   align-items: flex-start;
@@ -1175,6 +1349,54 @@ tbody tr:last-child td {
 .table-actions .button {
   min-height: 40px;
   padding: 7px 10px;
+}
+
+.confirmation-dialog {
+  width: min(100% - 32px, 520px);
+  padding: 0;
+  border: 1px solid var(--dark-line);
+  border-radius: 18px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+}
+
+.confirmation-dialog::backdrop {
+  background: rgb(0 0 0 / 48%);
+  backdrop-filter: blur(3px);
+}
+
+.confirmation-dialog__card {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+}
+
+.confirmation-dialog__header {
+  display: grid;
+  gap: 8px;
+}
+
+.confirmation-dialog__header .eyebrow,
+.confirmation-dialog__header h2,
+.confirmation-dialog__header p {
+  margin: 0;
+}
+
+.confirmation-dialog__header h2 {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  line-height: 1.1;
+}
+
+.confirmation-dialog__header > p:last-child {
+  color: var(--muted);
+}
+
+.confirmation-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .empty-state {
@@ -1745,6 +1967,24 @@ tbody tr:last-child td {
 
   .field--wide {
     grid-column: auto;
+  }
+
+  .session-scheduler {
+    padding: 18px;
+  }
+
+  .session-scheduler__header,
+  .session-scheduler__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .session-scheduler__header {
+    display: grid;
+  }
+
+  .session-scheduler__header .field-hint {
+    max-width: none;
+    text-align: left;
   }
 
   .toolbar > * {
