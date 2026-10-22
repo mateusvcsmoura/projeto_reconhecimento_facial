@@ -45,7 +45,7 @@ export function criarVisualizadorLandmarks({ carregar = carregarVision } = {}) {
       const { FaceLandmarker, FilesetResolver } = await carregar();
       const vision = await FilesetResolver.forVisionTasks(VISION_WASM_URL);
       detector = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL }, runningMode: "VIDEO", numFaces: 2,
+        baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" }, runningMode: "VIDEO", numFaces: 2,
         minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
       });
       ativo = true;

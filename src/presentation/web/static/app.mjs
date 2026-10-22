@@ -780,7 +780,7 @@ function mostrarColetaCadastro(credencial, id, desafio) {
         } catch (falha) { result.innerHTML = mensagem(mostrarErro(falha), "error"); }
       });
     }
-  });
+  }, { autoCaptureMs: null, onStart: () => avisar("Câmera pronta. Confira o guia facial e capture cada etapa somente quando estiver na posição pedida.") });
   document.querySelector('[data-action="student-cancel"]')?.addEventListener("click", () => {
     camera.encerrar(document.querySelector("#camera-video"));
     capturas = [];

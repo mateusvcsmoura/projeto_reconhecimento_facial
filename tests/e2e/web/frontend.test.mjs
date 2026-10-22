@@ -4,7 +4,10 @@ import test from "node:test";
 
 import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
-import { desenharLandmarks } from "../../../src/presentation/web/static/landmarks.mjs";
+import {
+  criarVisualizadorLandmarks,
+  desenharLandmarks,
+} from "../../../src/presentation/web/static/landmarks.mjs";
 import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
 import {
@@ -56,6 +59,26 @@ test("guia de landmarks desenha apenas os pontos locais detectados", () => {
     ["arc", 50, 50, 1.6, 0, Math.PI * 2],
     ["arc", 150, 50, 1.6, 0, Math.PI * 2],
   ]);
+});
+
+test("guia de landmarks usa CPU para funcionar sem aceleração gráfica", async () => {
+  let opcoes;
+  const visualizador = criarVisualizadorLandmarks({
+    carregar: async () => ({
+      FilesetResolver: { forVisionTasks: async () => ({}) },
+      FaceLandmarker: {
+        createFromOptions: async (_vision, options) => {
+          opcoes = options;
+          return { close() {} };
+        },
+      },
+    }),
+  });
+  const canvas = { width: 0, height: 0, getContext: () => ({ clearRect() {} }) };
+
+  await visualizador.iniciar({ isConnected: false }, canvas);
+
+  assert.equal(opcoes.baseOptions.delegate, "CPU");
 });
 
 test("cliente API mostra mensagem e código estáveis enviados pelo servidor", async () => {
