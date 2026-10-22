@@ -155,6 +155,21 @@ class ProcessadorCadastroWeb:
                     )
                 imagem = self._decodificador(conteudo)
                 resultado_pose = self._pose.analisar(imagem)
+                esperada = orientacoes[ordinal - 1]
+                if (
+                    resultado_pose.quantidade_rostos != 1
+                    or resultado_pose.orientacao is not esperada
+                ):
+                    # Só enums e contagem: diagnóstico sem imagem nem landmarks.
+                    logger.warning(
+                        "Pose recusada no job %s, etapa %d: rostos=%s "
+                        "orientacao=%s esperada=%s.",
+                        job.id,
+                        ordinal,
+                        resultado_pose.quantidade_rostos,
+                        resultado_pose.orientacao,
+                        esperada,
+                    )
                 if (
                     type(resultado_pose.quantidade_rostos) is not int
                     or resultado_pose.quantidade_rostos != 1
