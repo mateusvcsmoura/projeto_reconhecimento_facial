@@ -1204,7 +1204,7 @@ p {
 }
 
 .session-scheduler__date > span,
-.session-scheduler__date label {
+.time-picker__label {
   color: #bdbdbd;
   font-size: 0.78rem;
 }
@@ -1216,21 +1216,99 @@ p {
   font-size: 0.9rem;
 }
 
-.session-scheduler__date label {
+/* Horário: mesmos estados das células do calendário (#303030 hover, #f1f1f1 selecionado). */
+.time-picker {
   grid-row: 1 / span 2;
   grid-column: 2;
   display: grid;
+  justify-items: end;
   gap: 4px;
 }
 
-.session-scheduler__date input[type="time"] {
-  min-height: 30px;
-  padding: 3px 6px;
+.time-picker__value {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid #363636;
+  border-radius: 8px;
+  background: #0b0b0b;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-picker__value > span {
+  color: #6b6b6b;
+  font-weight: 700;
+}
+
+.time-picker__segment {
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 6px;
   border: 0;
   border-radius: 6px;
-  background: #303030;
+  background: transparent;
   color: #f7f7f7;
-  font-size: 0.82rem;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
+}
+
+.time-picker__segment:hover {
+  background: #303030;
+}
+
+.time-picker__segment[aria-expanded="true"] {
+  background: #f1f1f1;
+  color: #111111;
+}
+
+.time-picker__segment:focus-visible,
+.time-picker__option:focus-visible {
+  outline: 2px solid #f7f7f7;
+  outline-offset: 2px;
+}
+
+.time-picker__options {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #2a2a2a;
+  animation: time-options-in 160ms var(--ease);
+}
+
+.time-picker__option {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f7f7f7;
+  font: inherit;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
+}
+
+.time-picker__option:hover {
+  background: #303030;
+}
+
+.time-picker__option[aria-pressed="true"] {
+  background: #f1f1f1;
+  color: #111111;
+  font-weight: 700;
+}
+
+@keyframes time-options-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .session-scheduler__summary {

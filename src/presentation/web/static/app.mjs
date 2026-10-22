@@ -9,6 +9,7 @@ import {
   registrarTokenCompartilhado,
 } from "./public_link_session.mjs";
 import { periodoSessao, resumoTentativas, situacaoSessao } from "./sessoes.mjs";
+import { iniciarSeletoresHorario, seletorHorarioMarkup } from "./seletor_horario.mjs";
 
 const api = criarClienteApi();
 const root = document.querySelector("#app");
@@ -43,7 +44,7 @@ const dataHoraLocal = (data) => chaveData(data) + "T" + String(data.getHours()).
 const nomeData = (data) => data ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(data) : "Selecione uma data";
 
 function agendadorSessaoMarkup() {
-  return '<section class="session-scheduler field--wide" data-session-scheduler aria-labelledby="session-scheduler-title"><div class="session-scheduler__header"><div><p class="eyebrow">Período da sessão</p><h3 id="session-scheduler-title">Defina início e fim</h3></div><p class="field-hint">Clique em uma data para o início e em outra para o fim.</p></div><div class="session-scheduler__layout"><div class="session-scheduler__calendar"><div class="session-scheduler__month"><button class="icon-button" type="button" data-scheduler-month="-1" aria-label="Mês anterior">‹</button><strong data-scheduler-month-label></strong><button class="icon-button" type="button" data-scheduler-month="1" aria-label="Próximo mês">›</button></div><div class="session-scheduler__weekdays">' + diasSemana.map((dia) => "<span>" + dia + "</span>").join("") + '</div><div class="session-scheduler__days" data-scheduler-calendar></div></div><div class="session-scheduler__details"><div class="session-scheduler__date"><span>Início</span><strong data-scheduler-start-date>Selecione uma data</strong><label>Horário<input type="time" value="09:00" data-scheduler-start-time></label></div><div class="session-scheduler__date"><span>Fim</span><strong data-scheduler-end-date>Seleciona uma data</strong><label>Horário<input type="time" value="10:00" data-scheduler-end-time></label></div><p class="session-scheduler__summary" data-scheduler-summary aria-live="polite">Selecione o período em que a sessão ficará disponível.</p></div></div><input type="hidden" name="inicio_em" data-scheduler-start required><input type="hidden" name="fim_em" data-scheduler-end required></section>';
+  return '<section class="session-scheduler field--wide" data-session-scheduler aria-labelledby="session-scheduler-title"><div class="session-scheduler__header"><div><p class="eyebrow">Período da sessão</p><h3 id="session-scheduler-title">Defina início e fim</h3></div><p class="field-hint">Clique em uma data para o início e em outra para o fim.</p></div><div class="session-scheduler__layout"><div class="session-scheduler__calendar"><div class="session-scheduler__month"><button class="icon-button" type="button" data-scheduler-month="-1" aria-label="Mês anterior">‹</button><strong data-scheduler-month-label></strong><button class="icon-button" type="button" data-scheduler-month="1" aria-label="Próximo mês">›</button></div><div class="session-scheduler__weekdays">' + diasSemana.map((dia) => "<span>" + dia + "</span>").join("") + '</div><div class="session-scheduler__days" data-scheduler-calendar></div></div><div class="session-scheduler__details"><div class="session-scheduler__date" data-time-picker data-rotulo="início"><span>Início</span><strong data-scheduler-start-date>Selecione uma data</strong>' + seletorHorarioMarkup({ id: "horario-inicio", rotulo: "início", valor: "09:00", atributo: "data-scheduler-start-time" }) + '</div><div class="session-scheduler__date" data-time-picker data-rotulo="fim"><span>Fim</span><strong data-scheduler-end-date>Selecione uma data</strong>' + seletorHorarioMarkup({ id: "horario-fim", rotulo: "fim", valor: "10:00", atributo: "data-scheduler-end-time" }) + '</div><p class="session-scheduler__summary" data-scheduler-summary aria-live="polite">Selecione o período em que a sessão ficará disponível.</p></div></div><input type="hidden" name="inicio_em" data-scheduler-start required><input type="hidden" name="fim_em" data-scheduler-end required></section>';
 }
 
 function iniciarAgendadorSessao(form) {
@@ -59,6 +60,7 @@ function iniciarAgendadorSessao(form) {
   const inicioHora = scheduler.querySelector("[data-scheduler-start-time]");
   const fimHora = scheduler.querySelector("[data-scheduler-end-time]");
   const resumo = scheduler.querySelector("[data-scheduler-summary]");
+  iniciarSeletoresHorario(scheduler);
   let mesAtual = inicioDia(new Date());
   let inicio = null;
   let fim = null;
@@ -67,7 +69,8 @@ function iniciarAgendadorSessao(form) {
     fimInput.value = fim ? dataHoraLocal(fim) : "";
     inicioLabel.textContent = nomeData(inicio);
     fimLabel.textContent = nomeData(fim);
-    resumo.textContent = inicio && fim ? nomeData(inicio) + " às " + inicioHora.value + " até " + nomeData(fim) + " às " + fimHora.value + "." : "Selecione o período em que a sessão ficará disponível.";
+    if (inicio && fim && fim <= inicio) resumo.textContent = "O fim precisa ser depois do início. Ajuste o horário ou a data de fim.";
+    else resumo.textContent = inicio && fim ? nomeData(inicio) + " às " + inicioHora.value + " até " + nomeData(fim) + " às " + fimHora.value + "." : "Selecione o período em que a sessão ficará disponível.";
   };
   const renderCalendario = () => {
     mesLabel.textContent = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(mesAtual);
@@ -90,7 +93,7 @@ function iniciarAgendadorSessao(form) {
   const selecionar = (data) => {
     if (!inicio || fim) { inicio = dataComHora(data, inicioHora.value); fim = null; }
     else if (data < inicioDia(inicio)) inicio = dataComHora(data, inicioHora.value);
-    else { fim = dataComHora(data, fimHora.value); if (fim <= inicio) fim = null; }
+    else fim = dataComHora(data, fimHora.value);
     atualizar();
     renderCalendario();
   };
@@ -102,8 +105,9 @@ function iniciarAgendadorSessao(form) {
     const [ano, numeroMes, numeroDia] = dia.dataset.schedulerDay.split("-").map(Number);
     selecionar(new Date(ano, numeroMes - 1, numeroDia));
   });
-  inicioHora.addEventListener("change", () => { if (inicio) inicio = dataComHora(inicio, inicioHora.value); if (fim && fim <= inicio) fim = null; atualizar(); renderCalendario(); });
-  fimHora.addEventListener("change", () => { if (fim) fim = dataComHora(fim, fimHora.value); if (fim && inicio && fim <= inicio) fim = null; atualizar(); renderCalendario(); });
+  // Ajustar horário nunca descarta a data escolhida; fim antes do início é avisado no resumo e barrado no envio.
+  inicioHora.addEventListener("change", () => { if (inicio) inicio = dataComHora(inicio, inicioHora.value); atualizar(); renderCalendario(); });
+  fimHora.addEventListener("change", () => { if (fim) fim = dataComHora(fim, fimHora.value); atualizar(); renderCalendario(); });
   form.addEventListener("session-scheduler-reset", () => { inicio = null; fim = null; mesAtual = inicioDia(new Date()); atualizar(); renderCalendario(); });
   atualizar();
   renderCalendario();

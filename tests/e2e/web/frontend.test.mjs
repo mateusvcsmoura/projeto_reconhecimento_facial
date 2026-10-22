@@ -20,6 +20,19 @@ import {
   resumoTentativas,
   situacaoSessao,
 } from "../../../src/presentation/web/static/sessoes.mjs";
+import { ajustarHorario, opcoesHorario } from "../../../src/presentation/web/static/seletor_horario.mjs";
+
+test("seletor de horário ajusta hora e minuto com volta e passo de 5 minutos", () => {
+  assert.equal(ajustarHorario("09:00", "hora", 1), "10:00");
+  assert.equal(ajustarHorario("23:40", "hora", 1), "00:40");
+  assert.equal(ajustarHorario("00:15", "hora", -1), "23:15");
+  assert.equal(ajustarHorario("09:55", "minuto", 1), "09:00");
+  assert.equal(ajustarHorario("09:00", "minuto", -1), "09:55");
+  assert.equal(ajustarHorario("09:07", "minuto", 1), "09:10");
+  assert.equal(opcoesHorario("hora").length, 24);
+  assert.deepEqual(opcoesHorario("minuto").slice(0, 3), ["00", "05", "10"]);
+  assert.equal(opcoesHorario("minuto").at(-1), "55");
+});
 
 test("sessões resumem tentativas em linguagem comum, sem JSON", () => {
   assert.equal(resumoTentativas({ concluida: 1 }), "Tentativas: 1 confirmada");
@@ -632,6 +645,9 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     assert.match(raiz.innerHTML, /name="inicio_em"/);
     assert.match(raiz.innerHTML, /name="fim_em"/);
     assert.doesNotMatch(raiz.innerHTML, /type="datetime-local"/);
+    assert.doesNotMatch(raiz.innerHTML, /type="time"/);
+    assert.match(raiz.innerHTML, /data-time-part="hora"[^>]*aria-label="Hora do início: 09"/);
+    assert.match(raiz.innerHTML, /<input type="hidden" value="10:00" data-scheduler-end-time>/);
 
     globalThis.location.pathname = "/professor";
     globalThis.location.search = "?view=turmas";
