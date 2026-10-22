@@ -423,6 +423,51 @@ class PostgresSolicitacaoRepository:
             resultado = _para_solicitacao(linha)
         return resultado
 
+    def renovar_desafio_coleta(
+        self,
+        solicitacao_id: int,
+        *,
+        agora: dt.datetime,
+        desafio_nonce_hash: str,
+        desafio_direcao: str,
+        desafio_expira_em: dt.datetime,
+    ) -> SolicitacaoCadastro:
+        """Troca o nonce enquanto nenhuma captura foi enviada; o anterior morre."""
+        instante = _utc(agora)
+        prazo_desafio = _utc(desafio_expira_em)
+        if (
+            len(desafio_nonce_hash) != 64
+            or any(
+                caractere not in "0123456789abcdef" for caractere in desafio_nonce_hash
+            )
+            or desafio_direcao not in {"esquerda", "direita"}
+            or prazo_desafio is None
+            or prazo_desafio <= instante
+        ):
+            raise ValueError("O desafio é inválido.")
+        with sessao(self._engine) as session:
+            linha = session.scalar(
+                select(models.SolicitacaoCadastroWeb)
+                .where(models.SolicitacaoCadastroWeb.id == solicitacao_id)
+                .with_for_update()
+            )
+            if linha is None:
+                raise PermissionError("A solicitação não está disponível.")
+            if (
+                linha.tipo not in {"cadastro", "atualizacao"}
+                or linha.estado != "em_coleta"
+                or linha.consentimento_em is None
+                or _utc(linha.expira_em) <= instante
+                or prazo_desafio > _utc(linha.expira_em)
+            ):
+                raise ValueError("A coleta não está disponível.")
+            linha.desafio_nonce_hash = desafio_nonce_hash
+            linha.desafio_direcao = desafio_direcao
+            linha.desafio_expira_em = prazo_desafio
+            session.flush()
+            resultado = _para_solicitacao(linha)
+        return resultado
+
     def cancelar_coleta_cadastro(
         self,
         solicitacao_id: int,

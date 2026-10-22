@@ -278,6 +278,44 @@ def test_aprovacao_de_novo_aluno_ativa_tres_referencias_sem_foto_legacy(
     assert aluno.consentimento_em.replace(tzinfo=UTC) == AGORA
 
 
+def test_renovar_desafio_substitui_nonce_somente_durante_a_coleta(engine) -> None:
+    repo = PostgresSolicitacaoRepository(engine)
+    solicitacao = _criar_solicitacao(repo, "000-desafio", "Pessoa Desafio")
+    prazo = AGORA + dt.timedelta(minutes=2)
+
+    renovada = repo.renovar_desafio_coleta(
+        solicitacao.id,
+        agora=AGORA,
+        desafio_nonce_hash="d" * 64,
+        desafio_direcao="direita",
+        desafio_expira_em=prazo,
+    )
+    with Session(engine) as session, session.begin():
+        session.get(
+            models.SolicitacaoCadastroWeb, solicitacao.id
+        ).estado = "em_validacao"
+
+    assert renovada.desafio_nonce_hash == "d" * 64
+    assert renovada.desafio_direcao == "direita"
+    assert renovada.desafio_expira_em == prazo
+    with pytest.raises(ValueError):
+        repo.renovar_desafio_coleta(
+            solicitacao.id,
+            agora=AGORA,
+            desafio_nonce_hash="e" * 64,
+            desafio_direcao="esquerda",
+            desafio_expira_em=prazo,
+        )
+    with pytest.raises(PermissionError):
+        repo.renovar_desafio_coleta(
+            999,
+            agora=AGORA,
+            desafio_nonce_hash="e" * 64,
+            desafio_direcao="esquerda",
+            desafio_expira_em=prazo,
+        )
+
+
 def test_professor_de_outra_turma_nao_aprova_solicitacao(
     engine, tmp_path: Path
 ) -> None:

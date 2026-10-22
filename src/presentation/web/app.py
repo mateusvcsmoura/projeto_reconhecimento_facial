@@ -201,7 +201,7 @@ def _acao_cadastro_publico(metodo: str, caminho: str) -> str | None:
     elif metodo == "POST" and caminho == "/api/v1/cadastros":
         return "solicitacao"
     elif metodo == "POST" and re.fullmatch(
-        r"/api/v1/cadastros/\d+/(capturas|consentimento)", caminho
+        r"/api/v1/cadastros/\d+/(capturas|consentimento|desafio)", caminho
     ):
         return caminho.rsplit("/", 1)[-1]
     elif metodo == "GET" and re.fullmatch(r"/api/v1/cadastros/\d+", caminho):

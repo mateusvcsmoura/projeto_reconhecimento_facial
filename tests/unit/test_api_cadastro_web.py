@@ -217,6 +217,21 @@ class ApiFake:
         self.requests[solicitacao_id] = solicitacao
         return solicitacao
 
+    def renovar_desafio_coleta(
+        self, solicitacao_id: int, **kwargs: object
+    ) -> SolicitacaoCadastro:
+        atual = self.requests[solicitacao_id]
+        if atual.estado != "em_coleta":
+            raise ValueError("A coleta não está disponível.")
+        solicitacao = replace(
+            atual,
+            desafio_nonce_hash=str(kwargs["desafio_nonce_hash"]),
+            desafio_direcao=str(kwargs["desafio_direcao"]),
+            desafio_expira_em=kwargs["desafio_expira_em"],  # type: ignore[arg-type]
+        )
+        self.requests[solicitacao_id] = solicitacao
+        return solicitacao
+
     def listar_cadastros_turma(
         self, _ator: object, _turma_id: int, *, estado: str, limite: int
     ) -> tuple[SolicitacaoCadastro, ...]:
@@ -534,6 +549,85 @@ def test_nonce_incorreto_nao_reserva_fila_nem_grava_capturas() -> None:
     assert not repository.associated
     assert not repository.queue_fake.submitted  # type: ignore[attr-defined]
     assert not repository.storage_fake.files  # type: ignore[attr-defined]
+
+
+def _iniciar_coleta(client: TestClient) -> tuple[dict[str, str], dict[str, Any]]:
+    link = client.post(
+        "/api/v1/turmas/14/links-cadastro",
+        headers={
+            "Origin": ORIGEM,
+            "X-CSRF-Token": "csrf-fake",
+            "Cookie": f"{COOKIE_SESSAO}=sessao-professor",
+        },
+    )
+    access = client.post("/api/v1/acessos-link", json={"token": link.json()["token"]})
+    headers = {"Authorization": f"Bearer {access.json()['credencial']}"}
+    cadastro = client.post(
+        "/api/v1/cadastros",
+        headers=headers,
+        json={
+            "nome": "Pessoa Sintética",
+            "matricula": "000123",
+            "aviso_versao": "v1-2026-10-18",
+            "consentimento": True,
+        },
+    )
+    return headers, cadastro.json()["desafio"]
+
+
+def _capturas(nonce: str) -> dict[str, object]:
+    return {
+        "nonce": nonce,
+        "capturas": [
+            base64.b64encode(conteudo).decode()
+            for conteudo in (b"um", b"dois", b"tres")
+        ],
+    }
+
+
+def test_renovar_desafio_invalida_nonce_anterior_e_aceita_o_novo() -> None:
+    repository = ApiFake()
+    with _client(repository) as client:
+        headers, anterior = _iniciar_coleta(client)
+        renovado = client.post("/api/v1/cadastros/71/desafio", headers=headers)
+        com_anterior = client.post(
+            "/api/v1/cadastros/71/capturas",
+            headers=headers,
+            json=_capturas(anterior["nonce"]),
+        )
+        com_novo = client.post(
+            "/api/v1/cadastros/71/capturas",
+            headers=headers,
+            json=_capturas(renovado.json()["desafio"]["nonce"]),
+        )
+
+    assert renovado.status_code == 200, renovado.text
+    desafio = renovado.json()["desafio"]
+    assert desafio["nonce"] != anterior["nonce"]
+    assert desafio["sequencia"] == ["frente", desafio["direcao"], "frente"]
+    assert desafio["expira_em"] == (AGORA + timedelta(seconds=120)).isoformat()
+    assert com_anterior.status_code == 409
+    assert com_novo.status_code == 202, com_novo.text
+
+
+def test_renovar_desafio_recusa_coleta_ja_enviada_ou_credencial_alheia() -> None:
+    repository = ApiFake()
+    with _client(repository) as client:
+        headers, desafio = _iniciar_coleta(client)
+        alheia = client.post(
+            "/api/v1/cadastros/71/desafio",
+            headers={"Authorization": "Bearer credencial-inexistente"},
+        )
+        enviada = client.post(
+            "/api/v1/cadastros/71/capturas",
+            headers=headers,
+            json=_capturas(desafio["nonce"]),
+        )
+        apos_envio = client.post("/api/v1/cadastros/71/desafio", headers=headers)
+
+    assert alheia.status_code == 404
+    assert enviada.status_code == 202, enviada.text
+    assert apos_envio.status_code == 409
 
 
 def test_atualizacao_so_emite_desafio_apos_consentimento() -> None:

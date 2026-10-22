@@ -160,6 +160,15 @@ def test_captura_e_consentimento_tem_limites_separados_antes_da_validacao() -> N
     assert consentimento_2.status_code == 429
 
 
+def test_renovacao_de_desafio_tem_limite_proprio() -> None:
+    with _client() as (client, _limiter, _links):
+        primeira = client.post("/api/v1/cadastros/71/desafio")
+        segunda = client.post("/api/v1/cadastros/71/desafio")
+
+    assert primeira.status_code != 429
+    assert segunda.status_code == 429
+
+
 def test_producao_sem_repositorio_de_rate_limit_falha_fechado(
     tmp_path: Path,
 ) -> None:

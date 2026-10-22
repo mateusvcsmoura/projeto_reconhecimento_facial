@@ -286,6 +286,36 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
         payload["estado"] = estado
         return payload
 
+    @router.post("/cadastros/{solicitacao_id}/desafio", status_code=200)
+    def renovar_desafio(solicitacao_id: int, request: Request) -> dict[str, object]:
+        """Emite nova sequência ao iniciar a câmera; o nonce anterior deixa de valer."""
+        _contexto_credencial(request, solicitacao_id, ativa=True)
+        repositorio = exigir_solicitacoes()
+        cadastro = _consultar_solicitacao(repositorio, solicitacao_id)
+        agora = services.now_utc()
+        nonce, nonce_hash, direcao, desafio_expira = _novo_desafio(
+            agora, cadastro.expira_em
+        )
+        try:
+            cadastro = repositorio.renovar_desafio_coleta(
+                solicitacao_id,
+                agora=agora,
+                desafio_nonce_hash=nonce_hash,
+                desafio_direcao=direcao,
+                desafio_expira_em=desafio_expira,
+            )
+        except PermissionError:
+            raise HTTPException(
+                status_code=404, detail="Solicitação não encontrada."
+            ) from None
+        except ValueError:
+            raise HTTPException(
+                status_code=409, detail="A coleta não está disponível."
+            ) from None
+        payload = _payload_solicitacao(cadastro)
+        payload["desafio"] = _payload_desafio(nonce, direcao, desafio_expira)
+        return payload
+
     @router.post(
         "/cadastros/{solicitacao_id}/capturas",
         status_code=status.HTTP_202_ACCEPTED,
