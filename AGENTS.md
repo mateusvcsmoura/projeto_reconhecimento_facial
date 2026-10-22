@@ -159,11 +159,26 @@ Implementar incrementalmente, com desenho, testes e medições adequadas:
 
 ## 6. Instruções para o Codex CLI/Claude Code
 
+### Fase atual: ajustes funcionais da aplicação
+
+Desde 21/10/2026, o foco deixou de ser a execução sequencial das tarefas numeradas
+e passou a ser ajustar, integrar e validar o funcionamento da aplicação existente.
+Os documentos das tarefas anteriores continuam como histórico e referência técnica.
+
+Autorização do solicitante: o PostgreSQL local de desenvolvimento da aplicação
+pode ser usado para diagnosticar e testar fluxos funcionais. É permitido aplicar
+migrations pendentes e criar dados sintéticos ou contas de teste quando necessários.
+Preservar os dados existentes por padrão; restringir alterações à base local de
+desenvolvimento e evitar reset ou exclusão de dados, salvo necessidade comprovada.
+Nunca apontar esses testes para produção. Esta autorização não inclui deploy/VPS,
+serviços externos, uso de imagens faciais reais, reutilização de dados operacionais
+para pesquisa, mudança do limiar de produção ou desativação do anti-spoofing.
+
 - Antes de propor mudanças, ler `AGENTS.md`, instruções adicionais do repositório (por exemplo, `CLAUDE.md`, `instructions/`, `ARCHITECTURE.md`) e os módulos relevantes; confirmar o que realmente existe.
 - Verificar `git status`, branch e alterações existentes. **Preservar trabalho do usuário**; não sobrescrever alterações não relacionadas.
 - Para cada tarefa: explicar escopo, identificar riscos, propor mudanças pequenas, implementar testes e registrar evidências com comandos e resultados efetivamente executados.
 - Usar workflows Superpowers se estiverem disponíveis no ambiente. **Aprovar internamente os próprios planos/especificações rotineiros e continuar a execução**, sem interromper para confirmações desnecessárias; isso **não** autoriza ignorar permissões obrigatórias do ambiente, consentimento, revisão institucional ou pedir menos autorização para ações destrutivas/irreversíveis.
-- Não executar migrações de banco, alterar dados reais, publicar datasets, mudar o limiar de produção, desabilitar antispoofing ou criar commits automaticamente sem instrução explícita.
+- Migrations e alterações de dados na base local de desenvolvimento estão autorizadas nos limites da seção “Fase atual”; preservar dados e evitar reset ou exclusões salvo necessidade comprovada. Produção e dados biométricos reais continuam fora dessa autorização. Não publicar datasets, mudar o limiar de produção, desabilitar anti-spoofing ou criar commits sem instrução explícita.
 - Não afirmar execução de testes, aprovação ética, licenças ou métricas que não tenham sido verificadas.
 - Priorizar compatibilidade com o pipeline existente, testes de regressão e separação entre código experimental e operacional.
 - Se o pedido envolver uso de imagens faciais reais, verificar antes a origem, permissão, finalidade, armazenamento, retenção e controles de acesso; em caso de incerteza, não ingerir esses dados.
@@ -175,7 +190,12 @@ para `main` ao concluir. Não pedir nova autorização para essa publicação, s
 se o usuário limitar ou revogar a instrução. Esta autorização não cobre force
 push, publicação de trabalho alheio, deploy, nem operações de infraestrutura.
 
-## 7. Próxima direção sugerida
+## 7. Histórico e direção atual
+
+As tarefas numeradas registram decisões, implementação e evidências de etapas
+anteriores. A direção atual é corrigir e validar o comportamento da aplicação
+web em execução, conforme a autorização de banco local da seção 6; não é necessário
+abrir uma nova tarefa numerada para cada ajuste funcional.
 
 As tarefas 017–019 implementam backup/retencao, artefatos Compose e validação
 sintética do backend. A tarefa 019A acrescenta limites às rotas públicas de
@@ -197,8 +217,10 @@ migration `0004` foi aplicada ao PostgreSQL local configurado; testes de
 integração PostgreSQL/BDD da tarefa 008 continuam pendentes. Em 19/10/2026,
 as migrations `0006–0011` foram aplicadas em sequência ao banco local `escola`,
 que estava na `0005`; `alembic check` confirmou o schema em `0011`. Essas são
-evidências registradas, não uma autorização para acessar esse banco nesta
-tarefa. Consulte os respectivos `RESULTADO.md`. As decisões que dependem de
+evidências históricas; o solicitante agora autoriza o uso do banco local de
+desenvolvimento para ajustes funcionais, conforme a seção 6. Consulte os
+respectivos `RESULTADO.md`. Essa autorização não inclui produção ou deploy.
+As decisões que dependem de
 biometria real — calibração 1:N, validação representativa do anti-spoofing e
 eventual piloto — aguardam autorização específica e revisão institucional.
 Múltiplas referências operacionais também permanecem pendentes. O gate operacional
