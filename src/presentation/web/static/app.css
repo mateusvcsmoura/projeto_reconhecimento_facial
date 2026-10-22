@@ -1432,6 +1432,50 @@ tbody tr:last-child td {
   gap: 12px;
 }
 
+.section-block > .row-between h2 {
+  margin-bottom: 0;
+}
+
+.section-block > .row-between + * {
+  margin-top: 16px;
+}
+
+.section-block > form + [data-panel] {
+  margin-top: 32px;
+}
+
+.session-status {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.session-status--aberta {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.session-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+  margin: 12px 0 8px;
+}
+
+.session-stats dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.session-stats dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .code-line {
   display: block;
   max-width: 100%;

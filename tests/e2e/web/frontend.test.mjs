@@ -15,6 +15,40 @@ import {
   limparSolicitacaoPublica,
   registrarTokenCompartilhado,
 } from "../../../src/presentation/web/static/public_link_session.mjs";
+import {
+  periodoSessao,
+  resumoTentativas,
+  situacaoSessao,
+} from "../../../src/presentation/web/static/sessoes.mjs";
+
+test("sessões resumem tentativas em linguagem comum, sem JSON", () => {
+  assert.equal(resumoTentativas({ concluida: 1 }), "Tentativas: 1 confirmada");
+  assert.equal(
+    resumoTentativas({ iniciada: 1, processando: 2, concluida: 3, rejeitada: 1, expirada: 0 }),
+    "Tentativas: 3 em andamento · 3 confirmadas · 1 recusada",
+  );
+  assert.equal(resumoTentativas({}), "Nenhuma tentativa de verificação ainda.");
+  assert.equal(resumoTentativas(undefined), "Nenhuma tentativa de verificação ainda.");
+});
+
+test("sessões informam situação e período legíveis", () => {
+  const agora = new Date(2026, 9, 22, 12, 0);
+  const sessao = (inicio, fim, revogada = false) => ({
+    inicio_em: inicio.toISOString(), fim_em: fim.toISOString(), revogada,
+  });
+  const manha = new Date(2026, 9, 22, 8, 20);
+  const noite = new Date(2026, 9, 22, 20, 25);
+
+  assert.equal(situacaoSessao(sessao(manha, noite), agora), "Aberta agora");
+  assert.equal(situacaoSessao(sessao(manha, noite, true), agora), "Revogada");
+  assert.equal(situacaoSessao(sessao(manha, new Date(2026, 9, 22, 9, 0)), agora), "Encerrada");
+  assert.equal(situacaoSessao(sessao(noite, new Date(2026, 9, 22, 22, 0)), agora), "Agendada");
+  assert.equal(periodoSessao(manha.toISOString(), noite.toISOString()), "22/10/2026 · 08:20 – 20:25");
+  assert.equal(
+    periodoSessao(manha.toISOString(), new Date(2026, 9, 23, 10, 0).toISOString()),
+    "22/10/2026 08:20 – 23/10/2026 10:00",
+  );
+});
 
 function deferred() {
   let resolve;
@@ -591,6 +625,8 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     globalThis.location.href = "http://localhost/professor?view=presencas";
     await import(`${modulo}?presencas-smoke=${Date.now()}`);
     await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /data-action="session-new"[^>]*aria-expanded="false"/);
+    assert.match(raiz.innerHTML, /<form class="form-grid" data-form="criar-sessao" id="form-nova-sessao" hidden>/);
     assert.match(raiz.innerHTML, /data-session-scheduler/);
     assert.match(raiz.innerHTML, /data-scheduler-calendar/);
     assert.match(raiz.innerHTML, /name="inicio_em"/);
