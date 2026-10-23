@@ -16,10 +16,18 @@ import {
   registrarTokenCompartilhado,
 } from "../../../src/presentation/web/static/public_link_session.mjs";
 import {
+  linhaPresenca,
   periodoSessao,
   resumoTentativas,
   situacaoSessao,
 } from "../../../src/presentation/web/static/sessoes.mjs";
+
+test("presença do aluno mostra horário e origem em linguagem comum", () => {
+  const horario = new Date(2026, 9, 22, 22, 31).toISOString();
+  assert.equal(linhaPresenca({ status: "presente", origem: "biometrica", registrado_em: horario }), "22:31 · reconhecimento facial");
+  assert.equal(linhaPresenca({ status: "anulada", origem: "manual", registrado_em: horario }), "22:31 · revisão do professor · anulada");
+  assert.equal(linhaPresenca({ status: "presente", origem: "legado", registrado_em: "x" }), "horário indisponível · registro anterior");
+});
 import { ajustarHorario, opcoesHorario, posicoesRelogio } from "../../../src/presentation/web/static/seletor_horario.mjs";
 
 test("relógio põe 00–11 no anel externo, 12–23 no interno e minutos de 5 em 5", () => {

@@ -8,7 +8,7 @@ import {
   limparSolicitacaoPublica,
   registrarTokenCompartilhado,
 } from "./public_link_session.mjs";
-import { periodoSessao, resumoTentativas, situacaoSessao } from "./sessoes.mjs";
+import { linhaPresenca, periodoSessao, resumoTentativas, situacaoSessao } from "./sessoes.mjs";
 import { iniciarSeletoresHorario, seletorHorarioMarkup } from "./seletor_horario.mjs";
 
 const api = criarClienteApi();
@@ -436,8 +436,21 @@ function renderPainel(payload) {
   if (!payload?.sessoes?.length) return `<p class="empty-state">Não há sessões recentes para esta turma.</p>`;
   return `<ul class="plain-list">${payload.sessoes.map((sessao) => {
     const situacao = situacaoSessao(sessao);
-    return `<li class="session-item"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p></li>`;
+    return `<li class="session-item"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p>${listaPresencasMarkup(sessao)}</li>`;
   }).join("")}</ul>`;
+}
+
+// Nomes só são buscados quando o professor abre a lista (ver bindProfessor).
+function listaPresencasMarkup(sessao) {
+  const presentes = Number(sessao.presencas_presentes) || 0;
+  const anuladas = Number(sessao.presencas_anuladas) || 0;
+  if (!presentes && !anuladas) return "";
+  return `<details class="session-attendance" data-sessao-presencas="${escapeHtml(sessao.id)}" data-versao="${presentes}-${anuladas}"><summary>Ver nomes e matrículas (${presentes + anuladas})</summary><div data-lista-presencas><p class="field-hint">Carregando…</p></div></details>`;
+}
+
+function renderListaPresencas(presencas) {
+  if (!presencas.length) return `<p class="field-hint">Nenhuma presença registrada nesta sessão.</p>`;
+  return `<ul class="attendance-list">${presencas.map((item) => `<li><span><strong>${texto(item.nome)}</strong> <span class="field-hint">Matrícula ${texto(item.matricula)}</span></span><span class="field-hint">${escapeHtml(linhaPresenca(item))}</span></li>`).join("")}</ul>`;
 }
 
 // Formulário que só aparece pelo botão que o abre; Cancelar fecha, limpa e devolve o foco ao botão.
@@ -483,11 +496,40 @@ function bindProfessor(turmas, atual) {
     if (!selected || !panel) return null;
     return api.get(apiPath(`/turmas/${selected}/painel`));
   };
+  // O painel é redesenhado a cada 15 s: lembra listas abertas e reaproveita a busca
+  // enquanto os totais da sessão (data-versao) não mudam.
+  const listasAbertas = new Set();
+  const cacheListas = new Map();
+  const mostrarPainel = (payload) => {
+    if (!panel || !payload) return;
+    panel.innerHTML = renderPainel(payload);
+    panel.querySelectorAll("[data-sessao-presencas]").forEach((detalhe) => {
+      if (listasAbertas.has(detalhe.dataset.sessaoPresencas)) detalhe.open = true;
+    });
+  };
+  panel?.addEventListener("toggle", async (evento) => {
+    const detalhe = evento.target;
+    if (!detalhe.matches?.("[data-sessao-presencas]")) return;
+    const id = detalhe.dataset.sessaoPresencas;
+    if (!detalhe.open) { listasAbertas.delete(id); return; }
+    listasAbertas.add(id);
+    const alvo = detalhe.querySelector("[data-lista-presencas]");
+    const emCache = cacheListas.get(id);
+    if (emCache?.versao === detalhe.dataset.versao) { alvo.innerHTML = emCache.html; return; }
+    try {
+      const resposta = await api.get(apiPath(`/turmas/${selected}/sessoes/${id}/presencas`));
+      const html = renderListaPresencas(resposta.presencas || []);
+      cacheListas.set(id, { versao: detalhe.dataset.versao, html });
+      if (alvo.isConnected) alvo.innerHTML = html;
+    } catch (erro) {
+      if (alvo.isConnected) alvo.innerHTML = `<p class="field-hint">${escapeHtml(mostrarErro(erro))}</p>`;
+    }
+  }, true);
   if (panel && selected && ["painel", "presencas"].includes(lerView().view)) {
     const poller = criarPollerSerial(updatePanel, {
       intervaloMs: 15000,
       aoAtualizar: (payload) => {
-        panel.innerHTML = renderPainel(payload);
+        mostrarPainel(payload);
         const atualizado = document.querySelector("[data-updated]");
         if (atualizado) atualizado.textContent = `Atualizado ${dataLocal(payload.atualizado_em)}`;
         const erro = document.querySelector("[data-poll-error]");
@@ -505,7 +547,7 @@ function bindProfessor(turmas, atual) {
     const refresh = document.querySelector('[data-action="refresh-panel"]');
     refresh.disabled = true;
     void updatePanel().then((payload) => {
-      if (payload && panel) panel.innerHTML = renderPainel(payload);
+      mostrarPainel(payload);
       const atualizado = document.querySelector("[data-updated]");
       if (atualizado && payload) atualizado.textContent = `Atualizado ${dataLocal(payload.atualizado_em)}`;
     }).catch((erro) => {
@@ -639,7 +681,7 @@ function bindProfessor(turmas, atual) {
       alternarFormularioSessao(false);
       result.querySelector("a")?.focus();
       // Mostra a sessão nova sem esperar o próximo ciclo de 15 s; falhas ficam com o poller.
-      void updatePanel().then((payload) => { if (payload && panel) panel.innerHTML = renderPainel(payload); }).catch(() => {});
+      void updatePanel().then(mostrarPainel).catch(() => {});
     } catch (erro) { formularioErro(form, erro); }
   });
   document.querySelector('[data-form="csv"]')?.addEventListener("submit", async (event) => {

@@ -23,6 +23,19 @@ export function situacaoSessao(sessao, agora = new Date()) {
   return "Aberta agora";
 }
 
+// Valores de presencas.origem (CHECK no banco) traduzidos para o professor.
+const ORIGEM_PRESENCA = { biometrica: "reconhecimento facial", manual: "revisão do professor", legado: "registro anterior" };
+
+export function linhaPresenca({ status, origem, registrado_em: registradoEm }) {
+  const instante = new Date(registradoEm);
+  const partes = [
+    Number.isNaN(instante.valueOf()) ? "horário indisponível" : new Intl.DateTimeFormat("pt-BR", { timeStyle: "short" }).format(instante),
+    ORIGEM_PRESENCA[origem] || origem,
+  ];
+  if (status === "anulada") partes.push("anulada");
+  return partes.join(" · ");
+}
+
 export function periodoSessao(inicioIso, fimIso) {
   const inicio = new Date(inicioIso);
   const fim = new Date(fimIso);

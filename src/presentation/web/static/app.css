@@ -1612,6 +1612,36 @@ tbody tr:last-child td {
   font-variant-numeric: tabular-nums;
 }
 
+.session-attendance {
+  margin-top: 8px;
+}
+
+.session-attendance summary {
+  width: fit-content;
+  min-height: 44px;
+  align-content: center;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.attendance-list {
+  max-width: 760px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attendance-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
 .code-line {
   display: block;
   max-width: 100%;
