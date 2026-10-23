@@ -284,6 +284,46 @@ def test_revisao_acessivel_registra_presenca_manual_e_audita_sem_biometria(
     assert "horario_evidencia" not in str(auditoria.depois)
 
 
+def test_presencas_da_sessao_listam_nome_e_matricula_so_ao_responsavel(
+    db: Any,
+) -> None:
+    with sessionmaker(bind=db)() as session, session.begin():
+        session.add(
+            models.Presenca(
+                id=61,
+                aluno_id=11,
+                turma_id=7,
+                sessao_id=21,
+                tentativa_id=None,
+                registrado_em=AGORA,
+                data_referencia=AGORA.date(),
+                status="presente",
+                origem="manual",
+                versao=1,
+                horario_evidencia=None,
+                corrigida_em=AGORA,
+                corrigida_por_conta_id=1,
+            )
+        )
+    repository = PostgresGestaoWebRepository(db)
+
+    itens = repository.listar_presencas_sessao(ATOR, 7, 21)
+
+    assert itens == [
+        {
+            "nome": "Pessoa de teste",
+            "matricula": "SINT-11",
+            "status": "presente",
+            "origem": "manual",
+            "registrado_em": AGORA.isoformat(),
+        }
+    ]
+    with pytest.raises(LookupError):
+        repository.listar_presencas_sessao(ATOR, 7, 999)
+    with pytest.raises(AcessoTurmaNegado):
+        repository.listar_presencas_sessao(ATOR, 8, 21)
+
+
 def test_professor_nao_le_revisao_de_turma_de_outro_responsavel(db: Any) -> None:
     repository = PostgresGestaoWebRepository(db)
 

@@ -520,6 +520,26 @@ def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRoute
         ) as erro:
             raise _exigir_autenticado(erro) from None
 
+    @router.get("/turmas/{turma_id}/sessoes/{sessao_id}/presencas")
+    def listar_presencas_sessao(
+        turma_id: int,
+        sessao_id: int,
+        conta: ContaAutenticada = Depends(auth.exigir_conta),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            presencas = repositorio().listar_presencas_sessao(
+                conta.como_ator(), turma_id, sessao_id
+            )
+        except (
+            AcessoTurmaNegado,
+            LookupError,
+            PermissionError,
+            ValueError,
+            RuntimeError,
+        ) as erro:
+            raise _exigir_autenticado(erro) from None
+        return {"sessao_id": sessao_id, "presencas": presencas}
+
     @router.get("/turmas/{turma_id}/presencas.csv")
     def exportar_presencas(
         turma_id: int,

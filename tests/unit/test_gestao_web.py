@@ -96,6 +96,20 @@ class _RepositorioGestao:
     ) -> dict[str, object]:
         return {"turma_id": turma_id, "atualizado_em": AGORA.isoformat(), "sessoes": []}
 
+    def listar_presencas_sessao(
+        self, _ator: Any, turma_id: int, sessao_id: int
+    ) -> list[dict[str, object]]:
+        assert (turma_id, sessao_id) == (7, 21)
+        return [
+            {
+                "nome": "Pessoa de teste",
+                "matricula": "SINT-11",
+                "status": "presente",
+                "origem": "biometrica",
+                "registrado_em": AGORA.isoformat(),
+            }
+        ]
+
     def reativar_quota(self, **_kwargs: Any) -> int:
         return 6
 
@@ -186,6 +200,7 @@ class _RemovedorLegado:
     [
         "/api/v1/turmas",
         "/api/v1/turmas/7/painel",
+        "/api/v1/turmas/7/sessoes/21/presencas",
         "/api/v1/turmas/7/revisoes",
         "/api/v1/turmas/7/presencas.csv?inicio=2026-10-01&fim=2026-10-31",
     ],
@@ -408,6 +423,21 @@ def test_rotas_de_gestao_executam_crud_revisao_painel_csv_e_acoes_admin() -> Non
             == 204
         )
         assert client.get("/api/v1/turmas/7/painel").status_code == 200
+        presentes = client.get("/api/v1/turmas/7/sessoes/21/presencas")
+        assert presentes.status_code == 200
+        assert presentes.json() == {
+            "sessao_id": 21,
+            "presencas": [
+                {
+                    "nome": "Pessoa de teste",
+                    "matricula": "SINT-11",
+                    "status": "presente",
+                    "origem": "biometrica",
+                    "registrado_em": AGORA.isoformat(),
+                }
+            ],
+        }
+        assert presentes.headers["cache-control"] == "no-store"
         assert client.get("/api/v1/turmas/7/revisoes").status_code == 200
         decidir = client.post(
             "/api/v1/revisoes/00000000-0000-0000-0000-000000000016/decidir",

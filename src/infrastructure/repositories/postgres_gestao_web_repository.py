@@ -807,6 +807,47 @@ class PostgresGestaoWebRepository:
                 ],
             }
 
+    def listar_presencas_sessao(
+        self, ator: AtorWeb, turma_id: int, sessao_id: int
+    ) -> list[dict[str, object]]:
+        """Quem tem presença registrada na sessão; só identificação, sem biometria."""
+        with self._factory() as session, session.begin():
+            atual = self._ator_atual(session, ator)
+            self._turma_autorizada(session, atual, turma_id)
+            existe = session.scalar(
+                select(models.SessaoPresencaWeb.id).where(
+                    models.SessaoPresencaWeb.id == sessao_id,
+                    models.SessaoPresencaWeb.turma_id == turma_id,
+                )
+            )
+            if existe is None:
+                raise LookupError("Sessão não encontrada.")
+            linhas = session.execute(
+                select(
+                    models.Aluno.nome,
+                    models.Aluno.matricula,
+                    models.Presenca.status,
+                    models.Presenca.origem,
+                    models.Presenca.registrado_em,
+                )
+                .join(models.Aluno, models.Aluno.id == models.Presenca.aluno_id)
+                .where(
+                    models.Presenca.sessao_id == sessao_id,
+                    models.Presenca.turma_id == turma_id,
+                )
+                .order_by(models.Aluno.nome, models.Aluno.matricula)
+            )
+            return [
+                {
+                    "nome": linha.nome,
+                    "matricula": linha.matricula,
+                    "status": linha.status,
+                    "origem": linha.origem,
+                    "registrado_em": _utc_armazenado(linha.registrado_em).isoformat(),
+                }
+                for linha in linhas
+            ]
+
     def listar_presencas_exportacao(
         self,
         ator: AtorWeb,
