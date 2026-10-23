@@ -59,9 +59,11 @@ class WebSettings(BaseSettings):
     job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
     job_deadline_seconds: Annotated[int, Field(gt=0)] = 900
     job_lease_seconds: Annotated[int, Field(gt=0)] = 120
+    # Por link, IP e tipo de envio: uma turma de 20 se cadastrando no mesmo Wi-Fi
+    # (ou na mesma operadora com CGNAT) cabe no mesmo minuto.
     public_registration_context_limit_per_minute: Annotated[
         int, Field(gt=0, le=100_000)
-    ] = 10
+    ] = 40
     public_registration_query_limit_per_minute: Annotated[
         int, Field(gt=0, le=100_000)
     ] = 60

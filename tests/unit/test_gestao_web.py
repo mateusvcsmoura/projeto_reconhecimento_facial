@@ -322,6 +322,61 @@ def test_pedido_publico_de_revisao_nao_revela_dados_do_aluno() -> None:
     assert links.hash_token != "token-sintetico"
 
 
+class _LimitadorRegistrando:
+    def __init__(self) -> None:
+        self.chaves: list[str] = []
+
+    def limitar_requisicao(self, chave_hash: str, *_args: Any, **_kwargs: Any) -> None:
+        self.chaves.append(chave_hash)
+
+
+def test_pedido_de_revisao_limita_pelo_ip_real_atras_do_proxy() -> None:
+    settings = WebSettings(
+        environment="test",
+        database_url="postgresql+psycopg://usuario:senha@test-db:5432/face_task016_test",
+        secret_key="segredo-sintetico-para-testes-com-mais-de-32-caracteres",
+        retention_days=14,
+        database_disposable=True,
+        public_origin="https://facediff.test",
+        trusted_proxy_cidrs="127.0.0.1/32",
+    )
+    limitador = _LimitadorRegistrando()
+    services = WebServices(
+        auth_repository=_RepositorioAuth(),
+        link_repository=_RepositorioLinks(),
+        presenca_repository=limitador,
+        rate_limit_secret=b"segredo-sintetico",
+        clock=lambda: AGORA,
+    )
+    object.__setattr__(services, "gestao_repository", _RepositorioGestao())
+    corpo = {
+        "sessao_id": 4,
+        "matricula": "SINT-11",
+        "justificativa": "Pedido de acessibilidade.",
+        "via_acessivel": True,
+    }
+
+    # Atrás do Caddy o peer é sempre o proxy; o limite precisa usar o IP do aluno.
+    with TestClient(
+        create_app(settings, services),
+        base_url="https://facediff.test",
+        client=("127.0.0.1", 43000),
+    ) as client:
+        for ip_aluno in ("203.0.113.1", "203.0.113.2"):
+            resposta = client.post(
+                "/api/v1/revisoes",
+                headers={
+                    "Authorization": "Bearer token-sintetico",
+                    "X-Forwarded-For": ip_aluno,
+                },
+                json=corpo,
+            )
+            assert resposta.status_code == 202
+
+    assert len(limitador.chaves) == 2
+    assert limitador.chaves[0] != limitador.chaves[1]
+
+
 def test_decisao_manual_exige_confirmacao_explicita_de_identidade() -> None:
     settings = WebSettings(
         environment="test",

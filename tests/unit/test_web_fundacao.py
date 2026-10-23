@@ -114,6 +114,7 @@ def test_settings_web_limites_atendem_uma_turma_no_mesmo_wifi() -> None:
     assert settings.job_queue_waiting_limit == 30
     assert settings.presence_start_limit_per_window == 60
     assert settings.presence_capture_limit_per_window == 300
+    assert settings.public_registration_context_limit_per_minute == 40
     assert settings.capture_max_bytes_per_capture == 2 * 1024 * 1024
     with pytest.raises(ValidationError, match="WEB_JOB_QUEUE_WAITING_LIMIT"):
         _settings(job_queue_waiting_limit=100)

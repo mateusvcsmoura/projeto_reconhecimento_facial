@@ -26,6 +26,7 @@ from src.infrastructure.repositories.postgres_gestao_web_repository import (
     VersaoPresencaDesatualizada,
 )
 from src.presentation.web.dependencies import DependenciasAuthWeb
+from src.presentation.web.rate_limit import endereco_cliente
 
 if TYPE_CHECKING:
     from src.presentation.web.app import WebServices
@@ -406,7 +407,8 @@ def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRoute
             raise HTTPException(status_code=404, detail="Revisão indisponível.")
         if services.presenca_repository is None or services.rate_limit_secret is None:
             raise HTTPException(status_code=503, detail="Revisão indisponível.")
-        host = request.client.host if request.client else "unknown"
+        # Atrás do proxy o peer é o Caddy; o limite precisa do IP real do aluno.
+        host = endereco_cliente(request, settings.trusted_proxy_cidrs)
         chave = hmac.new(
             services.rate_limit_secret,
             f"revisao:{contexto['link_id']}:{host}".encode(),

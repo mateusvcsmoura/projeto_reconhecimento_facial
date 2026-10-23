@@ -115,7 +115,8 @@ export WEB_PUBLIC_ORIGIN='https://presenca.example.edu'
 ```
 
 As rotas públicas de cadastro também usam o repositório persistente de rate
-limit. Os defaults iniciais são 10 operações por minuto por origem/contexto,
+limit. Os defaults iniciais são 40 operações por minuto por origem/contexto
+(uma turma de 20 se cadastrando pelo mesmo IP),
 60 consultas por minuto por credencial e teto agregado de 600 por minuto por
 origem; configure-os com `WEB_PUBLIC_REGISTRATION_CONTEXT_LIMIT_PER_MINUTE`,
 `WEB_PUBLIC_REGISTRATION_QUERY_LIMIT_PER_MINUTE` e
