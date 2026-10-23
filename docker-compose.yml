@@ -76,6 +76,9 @@ services:
     profiles: [web]
     restart: unless-stopped
     init: true
+    # Mesmo teto recomendado para produção: um pico do TensorFlow encerra o
+    # container em vez de esgotar a memória do host.
+    mem_limit: ${WEB_WORKER_MEMORY_LIMIT:-3g}
     environment:
       WEB_ENVIRONMENT: development
       WEB_DATABASE_URL: ${WEB_DATABASE_URL:?defina WEB_DATABASE_URL no .env}

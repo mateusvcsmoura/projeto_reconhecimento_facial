@@ -236,6 +236,15 @@ ser usada até API e worker estarem saudáveis.
 Para parar somente os serviços web, preserve banco e volumes com
 `docker compose --profile web stop web face-worker`. Não use `down -v`.
 
+O `face-worker` local tem teto de memória `WEB_WORKER_MEMORY_LIMIT` (padrão
+`3g`, o mesmo valor recomendado no deploy). No Windows com Docker Desktop/WSL2,
+limite também a VM em `%USERPROFILE%\.wslconfig`, por exemplo com
+`[wsl2] memory=4GB` e `[experimental] autoMemoryReclaim=dropCache`. Sem isso a
+VM pode reter até metade da RAM em cache de arquivos, contabilizado pelo Windows
+como memória comprometida. Em 22/10/2026, esse cache somado a outros programas
+esgotou a memória virtual do host durante builds repetidos da imagem do worker.
+O `.wslconfig` vale após `wsl --shutdown` ou reinício.
+
 A validação Linux usa containers descartáveis Ubuntu 24.04 amd64/Python 3.12.3:
 um para `requirements-dev.txt`, testes sintéticos e smoke HTTP; outro para
 `requirements.txt`, `pip check` e imports da stack ML com bibliotecas de sistema.
