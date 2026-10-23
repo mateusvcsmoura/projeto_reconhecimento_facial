@@ -1924,22 +1924,6 @@ tbody tr:last-child td {
   font-weight: 700;
 }
 
-.accessibility-note {
-  max-width: 68ch;
-  padding: 16px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-}
-
-.accessibility-note h2 {
-  margin-bottom: 6px;
-  font-size: 1rem;
-}
-
-.accessibility-note p:last-child {
-  margin-bottom: 0;
-  color: var(--muted);
-}
 
 .error-summary:focus {
   outline: var(--focus);

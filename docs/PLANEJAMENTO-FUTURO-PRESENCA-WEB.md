@@ -312,6 +312,12 @@ manual é resultado distinto de validação biométrica. Worker tardio não pode
 sobrescrever uma correção; usar versão/bloqueio da presença e pedido de revisão.
 Alternativa acessível pode encaminhar revisão antes de esgotar a quota.
 
+**Decisão do usuário (22/10/2026):** a interface do aluno não oferece mais a
+via acessível (revisão antes de tentar a verificação). A presença pelo link é
+feita somente por reconhecimento facial; a revisão manual continua disponível
+ao aluno apenas depois de uma tentativa rejeitada ou expirada. A rota
+`POST /revisoes` permanece no backend.
+
 ## 7. Desafio facial e decisão 1:1
 
 Desafio proposto: pose frontal inicial, movimento leve para direção sorteada
