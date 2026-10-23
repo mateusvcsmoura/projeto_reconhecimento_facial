@@ -324,6 +324,215 @@ def test_presencas_da_sessao_listam_nome_e_matricula_so_ao_responsavel(
         repository.listar_presencas_sessao(ATOR, 8, 21)
 
 
+def _utc_lido(instante: dt.datetime) -> dt.datetime:
+    return instante if instante.tzinfo else instante.replace(tzinfo=dt.UTC)
+
+
+def _tentativa_e_presenca_na_sessao(db: Any, *, estado_job: str) -> Any:
+    job_id = uuid4()
+    with db.connect() as connection:
+        link_id = connection.execute(select(models.LinkCadastroWeb.id)).scalar_one()
+    processando = estado_job == "processando"
+    with sessionmaker(bind=db)() as session, session.begin():
+        session.add(
+            models.SolicitacaoCadastroWeb(
+                id=72,
+                tipo="atualizacao",
+                estado="aprovada",
+                convite_ref=None,
+                turma_id=7,
+                aluno_id=11,
+                matricula=None,
+                nome=None,
+                expira_em=AGORA + dt.timedelta(days=1),
+                criada_em=AGORA - dt.timedelta(days=1),
+            )
+        )
+        session.flush()
+        session.add(
+            models.ConjuntoReferenciasWeb(
+                id=32,
+                solicitacao_id=72,
+                aluno_id=11,
+                versao=1,
+                estado="ativo",
+                job_id=str(uuid4()),
+                embedding_modelo="Facenet512",
+                embedding_dim=512,
+                criado_em=AGORA - dt.timedelta(days=1),
+                ativado_em=AGORA - dt.timedelta(days=1),
+            )
+        )
+        session.add(
+            models.JobFacialWeb(
+                id=job_id,
+                dono_id="presenca:21:11",
+                tipo="presenca",
+                estado=estado_job,
+                idempotencia_hash="i" * 64,
+                credencial_hash="c" * 64,
+                manifesto={"capturas": []} if processando else None,
+                bytes_reservados=1,
+                prazo_reserva=AGORA + dt.timedelta(minutes=1),
+                prazo_execucao=AGORA + dt.timedelta(minutes=5),
+                criada_em=AGORA - dt.timedelta(minutes=1),
+                atualizada_em=AGORA,
+                lease_hash=("l" * 64) if processando else None,
+                lease_expira_em=(AGORA + dt.timedelta(minutes=1))
+                if processando
+                else None,
+            )
+        )
+        session.flush()
+        session.add(
+            models.TentativaPresencaWeb(
+                id=job_id,
+                sessao_id=21,
+                turma_id=7,
+                aluno_id=11,
+                ordinal=1,
+                conjunto_id=32,
+                versao_referencia=1,
+                versao_sessao=1,
+                link_id=link_id,
+                idempotencia_hash="t" * 64,
+                estado="processando" if processando else "concluida",
+                iniciada_em=AGORA - dt.timedelta(minutes=1),
+                prazo_envio=AGORA + dt.timedelta(minutes=1),
+                recebida_em=AGORA - dt.timedelta(seconds=30),
+                concluida_em=None if processando else AGORA,
+            )
+        )
+        session.add(
+            models.Presenca(
+                id=81,
+                aluno_id=11,
+                turma_id=7,
+                sessao_id=21,
+                tentativa_id=None,
+                registrado_em=AGORA,
+                data_referencia=AGORA.date(),
+                status="presente",
+                origem="manual",
+                versao=1,
+                horario_evidencia=None,
+                corrigida_em=AGORA,
+                corrigida_por_conta_id=1,
+            )
+        )
+    return job_id
+
+
+def test_editar_sessao_atualiza_janela_versao_e_validade_dos_links(db: Any) -> None:
+    repository = PostgresPresencaWebRepository(db)
+    inicio = AGORA + dt.timedelta(hours=1)
+    fim = AGORA + dt.timedelta(hours=3)
+    fim_link = fim + dt.timedelta(seconds=120)
+
+    editada = repository.editar_sessao(
+        ATOR,
+        21,
+        titulo="  Aula   revisada ",
+        inicio_em=inicio,
+        fim_em=fim,
+        fim_link=fim_link,
+        agora=AGORA,
+    )
+    so_titulo = repository.editar_sessao(
+        ATOR,
+        21,
+        titulo="Aula final",
+        inicio_em=inicio,
+        fim_em=fim,
+        fim_link=fim_link,
+        agora=AGORA,
+    )
+
+    assert (editada.titulo, editada.inicio_em, editada.fim_em) == (
+        "Aula revisada",
+        inicio,
+        fim,
+    )
+    assert editada.versao == 2
+    assert (so_titulo.titulo, so_titulo.versao) == ("Aula final", 2)
+    with sessionmaker(bind=db)() as session:
+        link = session.scalars(select(models.LinkCadastroWeb)).one()
+        assert _utc_lido(link.expira_em) == fim_link
+        assert _utc_lido(link.finalidade_ate) == fim_link
+    with pytest.raises(ValueError):
+        repository.editar_sessao(
+            ATOR,
+            21,
+            titulo="Invertida",
+            inicio_em=fim,
+            fim_em=inicio,
+            fim_link=fim_link,
+            agora=AGORA,
+        )
+    with pytest.raises(AcessoTurmaNegado):
+        repository.editar_sessao(
+            AtorWeb(2, "professor", True, False, 2),
+            21,
+            titulo="Alheia",
+            inicio_em=inicio,
+            fim_em=fim,
+            fim_link=fim_link,
+            agora=AGORA,
+        )
+    repository.revogar_sessao(ATOR, 21, agora=AGORA)
+    with pytest.raises(RuntimeError):
+        repository.editar_sessao(
+            ATOR,
+            21,
+            titulo="Revogada",
+            inicio_em=inicio,
+            fim_em=fim,
+            fim_link=fim_link,
+            agora=AGORA,
+        )
+
+
+def test_excluir_sessao_apaga_presencas_tentativas_jobs_links_e_audita(
+    db: Any,
+) -> None:
+    job_id = _tentativa_e_presenca_na_sessao(db, estado_job="concluida")
+    repository = PostgresPresencaWebRepository(db)
+
+    resultado = repository.excluir_sessao(ATOR, 21, agora=AGORA)
+
+    assert resultado == {
+        "presencas": 1,
+        "tentativas": 1,
+        "revisoes": 0,
+        "links": 1,
+        "jobs_temporarios": (job_id,),
+    }
+    with sessionmaker(bind=db)() as session:
+        assert session.get(models.SessaoPresencaWeb, 21) is None
+        assert session.get(models.Presenca, 81) is None
+        assert session.get(models.TentativaPresencaWeb, job_id) is None
+        assert session.get(models.JobFacialWeb, job_id) is None
+        assert session.scalars(select(models.LinkCadastroWeb)).all() == []
+        assert session.scalar(
+            select(models.EventoAuditoriaWeb.id).where(
+                models.EventoAuditoriaWeb.acao == "sessao_presenca_excluida"
+            )
+        )
+    with pytest.raises(LookupError):
+        repository.excluir_sessao(ATOR, 21, agora=AGORA)
+
+
+def test_excluir_sessao_aguarda_verificacao_em_processamento(db: Any) -> None:
+    _tentativa_e_presenca_na_sessao(db, estado_job="processando")
+    repository = PostgresPresencaWebRepository(db)
+
+    with pytest.raises(RuntimeError):
+        repository.excluir_sessao(ATOR, 21, agora=AGORA)
+    with sessionmaker(bind=db)() as session:
+        assert session.get(models.SessaoPresencaWeb, 21) is not None
+        assert session.get(models.Presenca, 81) is not None
+
+
 def test_professor_nao_le_revisao_de_turma_de_outro_responsavel(db: Any) -> None:
     repository = PostgresGestaoWebRepository(db)
 

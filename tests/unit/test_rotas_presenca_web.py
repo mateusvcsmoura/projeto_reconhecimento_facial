@@ -91,6 +91,26 @@ class _RepositorioPresenca:
     def revogar_sessao(self, _ator, _sessao_id: int, *, agora):
         return len(self.arquivos_cancelados), self.arquivos_cancelados
 
+    def editar_sessao(self, _ator, sessao_id: int, **kwargs):
+        self.edicao = kwargs
+        return replace(
+            _sessao(),
+            id=sessao_id,
+            titulo=kwargs["titulo"],
+            inicio_em=kwargs["inicio_em"],
+            fim_em=kwargs["fim_em"],
+            versao=2,
+        )
+
+    def excluir_sessao(self, _ator, _sessao_id: int, *, agora):
+        return {
+            "presencas": 1,
+            "tentativas": 1,
+            "revisoes": 0,
+            "links": 1,
+            "jobs_temporarios": self.arquivos_cancelados,
+        }
+
     def limitar_requisicao(self, chave_hash: str, *, agora, **_kwargs):
         self.limitadas.append((chave_hash, agora))
         return self.espera_rate_limit
@@ -332,6 +352,66 @@ def test_rotas_autenticadas_criam_link_e_revogam_sessao() -> None:
     assert link.json()["sessao_id"] == 7
     assert revogada.status_code == 200
     assert revogada.json()["revogada"] is True
+
+
+def test_rotas_autenticadas_editam_e_excluem_sessao() -> None:
+    presencas = _RepositorioPresenca()
+    app = create_app(
+        WebSettings(
+            environment="test",
+            database_url="postgresql+psycopg://usuario:senha@localhost:5432/facediff_test",
+            secret_key="segredo-sintetico-para-testes-com-mais-de-32-caracteres",
+            retention_days=14,
+            database_disposable=True,
+            public_origin="https://facediff.test",
+        ),
+        WebServices(
+            auth_repository=_RepositorioAuth(),
+            presenca_repository=presencas,
+            clock=lambda: AGORA,
+            capture_storage=_Capturas(),
+        ),
+    )
+    csrf = {"Origin": "https://facediff.test", "X-CSRF-Token": "csrf-sintetico"}
+    fim = AGORA + dt.timedelta(hours=2)
+
+    with TestClient(app) as client:
+        client.cookies.set("facediff_session", "sessao-sintetica")
+        editada = client.patch(
+            "/api/v1/sessoes/7",
+            headers=csrf,
+            json={
+                "titulo": "Aula revisada",
+                "inicio_em": (AGORA + dt.timedelta(hours=1)).isoformat(),
+                "fim_em": fim.isoformat(),
+            },
+        )
+        confirmacao_errada = client.request(
+            "DELETE",
+            "/api/v1/sessoes/7",
+            headers=csrf,
+            json={"confirmacao": "EXCLUIR-SESSAO-8"},
+        )
+        excluida = client.request(
+            "DELETE",
+            "/api/v1/sessoes/7",
+            headers=csrf,
+            json={"confirmacao": "EXCLUIR-SESSAO-7"},
+        )
+
+    assert editada.status_code == 200, editada.text
+    assert editada.json()["titulo"] == "Aula revisada"
+    assert editada.json()["versao"] == 2
+    assert presencas.edicao["fim_link"] == fim + dt.timedelta(seconds=120)
+    assert confirmacao_errada.status_code == 422
+    assert excluida.status_code == 200, excluida.text
+    assert excluida.json() == {
+        "id": 7,
+        "excluida": True,
+        "presencas_removidas": 1,
+        "tentativas_removidas": 1,
+        "limpeza_pendente": False,
+    }
 
 
 def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status() -> None:

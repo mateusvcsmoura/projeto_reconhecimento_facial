@@ -5,12 +5,14 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import math
+from dataclasses import replace
+from typing import Any, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import CursorResult, Engine, Result
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.application.services.fila_facial import EstadoJobFacial, JobFacial
@@ -47,16 +49,28 @@ def _utc(instante: dt.datetime) -> dt.datetime:
     return instante.astimezone(dt.UTC)
 
 
+def _linhas_afetadas(resultado: Result[Any]) -> int:
+    """DELETE devolve CursorResult; o tipo genérico de execute() não expõe rowcount."""
+    return cast("CursorResult[Any]", resultado).rowcount
+
+
+def _utc_armazenado(instante: dt.datetime) -> dt.datetime:
+    """Valores lidos do banco são UTC; o SQLite dos testes os devolve sem fuso."""
+    if instante.tzinfo is None or instante.utcoffset() is None:
+        instante = instante.replace(tzinfo=dt.UTC)
+    return instante.astimezone(dt.UTC)
+
+
 def _para_sessao(linha: models.SessaoPresencaWeb) -> SessaoPresenca:
     return SessaoPresenca(
         id=linha.id,
         turma_id=linha.turma_id,
         criada_por_conta_id=linha.criada_por_conta_id,
         titulo=linha.titulo,
-        inicio_em=_utc(linha.inicio_em),
-        fim_em=_utc(linha.fim_em),
-        criada_em=_utc(linha.criada_em),
-        revogada_em=_utc(linha.revogada_em) if linha.revogada_em else None,
+        inicio_em=_utc_armazenado(linha.inicio_em),
+        fim_em=_utc_armazenado(linha.fim_em),
+        criada_em=_utc_armazenado(linha.criada_em),
+        revogada_em=_utc_armazenado(linha.revogada_em) if linha.revogada_em else None,
         revogada_por_conta_id=linha.revogada_por_conta_id,
         versao=linha.versao,
     )
@@ -646,6 +660,162 @@ class PostgresPresencaWebRepository:
                 depois={"tentativas_canceladas": canceladas, "versao": linha.versao},
             )
             return canceladas, tuple(ids_limpar)
+
+    def editar_sessao(
+        self,
+        ator: AtorWeb,
+        sessao_id: int,
+        *,
+        titulo: str,
+        inicio_em: dt.datetime,
+        fim_em: dt.datetime,
+        fim_link: dt.datetime,
+        agora: dt.datetime,
+    ) -> SessaoPresenca:
+        """Altera título/janela; nova janela invalida tentativas da versão anterior."""
+        instante = _utc(agora)
+        with self._factory()() as session, session.begin():
+            atual = self._ator_atual(session, ator)
+            linha = session.scalar(
+                select(models.SessaoPresencaWeb)
+                .where(models.SessaoPresencaWeb.id == sessao_id)
+                .with_for_update()
+            )
+            if linha is None:
+                raise LookupError("Sessao nao encontrada.")
+            turma = session.get(models.Turma, linha.turma_id)
+            if turma is None:
+                raise LookupError("Sessao nao encontrada.")
+            AutorizarTurma.exigir(atual, turma, "editar sessao de presenca")
+            if linha.revogada_em is not None:
+                raise RuntimeError("Sessao revogada nao pode ser editada.")
+            anterior = _para_sessao(linha)
+            # A entidade revalida título e janela (ValueError se inválidos).
+            editada = replace(
+                anterior, titulo=titulo, inicio_em=inicio_em, fim_em=fim_em
+            )
+            janela_mudou = (editada.inicio_em, editada.fim_em) != (
+                anterior.inicio_em,
+                anterior.fim_em,
+            )
+            linha.titulo = editada.titulo
+            linha.inicio_em = editada.inicio_em
+            linha.fim_em = editada.fim_em
+            if janela_mudou:
+                linha.versao += 1
+                limite = _utc(fim_link)
+                # O mesmo link continua valendo para a nova janela.
+                for link in session.scalars(
+                    select(models.LinkCadastroWeb)
+                    .where(
+                        models.LinkCadastroWeb.sessao_id == sessao_id,
+                        models.LinkCadastroWeb.revogado_em.is_(None),
+                    )
+                    .with_for_update()
+                ):
+                    if limite > _utc_armazenado(link.criado_em):
+                        link.expira_em = limite
+                        link.finalidade_ate = limite
+                    else:
+                        link.revogado_em = instante
+                        link.revogado_por_conta_id = atual.conta_id
+            self._auditar(
+                session,
+                ator_id=atual.conta_id,
+                acao="sessao_presenca_editada",
+                alvo_tipo="sessao_presenca_web",
+                alvo_id=str(sessao_id),
+                instante=instante,
+                depois={
+                    "titulo": editada.titulo,
+                    "inicio_em": editada.inicio_em.isoformat(),
+                    "fim_em": editada.fim_em.isoformat(),
+                    "versao": linha.versao,
+                },
+            )
+            session.flush()
+            return _para_sessao(linha)
+
+    def excluir_sessao(
+        self, ator: AtorWeb, sessao_id: int, *, agora: dt.datetime
+    ) -> dict[str, object]:
+        """Apaga a sessão e o que depende dela, na ordem exigida pelas FKs RESTRICT."""
+        instante = _utc(agora)
+        with self._factory()() as session, session.begin():
+            atual = self._ator_atual(session, ator)
+            linha = session.scalar(
+                select(models.SessaoPresencaWeb)
+                .where(models.SessaoPresencaWeb.id == sessao_id)
+                .with_for_update()
+            )
+            if linha is None:
+                raise LookupError("Sessao nao encontrada.")
+            turma = session.get(models.Turma, linha.turma_id)
+            if turma is None:
+                raise LookupError("Sessao nao encontrada.")
+            AutorizarTurma.exigir(atual, turma, "excluir sessao de presenca")
+            tentativas = tuple(
+                session.scalars(
+                    select(models.TentativaPresencaWeb.id).where(
+                        models.TentativaPresencaWeb.sessao_id == sessao_id
+                    )
+                )
+            )
+            # Job id == tentativa id; o worker não pode perder a linha no meio do uso.
+            if tentativas and session.scalar(
+                select(func.count())
+                .select_from(models.JobFacialWeb)
+                .where(
+                    models.JobFacialWeb.id.in_(tentativas),
+                    models.JobFacialWeb.estado == EstadoJobFacial.PROCESSANDO.value,
+                )
+            ):
+                raise RuntimeError("Aguarde as verificacoes em processamento.")
+            presencas = session.execute(
+                delete(models.Presenca).where(models.Presenca.sessao_id == sessao_id)
+            )
+            revisoes = session.execute(
+                delete(models.RevisaoPresencaWeb).where(
+                    models.RevisaoPresencaWeb.sessao_id == sessao_id
+                )
+            )
+            session.execute(
+                delete(models.TentativaPresencaWeb).where(
+                    models.TentativaPresencaWeb.sessao_id == sessao_id
+                )
+            )
+            if tentativas:
+                session.execute(
+                    delete(models.JobFacialWeb).where(
+                        models.JobFacialWeb.id.in_(tentativas)
+                    )
+                )
+            links = session.execute(
+                delete(models.LinkCadastroWeb).where(
+                    models.LinkCadastroWeb.sessao_id == sessao_id
+                )
+            )
+            session.execute(
+                delete(models.SessaoPresencaWeb).where(
+                    models.SessaoPresencaWeb.id == sessao_id
+                )
+            )
+            resultado: dict[str, object] = {
+                "presencas": _linhas_afetadas(presencas),
+                "tentativas": len(tentativas),
+                "revisoes": _linhas_afetadas(revisoes),
+                "links": _linhas_afetadas(links),
+            }
+            self._auditar(
+                session,
+                ator_id=atual.conta_id,
+                acao="sessao_presenca_excluida",
+                alvo_tipo="sessao_presenca_web",
+                alvo_id=str(sessao_id),
+                instante=instante,
+                depois={**resultado, "turma_id": turma.id},
+            )
+            return {**resultado, "jobs_temporarios": tentativas}
 
     def concluir_presenca(
         self,

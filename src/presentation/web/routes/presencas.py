@@ -7,7 +7,7 @@ import binascii
 import hashlib
 import hmac
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -43,6 +43,10 @@ class CriarSessaoRequest(_Schema):
     titulo: str = Field(min_length=1, max_length=120)
     inicio_em: datetime
     fim_em: datetime
+
+
+class ExcluirSessaoRequest(_Schema):
+    confirmacao: str = Field(min_length=1, max_length=64)
 
 
 class IniciarTentativaRequest(_Schema):
@@ -192,6 +196,89 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             "finalidade": link.finalidade,
             "sessao_id": link.sessao_id,
             "expira_em": link.expira_em.isoformat(),
+        }
+
+    @router.patch("/sessoes/{sessao_id}", status_code=status.HTTP_200_OK)
+    def editar_sessao(
+        sessao_id: int,
+        body: CriarSessaoRequest,
+        conta: ContaAutenticada = Depends(auth.exigir_mutacao),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            # Mesma regra da emissão do link: fim da sessão + 120 s, no máximo
+            # até o fim da finalidade.
+            fim_link = body.fim_em + timedelta(seconds=120)
+            if settings.purpose_end_at is not None:
+                fim_link = min(
+                    fim_link, settings.purpose_end_at.astimezone(body.fim_em.tzinfo)
+                )
+            editada = GerenciarSessoes(
+                exigir_repositorio(), relogio=services.now_utc
+            ).editar(
+                conta.como_ator(),
+                sessao_id,
+                titulo=body.titulo,
+                inicio_em=body.inicio_em,
+                fim_em=body.fim_em,
+                fim_link=fim_link,
+            )
+        except (LookupError, PermissionError, AcessoTurmaNegado):
+            raise HTTPException(
+                status_code=404, detail="Sessao nao encontrada."
+            ) from None
+        except RuntimeError:
+            raise HTTPException(
+                status_code=409, detail="Sessao revogada nao pode ser editada."
+            ) from None
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422, detail="A sessao e invalida."
+            ) from None
+        return {
+            "id": editada.id,
+            "turma_id": editada.turma_id,
+            "titulo": editada.titulo,
+            "inicio_em": editada.inicio_em.isoformat(),
+            "fim_em": editada.fim_em.isoformat(),
+            "versao": editada.versao,
+        }
+
+    @router.delete("/sessoes/{sessao_id}", status_code=status.HTTP_200_OK)
+    def excluir_sessao(
+        sessao_id: int,
+        body: ExcluirSessaoRequest,
+        conta: ContaAutenticada = Depends(auth.exigir_mutacao),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            resultado = GerenciarSessoes(
+                exigir_repositorio(), relogio=services.now_utc
+            ).excluir(conta.como_ator(), sessao_id, confirmacao=body.confirmacao)
+        except (LookupError, PermissionError, AcessoTurmaNegado):
+            raise HTTPException(
+                status_code=404, detail="Sessao nao encontrada."
+            ) from None
+        except ValueError:
+            raise HTTPException(
+                status_code=422, detail="A confirmacao nao corresponde a sessao."
+            ) from None
+        except RuntimeError:
+            raise HTTPException(
+                status_code=409,
+                detail="Aguarde as verificacoes em processamento e tente novamente.",
+            ) from None
+        limpeza_pendente = False
+        if services.capture_storage is not None:
+            for job_id in cast(tuple[UUID, ...], resultado["jobs_temporarios"]):
+                try:
+                    services.capture_storage.remover_job(job_id)
+                except OSError:
+                    limpeza_pendente = True
+        return {
+            "id": sessao_id,
+            "excluida": True,
+            "presencas_removidas": resultado["presencas"],
+            "tentativas_removidas": resultado["tentativas"],
+            "limpeza_pendente": limpeza_pendente,
         }
 
     @router.post("/sessoes/{sessao_id}/revogar", status_code=status.HTTP_200_OK)

@@ -18,6 +18,22 @@ class RepositorioSessoesPresenca(Protocol):
         self, ator: AtorWeb, sessao_id: int, *, agora: dt.datetime
     ) -> tuple[int, tuple[UUID, ...]]: ...
 
+    def editar_sessao(
+        self,
+        ator: AtorWeb,
+        sessao_id: int,
+        *,
+        titulo: str,
+        inicio_em: dt.datetime,
+        fim_em: dt.datetime,
+        fim_link: dt.datetime,
+        agora: dt.datetime,
+    ) -> SessaoPresenca: ...
+
+    def excluir_sessao(
+        self, ator: AtorWeb, sessao_id: int, *, agora: dt.datetime
+    ) -> dict[str, object]: ...
+
 
 class GerenciarSessoes:
     def __init__(
@@ -53,6 +69,38 @@ class GerenciarSessoes:
         if isinstance(sessao_id, bool) or sessao_id <= 0:
             raise ValueError("O identificador da sessão é inválido.")
         return self._repositorio.revogar_sessao(
+            ator, sessao_id, agora=self._utc(self._relogio())
+        )
+
+    def editar(
+        self,
+        ator: AtorWeb,
+        sessao_id: int,
+        *,
+        titulo: str,
+        inicio_em: dt.datetime,
+        fim_em: dt.datetime,
+        fim_link: dt.datetime,
+    ) -> SessaoPresenca:
+        if isinstance(sessao_id, bool) or sessao_id <= 0:
+            raise ValueError("O identificador da sessão é inválido.")
+        return self._repositorio.editar_sessao(
+            ator,
+            sessao_id,
+            titulo=titulo,
+            inicio_em=inicio_em,
+            fim_em=fim_em,
+            fim_link=fim_link,
+            agora=self._utc(self._relogio()),
+        )
+
+    def excluir(
+        self, ator: AtorWeb, sessao_id: int, *, confirmacao: str
+    ) -> dict[str, object]:
+        # Exclusão apaga presenças junto: a confirmação precisa nomear a sessão.
+        if confirmacao != f"EXCLUIR-SESSAO-{sessao_id}":
+            raise ValueError("A confirmação não corresponde à sessão selecionada.")
+        return self._repositorio.excluir_sessao(
             ator, sessao_id, agora=self._utc(self._relogio())
         )
 
