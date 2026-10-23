@@ -277,6 +277,14 @@ def _limitar_cadastro_publico(
     return resposta
 
 
+# Modelo do guia facial: fica fora do Git (/models/*.task); vem do repositório
+# local ou empacotado em static/ na imagem web.
+MODELO_LANDMARKS: tuple[Path, ...] = (
+    Path(__file__).resolve().parents[3] / "models" / "face_landmarker.task",
+    Path(__file__).resolve().parent / "static" / "models" / "face_landmarker.task",
+)
+
+
 def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
     """Cria uma API sem importar modelos, camera, engine ou composicao da CLI."""
 
@@ -302,11 +310,7 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
 
     async def modelo_landmarks() -> FileResponse:
         """Entrega o modelo local apenas para o guia visual transitório da câmera."""
-        candidatos = (
-            Path(__file__).resolve().parents[3] / "models" / "face_landmarker.task",
-            web_dir / "static" / "models" / "face_landmarker.task",
-        )
-        for arquivo in candidatos:
+        for arquivo in MODELO_LANDMARKS:
             if arquivo.is_file():
                 return FileResponse(
                     arquivo,

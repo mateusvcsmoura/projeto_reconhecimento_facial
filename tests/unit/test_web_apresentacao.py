@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
+
+import pytest
 
 from src.config.web_settings import WebSettings
 from src.presentation.web.app import WebServices, create_app
@@ -108,6 +111,28 @@ def test_paginas_de_link_e_auth_sao_diretas_e_nao_armazenaveis() -> None:
         assert headers["x-robots-tag"] == "noindex, nofollow"
 
 
+def test_modelo_do_guia_facial_e_servido_localmente_ou_responde_404(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # O modelo real fica fora do Git (/models/*.task); um arquivo sintético
+    # mantém o teste igual no CI e na máquina de desenvolvimento.
+    import src.presentation.web.app as modulo
+
+    modelo = tmp_path / "face_landmarker.task"
+    modelo.write_bytes(b"modelo-sintetico")
+    monkeypatch.setattr(modulo, "MODELO_LANDMARKS", (modelo,))
+    app = create_app(_settings(), WebServices())
+
+    status, headers, corpo = _get(app, "/assets/models/face_landmarker.task")
+    monkeypatch.setattr(modulo, "MODELO_LANDMARKS", (tmp_path / "ausente.task",))
+    status_ausente, _headers, _corpo = _get(app, "/assets/models/face_landmarker.task")
+
+    assert status == 200
+    assert headers["content-type"].startswith("application/octet-stream")
+    assert corpo == b"modelo-sintetico"
+    assert status_ausente == 404
+
+
 def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     app = create_app(_settings(), WebServices())
 
@@ -138,12 +163,6 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     )
     assert vision_status == 200
     assert b"FaceLandmarker" in vision
-    model_status, model_headers, model = _get(
-        app, "/assets/models/face_landmarker.task"
-    )
-    assert model_status == 200
-    assert model_headers["content-type"].startswith("application/octet-stream")
-    assert len(model) > 1_000_000
     hero_status, hero_headers, hero = _get(app, "/assets/img/hero-section-img.jpg")
     assert hero_status == 200
     assert hero_headers["content-type"].startswith("image/jpeg")
