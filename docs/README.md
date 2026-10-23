@@ -8,6 +8,7 @@
 - [FaceDiff web: roadmap e plano de validação](FACEDIFF-WEB-ROADMAP.md)
 - [FaceDiff web: contas, sessões e autorização](FACEDIFF-WEB-AUTH.md)
 - [FaceDiff web: runtime e compatibilidade Linux](FACEDIFF-WEB-RUNTIME.md)
+- [FaceDiff web: HTTPS e domínio para a VPS](FACEDIFF-WEB-HTTPS-DOMINIO.md)
 - [Tarefas: desenhos, planos, prompts e resultados](../tasks/README.md)
 
 ## Arquitetura e privacidade

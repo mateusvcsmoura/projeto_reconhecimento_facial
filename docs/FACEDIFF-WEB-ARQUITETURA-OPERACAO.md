@@ -382,6 +382,7 @@ Antes do deploy: confirmar que domínio gratuito vale para contratação de um
 mês, extensão elegível, titularidade, DNS e renovação. Se não incluído, usar
 subdomínio de domínio já controlado com autorização, ou contratar domínio
 separado após aprovação do custo. Não depender de IP HTTP para câmera móvel.
+As opções levantadas estão em [HTTPS e domínio](FACEDIFF-WEB-HTTPS-DOMINIO.md).
 Não provisionar Render/Neon como fallback automático.
 
 Checklist para futura tarefa autorizada:
