@@ -1567,16 +1567,17 @@ tbody tr:last-child td {
   gap: 12px;
 }
 
+.section-block > .row-between {
+  margin-bottom: 16px;
+}
+
 .section-block > .row-between h2 {
   margin-bottom: 0;
 }
 
-.section-block > .row-between + * {
-  margin-top: 16px;
-}
-
-.section-block > form + [data-panel] {
-  margin-top: 32px;
+/* Formulários abertos pelo botão do cabeçalho (nova turma, nova sessão). */
+.section-block > .row-between ~ form {
+  margin-bottom: 32px;
 }
 
 .session-status {

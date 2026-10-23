@@ -669,6 +669,8 @@ test("shell da interface monta landing e login em um navegador sintético", asyn
     globalThis.location.href = "http://localhost/professor?view=turmas";
     await import(`${modulo}?turmas-smoke=${Date.now()}`);
     await new Promise((resolve) => setImmediate(resolve));
+    assert.match(raiz.innerHTML, /data-action="class-new"[^>]*aria-expanded="false"/);
+    assert.match(raiz.innerHTML, /<form class="form-grid" data-form="criar-turma" id="form-nova-turma" hidden>/);
     assert.match(raiz.innerHTML, /data-action="open-delete-class:1"/);
     assert.match(raiz.innerHTML, /<dialog class="confirmation-dialog" data-delete-class-dialog data-id="1"/);
     assert.match(raiz.innerHTML, /data-form="excluir-turma" data-id="1"/);

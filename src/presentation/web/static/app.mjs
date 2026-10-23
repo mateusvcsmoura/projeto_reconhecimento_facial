@@ -404,7 +404,7 @@ function tabelaTurmas(turmas) {
 
 async function construirTelaProfessor(view, turmas, atual) {
   const seletor = seletorTurma(turmas, atual);
-  if (view === "turmas") return `<section class="section-block"><h2>Turmas acessíveis</h2><p class="field-hint">Abra uma turma para administrar os vínculos de alunos e gerar convites de cadastro.</p>${tabelaTurmas(turmas)}</section><section class="section-block"><h2>Criar turma</h2><form class="form-grid" data-form="criar-turma">${field("Disciplina ou turma", "materia", 'required maxlength="120"') }<div class="field"><label for="periodo">Período</label><select id="periodo" name="periodo" required><option value="matutino">Matutino</option><option value="diurno">Diurno</option><option value="noturno">Noturno</option></select></div><div class="field field--wide"><button class="button button--dark" type="submit">Criar turma</button></div></form></section>`;
+  if (view === "turmas") return `<section class="section-block"><div class="row-between"><h2>Turmas acessíveis</h2><button class="button button--dark" type="button" data-action="class-new" aria-expanded="false" aria-controls="form-nova-turma">Nova turma</button></div><form class="form-grid" data-form="criar-turma" id="form-nova-turma" hidden>${field("Disciplina ou turma", "materia", 'required maxlength="120" placeholder="Ex.: Inteligência Artificial"') }<div class="field"><label for="periodo">Período</label><select id="periodo" name="periodo" required><option value="matutino">Matutino</option><option value="diurno">Diurno</option><option value="noturno">Noturno</option></select></div><div class="button-row field--wide"><button class="button button--dark" type="submit">Criar turma</button>${button("Cancelar", "class-cancel", "button--quiet")}</div></form><p class="field-hint">Abra uma turma para administrar os vínculos de alunos e gerar convites de cadastro.</p>${tabelaTurmas(turmas)}</section>`;
   if (view === "turma") {
     if (!atual) return `<section class="section-block"><h2>Turma não encontrada</h2><p>A turma não está acessível para esta conta ou foi removida.</p><a class="button button--dark" href="/professor?view=turmas">Voltar para turmas</a></section>`;
     return `<section class="section-block"><a class="inline-link" href="/professor?view=turmas">&larr; Todas as turmas</a><h2>Vínculos de alunos</h2><p class="field-hint">${texto(atual.materia)} &middot; ${texto(atual.periodo)}</p><form class="toolbar" data-form="vincular-aluno"><input aria-label="Matrícula do aluno" name="matricula" placeholder="Matrícula" maxlength="32" required><button class="button button--dark" type="submit">Vincular aluno existente</button></form><div data-lista-alunos>${await listaAlunos(atual.id)}</div><p class="field-hint">O vínculo não cria nem aprova cadastro facial.</p></section><section class="section-block"><h2>Link de cadastro</h2><p>O link dá acesso ao fluxo de coleta com aviso e consentimento. Compartilhe-o apenas com a pessoa destinada.</p>${button("Criar link de cadastro", "invite-create", "button--dark")}<div class="result-region" data-result="invite"></div></section>`;
@@ -437,6 +437,29 @@ function renderPainel(payload) {
     const situacao = situacaoSessao(sessao);
     return `<li class="session-item"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p></li>`;
   }).join("")}</ul>`;
+}
+
+// Formulário que só aparece pelo botão que o abre; Cancelar fecha, limpa e devolve o foco ao botão.
+function formularioSobDemanda(acaoAbrir, acaoCancelar, form, aoFechar = () => {}) {
+  const botao = document.querySelector(`[data-action="${acaoAbrir}"]`);
+  const alternar = (aberto) => {
+    if (!form || !botao) return;
+    form.hidden = !aberto;
+    botao.hidden = aberto;
+    botao.setAttribute("aria-expanded", String(aberto));
+    if (aberto) {
+      form.querySelector("input:not([type=hidden]), select, textarea")?.focus();
+      return;
+    }
+    form.reset();
+    aoFechar();
+  };
+  botao?.addEventListener("click", () => alternar(true));
+  document.querySelector(`[data-action="${acaoCancelar}"]`)?.addEventListener("click", () => {
+    alternar(false);
+    botao?.focus();
+  });
+  return alternar;
 }
 
 function bindProfessor(turmas, atual) {
@@ -489,6 +512,7 @@ function bindProfessor(turmas, atual) {
       if (area) area.textContent = mostrarErro(erro);
     }).finally(() => { refresh.disabled = false; });
   });
+  formularioSobDemanda("class-new", "class-cancel", document.querySelector('[data-form="criar-turma"]'));
   document.querySelector('[data-form="criar-turma"]')?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -576,27 +600,12 @@ function bindProfessor(turmas, atual) {
     } catch (erro) { formularioErro(form, erro); }
   }));
   const formularioSessao = document.querySelector('[data-form="criar-sessao"]');
-  const novaSessao = document.querySelector('[data-action="session-new"]');
-  const alternarFormularioSessao = (aberto) => {
-    if (!formularioSessao || !novaSessao) return;
-    formularioSessao.hidden = !aberto;
-    novaSessao.hidden = aberto;
-    novaSessao.setAttribute("aria-expanded", String(aberto));
-    if (aberto) {
-      formularioSessao.querySelector('[name="titulo"]')?.focus();
-      return;
-    }
-    formularioSessao.reset();
+  const alternarFormularioSessao = formularioSobDemanda("session-new", "session-cancel", formularioSessao, () => {
     formularioSessao.dispatchEvent(new Event("session-scheduler-reset"));
-  };
-  novaSessao?.addEventListener("click", () => {
+  });
+  document.querySelector('[data-action="session-new"]')?.addEventListener("click", () => {
     const anterior = document.querySelector('[data-result="session"]');
     if (anterior) anterior.innerHTML = "";
-    alternarFormularioSessao(true);
-  });
-  document.querySelector('[data-action="session-cancel"]')?.addEventListener("click", () => {
-    alternarFormularioSessao(false);
-    novaSessao?.focus();
   });
   iniciarAgendadorSessao(formularioSessao);
   formularioSessao?.addEventListener("submit", async (event) => {
