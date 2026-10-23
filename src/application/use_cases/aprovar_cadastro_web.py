@@ -16,6 +16,8 @@ METODOS_IDENTIDADE = {
     "documento_presencial",
     "codigo_institucional",
     "contato_institucional",
+    # Professor confere nome e matrícula na lista de solicitações da turma.
+    "conferencia_professor",
 }
 
 

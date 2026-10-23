@@ -73,14 +73,31 @@ class CriarCadastroRequest(_Schema):
 
 
 class DecisaoCadastroRequest(_Schema):
+    # Sem corpo, a aprovação registra o que a interface faz: o professor confere
+    # nome e matrícula na lista da turma.
     metodo_identidade: Literal[
-        "documento_presencial", "codigo_institucional", "contato_institucional"
-    ]
-    justificativa: str = Field(min_length=10, max_length=500)
+        "documento_presencial",
+        "codigo_institucional",
+        "contato_institucional",
+        "conferencia_professor",
+    ] = "conferencia_professor"
+    justificativa: str = Field(
+        default="Nome e matrícula conferidos pelo professor responsável.",
+        min_length=10,
+        max_length=500,
+    )
 
 
 class RejeitarCadastroRequest(_Schema):
     justificativa: str = Field(min_length=10, max_length=500)
+
+
+class RecusaCadastroRequest(_Schema):
+    justificativa: str = Field(
+        default="Cadastro não aprovado pelo professor responsável.",
+        min_length=10,
+        max_length=500,
+    )
 
 
 class SolicitacaoBiometriaRequest(_Schema):
@@ -139,6 +156,10 @@ def _payload_solicitacao(solicitacao: SolicitacaoCadastro) -> dict[str, object]:
         "matricula": solicitacao.matricula,
         "expira_em": solicitacao.expira_em.isoformat(),
     }
+
+
+def _iso(instante: datetime | None) -> str | None:
+    return instante.isoformat() if instante is not None else None
 
 
 def _bearer(request: Request) -> str | None:
@@ -469,7 +490,16 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
         solicitacoes = exigir_solicitacoes().listar_cadastros_turma(
             conta.como_ator(), turma_id, estado=estado, limite=limite
         )
-        return {"itens": [_payload_solicitacao(item) for item in solicitacoes]}
+        return {
+            "itens": [
+                {
+                    **_payload_solicitacao(item),
+                    "criada_em": _iso(item.criada_em),
+                    "link_criado_em": _iso(item.link_criado_em),
+                }
+                for item in solicitacoes
+            ]
+        }
 
     @router.post("/cadastros/{solicitacao_id}/aprovar", status_code=200)
     def aprovar_cadastro(
@@ -506,7 +536,7 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
     @router.post("/cadastros/{solicitacao_id}/rejeitar", status_code=200)
     def rejeitar_cadastro(
         solicitacao_id: int,
-        body: RejeitarCadastroRequest,
+        body: RecusaCadastroRequest,
         conta: ContaAutenticada = Depends(auth.exigir_mutacao),  # noqa: B008
     ) -> dict[str, object]:
         if services.reference_storage is None:

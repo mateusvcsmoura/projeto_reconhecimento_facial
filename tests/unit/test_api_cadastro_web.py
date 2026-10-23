@@ -75,6 +75,7 @@ class ApiFake:
         self.associated: list[UUID] = []
         self.challenge_hash: str | None = None
         self.approvals: list[tuple[int, str, str]] = []
+        self.rejections: list[tuple[int, str]] = []
         self.list_calls = 0
         self.revogacoes: list[UUID] = []
         self.limpezas_confirmadas: list[int] = []
@@ -252,6 +253,16 @@ class ApiFake:
         assert self.requests[solicitacao_id].estado == "pendente_aprovacao"
         self.approvals.append((solicitacao_id, metodo_identidade, justificativa))
         return ResultadoAprovacao(29, 14, aluno_existente=True)
+
+    def rejeitar_cadastro_web(
+        self,
+        _ator: object,
+        solicitacao_id: int,
+        *,
+        justificativa: str,
+        agora: datetime,
+    ) -> None:
+        self.rejections.append((solicitacao_id, justificativa))
 
     def limpar_arquivos_provisorios(self, solicitacao_id: int) -> tuple[str, ...]:
         return (f"{solicitacao_id}/recorte.bin",)
@@ -712,6 +723,57 @@ def test_professor_responsavel_lista_solicitacoes_pendentes_sem_biometria() -> N
     assert response.json()["itens"][0]["matricula"] == "000123"
     assert "embedding" not in response.text
     assert repository.list_calls == 1
+
+
+def _pendente(repository: ApiFake) -> None:
+    repository.requests[71] = SolicitacaoCadastro(
+        id=71,
+        tipo="cadastro",
+        estado="pendente_aprovacao",
+        turma_id=14,
+        aluno_id=None,
+        matricula="000123",
+        nome="Pessoa Sintetica",
+        expira_em=FIM,
+        consentimento_em=AGORA,
+        consentimento_versao="v1",
+        criada_em=AGORA,
+        link_criado_em=AGORA - timedelta(hours=2),
+    )
+
+
+def test_lista_de_cadastros_informa_quando_e_por_qual_link() -> None:
+    repository = ApiFake()
+    _pendente(repository)
+    with _client(repository) as client:
+        client.cookies.set(COOKIE_SESSAO, "sessao-professor")
+        item = client.get("/api/v1/turmas/14/cadastros").json()["itens"][0]
+
+    assert item["criada_em"] == AGORA.isoformat()
+    assert item["link_criado_em"] == (AGORA - timedelta(hours=2)).isoformat()
+
+
+def test_aprovar_e_recusar_sem_formulario_registram_conferencia_do_professor() -> None:
+    repository = ApiFake()
+    _pendente(repository)
+    csrf = {"Origin": ORIGEM, "X-CSRF-Token": "csrf-fake"}
+    with _client(repository) as client:
+        client.cookies.set(COOKIE_SESSAO, "sessao-professor")
+        aprovada = client.post("/api/v1/cadastros/71/aprovar", headers=csrf, json={})
+        recusada = client.post("/api/v1/cadastros/71/rejeitar", headers=csrf, json={})
+
+    assert aprovada.status_code == 200, aprovada.text
+    assert repository.approvals == [
+        (
+            71,
+            "conferencia_professor",
+            "Nome e matrícula conferidos pelo professor responsável.",
+        )
+    ]
+    assert recusada.status_code == 200, recusada.text
+    assert repository.rejections == [
+        (71, "Cadastro não aprovado pelo professor responsável.")
+    ]
 
 
 def test_revogacao_de_link_limpa_referencias_provisorias() -> None:

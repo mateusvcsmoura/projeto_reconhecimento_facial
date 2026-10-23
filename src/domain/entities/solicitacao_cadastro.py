@@ -35,6 +35,9 @@ class SolicitacaoCadastro:
     desafio_nonce_hash: str | None = None
     desafio_direcao: str | None = None
     desafio_expira_em: dt.datetime | None = None
+    # Metadados para a conferência do professor; preenchidos na listagem da turma.
+    criada_em: dt.datetime | None = None
+    link_criado_em: dt.datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

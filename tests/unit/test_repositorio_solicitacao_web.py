@@ -278,6 +278,38 @@ def test_aprovacao_de_novo_aluno_ativa_tres_referencias_sem_foto_legacy(
     assert aluno.consentimento_em.replace(tzinfo=UTC) == AGORA
 
 
+def test_lista_de_cadastros_traz_data_da_solicitacao_e_do_link(engine) -> None:
+    repo = PostgresSolicitacaoRepository(engine)
+    solicitacao = _criar_solicitacao(repo, "000-lista", "Pessoa Lista")
+    link_id = uuid.uuid4()
+    link_criado_em = AGORA - dt.timedelta(hours=3)
+    with Session(engine) as session, session.begin():
+        session.add(
+            models.LinkCadastroWeb(
+                id=link_id,
+                turma_id=20,
+                emitido_por_conta_id=2,
+                token_hash="f" * 64,
+                finalidade="cadastro",
+                criado_em=link_criado_em,
+                expira_em=AGORA + dt.timedelta(days=7),
+                finalidade_ate=AGORA + dt.timedelta(days=10),
+            )
+        )
+        session.flush()
+        linha = session.get(models.SolicitacaoCadastroWeb, solicitacao.id)
+        linha.link_id = link_id
+        linha.estado = "pendente_aprovacao"
+
+    itens = repo.listar_cadastros_turma(
+        AtorWeb(2, "professor", True, False, 10), 20, estado="pendente_aprovacao"
+    )
+
+    assert [item.id for item in itens] == [solicitacao.id]
+    assert itens[0].criada_em == AGORA
+    assert itens[0].link_criado_em == link_criado_em
+
+
 def test_renovar_desafio_substitui_nonce_somente_durante_a_coleta(engine) -> None:
     repo = PostgresSolicitacaoRepository(engine)
     solicitacao = _criar_solicitacao(repo, "000-desafio", "Pessoa Desafio")

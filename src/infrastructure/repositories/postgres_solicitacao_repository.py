@@ -55,7 +55,10 @@ class ReferenciaAtiva:
     ordinal: int
 
 
-def _para_solicitacao(linha: models.SolicitacaoCadastroWeb) -> SolicitacaoCadastro:
+def _para_solicitacao(
+    linha: models.SolicitacaoCadastroWeb,
+    link_criado_em: dt.datetime | None = None,
+) -> SolicitacaoCadastro:
     return SolicitacaoCadastro(
         id=linha.id,
         tipo=linha.tipo,  # type: ignore[arg-type]
@@ -70,6 +73,8 @@ def _para_solicitacao(linha: models.SolicitacaoCadastroWeb) -> SolicitacaoCadast
         desafio_nonce_hash=linha.desafio_nonce_hash,
         desafio_direcao=linha.desafio_direcao,
         desafio_expira_em=_utc(linha.desafio_expira_em),
+        criada_em=_utc(linha.criada_em),
+        link_criado_em=_utc(link_criado_em),
     )
 
 
@@ -530,15 +535,22 @@ class PostgresSolicitacaoRepository:
             atual = _ator_atual(session, ator)
             turma = _turma_ativa(session, turma_id)
             AutorizarTurma.exigir(atual, turma, "consultar cadastros web")
-            linhas = session.scalars(
-                select(models.SolicitacaoCadastroWeb)
+            linhas = session.execute(
+                select(models.SolicitacaoCadastroWeb, models.LinkCadastroWeb.criado_em)
+                .outerjoin(
+                    models.LinkCadastroWeb,
+                    models.LinkCadastroWeb.id == models.SolicitacaoCadastroWeb.link_id,
+                )
                 .where(models.SolicitacaoCadastroWeb.turma_id == turma_id)
                 .where(models.SolicitacaoCadastroWeb.tipo == "cadastro")
                 .where(models.SolicitacaoCadastroWeb.estado == estado)
                 .order_by(models.SolicitacaoCadastroWeb.criada_em)
                 .limit(limite)
             ).all()
-            return tuple(_para_solicitacao(linha) for linha in linhas)
+            return tuple(
+                _para_solicitacao(linha, link_criado_em)
+                for linha, link_criado_em in linhas
+            )
 
     def estado_do_job(self, solicitacao_id: int, job_id: uuid.UUID) -> str | None:
         with sessao(self._engine) as session:
