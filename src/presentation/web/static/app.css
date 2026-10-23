@@ -1586,6 +1586,14 @@ tbody tr:last-child td {
   font-weight: 600;
 }
 
+.session-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+}
+
 .session-status--aberta {
   padding: 2px 10px;
   border-radius: 999px;

@@ -109,6 +109,18 @@ function iniciarAgendadorSessao(form) {
   inicioHora.addEventListener("change", () => { if (inicio) inicio = dataComHora(inicio, inicioHora.value); atualizar(); renderCalendario(); });
   fimHora.addEventListener("change", () => { if (fim) fim = dataComHora(fim, fimHora.value); atualizar(); renderCalendario(); });
   form.addEventListener("session-scheduler-reset", () => { inicio = null; fim = null; mesAtual = inicioDia(new Date()); atualizar(); renderCalendario(); });
+  // Edição: preenche calendário e relógios com o período de uma sessão existente.
+  form.addEventListener("session-scheduler-set", (evento) => {
+    const { inicio: novoInicio, fim: novoFim } = evento.detail;
+    const hora = (data) => String(data.getHours()).padStart(2, "0") + ":" + String(data.getMinutes()).padStart(2, "0");
+    inicioHora.closest("[data-time-picker]")?.dispatchEvent(new CustomEvent("time-picker-set", { detail: hora(novoInicio) }));
+    fimHora.closest("[data-time-picker]")?.dispatchEvent(new CustomEvent("time-picker-set", { detail: hora(novoFim) }));
+    inicio = novoInicio;
+    fim = novoFim;
+    mesAtual = new Date(novoInicio.getFullYear(), novoInicio.getMonth(), 1);
+    atualizar();
+    renderCalendario();
+  });
   atualizar();
   renderCalendario();
 }
@@ -432,11 +444,14 @@ async function listaAlunos(turmaId) {
   return `<ul class="plain-list">${alunos.map((aluno) => `<li class="row-between"><span>${texto(aluno.nome)} <span class="field-hint">${texto(aluno.matricula)}</span></span>${button("Desvincular", `unlink:${aluno.aluno_id}`, "button--quiet")}</li>`).join("")}</ul>`;
 }
 
-function renderPainel(payload) {
+// acoes: só a aba de sessões tem o formulário usado para editar.
+function renderPainel(payload, { acoes = false } = {}) {
   if (!payload?.sessoes?.length) return `<p class="empty-state">Não há sessões recentes para esta turma.</p>`;
   return `<ul class="plain-list">${payload.sessoes.map((sessao) => {
     const situacao = situacaoSessao(sessao);
-    return `<li class="session-item"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p>${listaPresencasMarkup(sessao)}</li>`;
+    const registros = (Number(sessao.presencas_presentes) || 0) + (Number(sessao.presencas_anuladas) || 0);
+    const botoes = acoes ? `${sessao.revogada ? "" : `<button class="button button--quiet" type="button" data-sessao-editar>Editar</button>`}<button class="button button--danger" type="button" data-sessao-excluir>Excluir</button>` : "";
+    return `<li class="session-item" data-sessao-item="${escapeHtml(sessao.id)}" data-titulo="${escapeHtml(sessao.titulo)}" data-inicio="${escapeHtml(sessao.inicio_em)}" data-fim="${escapeHtml(sessao.fim_em)}" data-registros="${registros}"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><div class="session-item__meta"><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span>${botoes}</div></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p>${listaPresencasMarkup(sessao)}</li>`;
   }).join("")}</ul>`;
 }
 
@@ -502,7 +517,7 @@ function bindProfessor(turmas, atual) {
   const cacheListas = new Map();
   const mostrarPainel = (payload) => {
     if (!panel || !payload) return;
-    panel.innerHTML = renderPainel(payload);
+    panel.innerHTML = renderPainel(payload, { acoes: Boolean(document.querySelector('[data-form="criar-sessao"]')) });
     panel.querySelectorAll("[data-sessao-presencas]").forEach((detalhe) => {
       if (listasAbertas.has(detalhe.dataset.sessaoPresencas)) detalhe.open = true;
     });
@@ -642,8 +657,11 @@ function bindProfessor(turmas, atual) {
     }
   }));
   const formularioSessao = document.querySelector('[data-form="criar-sessao"]');
+  const botaoSalvarSessao = formularioSessao?.querySelector('button[type="submit"]');
   const alternarFormularioSessao = formularioSobDemanda("session-new", "session-cancel", formularioSessao, () => {
     formularioSessao.dispatchEvent(new Event("session-scheduler-reset"));
+    delete formularioSessao.dataset.editando;
+    if (botaoSalvarSessao) botaoSalvarSessao.textContent = "Criar sessão";
   });
   document.querySelector('[data-action="session-new"]')?.addEventListener("click", () => {
     const anterior = document.querySelector('[data-result="session"]');
@@ -661,7 +679,17 @@ function bindProfessor(turmas, atual) {
       formularioErro(form, new Error("Selecione um início e um fim posterior no calendário."));
       return;
     }
+    const editando = form.dataset.editando;
     try {
+      if (editando) {
+        const editada = await api.patch(apiPath(`/sessoes/${editando}`), {
+          titulo: dados.get("titulo"), inicio_em: inicio.toISOString(), fim_em: fim.toISOString(),
+        });
+        alternarFormularioSessao(false);
+        result.innerHTML = mensagem(`Sessão "${editada.titulo}" atualizada: ${periodoSessao(editada.inicio_em, editada.fim_em)}. O link já enviado continua valendo.`, "success");
+        void updatePanel().then(mostrarPainel).catch(() => {});
+        return;
+      }
       const criada = await api.post(apiPath(`/turmas/${atual.id}/sessoes`), {
         titulo: dados.get("titulo"), inicio_em: inicio.toISOString(), fim_em: fim.toISOString(),
       });
@@ -683,6 +711,37 @@ function bindProfessor(turmas, atual) {
       // Mostra a sessão nova sem esperar o próximo ciclo de 15 s; falhas ficam com o poller.
       void updatePanel().then(mostrarPainel).catch(() => {});
     } catch (erro) { formularioErro(form, erro); }
+  });
+  panel?.addEventListener("click", async (evento) => {
+    const item = evento.target.closest("[data-sessao-item]");
+    if (!item || !formularioSessao) return;
+    const id = item.dataset.sessaoItem;
+    const result = document.querySelector('[data-result="session"]');
+    if (evento.target.closest("[data-sessao-editar]")) {
+      // Reaproveita o formulário de nova sessão, já preenchido com a sessão escolhida.
+      alternarFormularioSessao(true);
+      formularioSessao.dataset.editando = id;
+      if (botaoSalvarSessao) botaoSalvarSessao.textContent = "Salvar alterações";
+      if (result) result.innerHTML = "";
+      formularioSessao.querySelector('[name="titulo"]').value = item.dataset.titulo;
+      formularioSessao.dispatchEvent(new CustomEvent("session-scheduler-set", {
+        detail: { inicio: new Date(item.dataset.inicio), fim: new Date(item.dataset.fim) },
+      }));
+      formularioSessao.scrollIntoView({ block: "start" });
+      return;
+    }
+    if (!evento.target.closest("[data-sessao-excluir]")) return;
+    const registros = Number(item.dataset.registros) || 0;
+    const perda = registros === 1 ? " 1 presença registrada também será apagada." : registros > 1 ? ` ${registros} presenças registradas também serão apagadas.` : "";
+    if (!window.confirm(`Excluir a sessão "${item.dataset.titulo}"?${perda} Essa ação não pode ser desfeita.`)) return;
+    try {
+      await api.delete(apiPath(`/sessoes/${id}`), { confirmacao: `EXCLUIR-SESSAO-${id}` });
+      if (formularioSessao.dataset.editando === id) alternarFormularioSessao(false);
+      if (result) result.innerHTML = mensagem(`Sessão "${item.dataset.titulo}" excluída.`, "success");
+      void updatePanel().then(mostrarPainel).catch(() => {});
+    } catch (erro) {
+      if (result) result.innerHTML = mensagem(mostrarErro(erro), "error");
+    }
   });
   document.querySelector('[data-form="csv"]')?.addEventListener("submit", async (event) => {
     event.preventDefault();

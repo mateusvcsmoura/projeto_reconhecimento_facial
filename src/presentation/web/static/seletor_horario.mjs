@@ -127,5 +127,7 @@ export function iniciarSeletoresHorario(raiz) {
     seletor.addEventListener("focusout", (evento) => {
       if (!seletor.contains(evento.relatedTarget)) fechar();
     });
+    // Preenchimento externo (edição de sessão): detail é "HH:MM".
+    seletor.addEventListener("time-picker-set", (evento) => definir(evento.detail));
   });
 }
