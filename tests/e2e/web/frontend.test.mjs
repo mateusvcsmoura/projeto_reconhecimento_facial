@@ -20,7 +20,22 @@ import {
   resumoTentativas,
   situacaoSessao,
 } from "../../../src/presentation/web/static/sessoes.mjs";
-import { ajustarHorario, opcoesHorario } from "../../../src/presentation/web/static/seletor_horario.mjs";
+import { ajustarHorario, opcoesHorario, posicoesRelogio } from "../../../src/presentation/web/static/seletor_horario.mjs";
+
+test("relógio põe 00–11 no anel externo, 12–23 no interno e minutos de 5 em 5", () => {
+  const horas = posicoesRelogio("hora");
+  const minutos = posicoesRelogio("minuto");
+  const ponto = ({ valor, anel, angulo, x, y }) => ({ valor, anel, angulo, x, y });
+
+  assert.equal(horas.length, 24);
+  assert.deepEqual(ponto(horas[0]), { valor: "00", anel: "externo", angulo: 0, x: 50, y: 10 });
+  assert.deepEqual(ponto(horas[3]), { valor: "03", anel: "externo", angulo: 90, x: 90, y: 50 });
+  assert.deepEqual(ponto(horas[12]), { valor: "12", anel: "interno", angulo: 0, x: 50, y: 24 });
+  assert.deepEqual(ponto(horas[21]), { valor: "21", anel: "interno", angulo: 270, x: 24, y: 50 });
+  assert.equal(minutos.length, 12);
+  assert.deepEqual(ponto(minutos[3]), { valor: "15", anel: "externo", angulo: 90, x: 90, y: 50 });
+  assert.ok(minutos.every((item) => item.anel === "externo"));
+});
 
 test("seletor de horário ajusta hora e minuto com volta e passo de 5 minutos", () => {
   assert.equal(ajustarHorario("09:00", "hora", 1), "10:00");
