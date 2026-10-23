@@ -196,6 +196,17 @@ Professor não vê fotos armazenadas para aprovar. Se não puder confirmar a
 identidade pelo procedimento independente, rejeita ou mantém pendente até
 resolução; não contorna o requisito para a demonstração.
 
+**Decisão do usuário (22/10/2026):** a tela de aprovação foi simplificada. O
+professor vê nome, matrícula, data da solicitação e a data de criação do link
+usado, e decide com "Aprovar" ou "Recusar", sem escolher método nem escrever
+justificativa. A API registra a aprovação como `conferencia_professor`, com a
+justificativa padrão "Nome e matrícula conferidos pelo professor responsável.";
+a recusa usa "Cadastro não aprovado pelo professor responsável.". A aprovação
+continua humana, auditada e restrita ao professor responsável, mas o sistema
+não registra mais como a identidade foi conferida: essa conferência passa a ser
+responsabilidade do professor, fora do sistema. Clientes que enviam método e
+justificativa explícitos continuam aceitos.
+
 ```mermaid
 flowchart TD
     A[Convite valido e consentimento] --> B[Tres capturas guiadas]

@@ -414,7 +414,8 @@ async function construirTelaProfessor(view, turmas, atual) {
     if (!atual) return `${seletor}<p class="empty-state">Selecione uma turma para revisar solicitações.</p>`;
     const payload = await api.get(apiPath(`/turmas/${atual.id}/cadastros?estado=pendente_aprovacao`));
     const itens = payload.itens || [];
-    return `${seletor}<section class="section-block"><p>Esta lista contém apenas dados necessários à conferência. Imagens e embeddings não são exibidos neste painel.</p>${itens.length ? `<ul class="plain-list">${itens.map((item) => `<li><div class="row-between"><div><strong>${texto(item.nome)}</strong><div class="field-hint">Matrícula ${texto(item.matricula)} · ${texto(item.estado)} · solicitada ${dataLocal(item.criado_em)}</div></div><span>ID ${texto(item.id)}</span></div><form class="form-grid" data-form="decidir-cadastro" data-id="${escapeHtml(item.id)}"><div class="field"><label for="metodo-${item.id}">Conferência independente</label><select id="metodo-${item.id}" name="metodo_identidade"><option value="documento_presencial">Documento presencial</option><option value="codigo_institucional">Código institucional</option><option value="contato_institucional">Contato institucional</option></select></div>${field("Justificativa da decisão", "justificativa", 'required minlength="10" maxlength="500"') }<div class="button-row field--wide"><button class="button button--dark" name="decisao" value="aprovar">Aprovar cadastro</button><button class="button button--quiet" name="decisao" value="rejeitar">Rejeitar</button></div></form></li>`).join("")}</ul>` : `<p class="empty-state">Não há solicitações aguardando aprovação.</p>`}</section>`;
+    // Decisão direta: o professor confere nome, matrícula e o link usado; a API registra a conferência.
+    return `${seletor}<section class="section-block"><p>Confira o nome e a matrícula de quem se cadastrou. Ao aprovar, o aluno fica vinculado à turma e pode confirmar presença por reconhecimento facial. Fotos e dados faciais não aparecem aqui.</p>${itens.length ? `<ul class="plain-list">${itens.map((item) => `<li data-cadastro="${escapeHtml(item.id)}"><div class="row-between"><div><strong>${texto(item.nome)}</strong><p class="field-hint">Matrícula ${texto(item.matricula)} · solicitado em ${dataLocal(item.criada_em)}</p><p class="field-hint">${item.link_criado_em ? `Pelo link de cadastro criado em ${dataLocal(item.link_criado_em)}` : "Link de cadastro não identificado"}</p></div><div class="button-row"><button class="button button--dark" type="button" data-decidir-cadastro="aprovar" data-id="${escapeHtml(item.id)}" data-nome="${escapeHtml(item.nome)}">Aprovar</button><button class="button button--quiet" type="button" data-decidir-cadastro="rejeitar" data-id="${escapeHtml(item.id)}" data-nome="${escapeHtml(item.nome)}">Recusar</button></div></div><p class="field-hint" data-decisao-erro role="alert"></p></li>`).join("")}</ul>` : `<p class="empty-state">Não há solicitações aguardando aprovação.</p>`}</section>`;
   }
   if (view === "painel") return `${seletor}<section class="section-block"><div class="row-between"><h2>Atividade registrada</h2>${button("Atualizar agora", "refresh-panel", "button--quiet")}</div><div class="status-line"><span data-updated>Atualização ainda não consultada</span><span data-poll-error></span></div><div data-panel class="panel-region"><p class="empty-state">Consultando painel autorizado…</p></div></section>`;
   // O calendário só aparece quando o professor decide abrir uma sessão.
@@ -582,22 +583,21 @@ function bindProfessor(turmas, atual) {
       result.querySelector("a")?.focus();
     } catch (erro) { result.innerHTML = mensagem(mostrarErro(erro), "error"); }
   });
-  document.querySelectorAll('[data-form="decidir-cadastro"]').forEach((form) => form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const dados = new FormData(form);
-    const decisao = event.submitter?.value || "aprovar";
-    const id = form.dataset.id;
+  document.querySelectorAll("[data-decidir-cadastro]").forEach((botao) => botao.addEventListener("click", async () => {
+    const { id, nome } = botao.dataset;
+    const decisao = botao.dataset.decidirCadastro;
+    const item = botao.closest("[data-cadastro]");
+    if (decisao === "rejeitar" && !window.confirm(`Recusar o cadastro de ${nome}? A pessoa precisará se cadastrar de novo pelo link.`)) return;
+    const botoes = item.querySelectorAll("button");
+    botoes.forEach((cada) => { cada.disabled = true; });
     try {
-      if (decisao === "aprovar") {
-        await api.post(apiPath(`/cadastros/${id}/aprovar`), {
-          metodo_identidade: dados.get("metodo_identidade"), justificativa: dados.get("justificativa"),
-        });
-      } else {
-        await api.post(apiPath(`/cadastros/${id}/rejeitar`), { justificativa: dados.get("justificativa") });
-      }
-      location.reload();
-    } catch (erro) { formularioErro(form, erro); }
+      await api.post(apiPath(`/cadastros/${id}/${decisao}`), {});
+      item.innerHTML = mensagem(decisao === "aprovar" ? `Cadastro de ${nome} aprovado. O aluno já está vinculado à turma.` : `Cadastro de ${nome} recusado.`, decisao === "aprovar" ? "success" : "");
+    } catch (erro) {
+      botoes.forEach((cada) => { cada.disabled = false; });
+      const area = item.querySelector("[data-decisao-erro]");
+      if (area) area.textContent = mostrarErro(erro);
+    }
   }));
   const formularioSessao = document.querySelector('[data-form="criar-sessao"]');
   const alternarFormularioSessao = formularioSobDemanda("session-new", "session-cancel", formularioSessao, () => {
