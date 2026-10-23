@@ -139,10 +139,27 @@ o filho usa `opencv-contrib-python`, sem instalar ambos no mesmo ambiente. Em
 Ubuntu mínimo o runtime filho precisa de `libgles2` (`libGLESv2.so.2`). Em Linux,
 API e worker precisam compartilhar a mesma montagem tmpfs privada. Configure
 `WEB_CAPTURE_TEMP_DIR` para essa raiz; os limites iniciais são
-`WEB_CAPTURE_MAX_BYTES_PER_CAPTURE=8388608`, `WEB_CAPTURE_MAX_FRAMES=3`,
+`WEB_CAPTURE_MAX_BYTES_PER_CAPTURE=2097152`, `WEB_CAPTURE_MAX_FRAMES=3`,
 `WEB_CAPTURE_STORAGE_QUOTA_BYTES=314572800`, `WEB_JOB_RESERVATION_SECONDS=300`,
 `WEB_JOB_DEADLINE_SECONDS=900` e `WEB_JOB_LEASE_SECONDS=120`. São parâmetros de
-laboratório, não capacidade aprovada para produção. Com as mesmas variáveis
+laboratório, não capacidade aprovada para produção.
+
+Limites pensados para uma turma no mesmo Wi-Fi, onde todos saem pelo mesmo IP
+público (padrões entre parênteses):
+
+- `WEB_JOB_QUEUE_WAITING_LIMIT` (30): trabalhos aguardando na fila facial. Uma
+  tentativa de presença ocupa vaga durante todo o desafio; acima do limite a
+  API responde 503 com `Retry-After`.
+- `WEB_PRESENCE_START_LIMIT_PER_WINDOW` (60) e
+  `WEB_PRESENCE_CAPTURE_LIMIT_PER_WINDOW` (300): inícios de tentativa e envios
+  de captura por link e IP a cada 15 minutos (20 alunos x 3 tentativas x 3
+  etapas = 180 capturas).
+
+Cada trabalho reserva três capturas na cota temporária. A API recusa iniciar
+se `WEB_CAPTURE_STORAGE_QUOTA_BYTES` não comportar `3 x
+WEB_CAPTURE_MAX_BYTES_PER_CAPTURE x (WEB_JOB_QUEUE_WAITING_LIMIT + 1)`; com os
+padrões, 6 MiB x 31 = 186 MiB, dentro dos 300 MiB. Para turmas maiores, aumente
+a fila, os limites por janela e, se preciso, a cota e o tmpfs de capturas. Com as mesmas variáveis
 `WEB_*` do serviço, inicie o processo separado por
 `.venv-worker/bin/python -m src.face_worker_main`. Em produção, o startup exige
 tmpfs e pesos locais, sem download automático. A task014 conecta cadastro por

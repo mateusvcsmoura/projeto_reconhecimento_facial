@@ -48,6 +48,18 @@ def test_composicao_web_injeta_engine_e_storages_locais(
     dispose.assert_called_once_with()
 
 
+def test_composicao_web_usa_limite_configurado_da_fila(tmp_path: Path) -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    settings = _settings(
+        capture_temp_dir=tmp_path / "capturas",
+        job_queue_waiting_limit=25,
+    )
+
+    app = create_web_app(settings, engine_factory=lambda *_args, **_kwargs: engine)
+
+    assert app.state.web_services.fila_facial._limite_aguardando == 25
+
+
 def test_composicao_web_marca_banco_indisponivel_sem_expor_erro() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
 

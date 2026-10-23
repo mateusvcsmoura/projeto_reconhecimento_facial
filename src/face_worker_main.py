@@ -96,7 +96,7 @@ def construir_worker(
         jobs_repository,
         segredo=settings.secret_key.get_secret_value().encode(),
         relogio=lambda: datetime.now(UTC),
-        limite_aguardando=10,
+        limite_aguardando=settings.job_queue_waiting_limit,
         quota_temporaria_bytes=settings.capture_storage_quota_bytes,
         max_bytes_por_captura=settings.capture_max_bytes_per_capture,
         max_capturas=settings.capture_max_frames,

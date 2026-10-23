@@ -116,7 +116,7 @@ def create_web_app(
         jobs_repository,
         segredo=configuracao.secret_key.get_secret_value().encode(),
         relogio=lambda: datetime.now(UTC),
-        limite_aguardando=10,
+        limite_aguardando=configuracao.job_queue_waiting_limit,
         quota_temporaria_bytes=configuracao.capture_storage_quota_bytes,
         max_bytes_por_captura=configuracao.capture_max_bytes_per_capture,
         max_capturas=configuracao.capture_max_frames,

@@ -342,7 +342,7 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             acao="iniciar",
             link_id=link_id,
             agora=agora,
-            limite=10,
+            limite=settings.presence_start_limit_per_window,
             trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
         )
         acesso = AcessoLinkEmitido(
@@ -426,7 +426,7 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             acao="captura",
             link_id=contexto["link_id"],
             agora=agora,
-            limite=60,
+            limite=settings.presence_capture_limit_per_window,
             trusted_proxy_cidrs=settings.trusted_proxy_cidrs,
         )
         try:

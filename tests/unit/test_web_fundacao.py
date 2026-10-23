@@ -107,6 +107,18 @@ def test_settings_web_rejeita_driver_ou_retencao_incompativeis() -> None:
         _settings(retention_days=0)
 
 
+def test_settings_web_limites_atendem_uma_turma_no_mesmo_wifi() -> None:
+    settings = _settings()
+
+    # Uma sala inteira sai pelo mesmo IP: 20 alunos x 3 tentativas x 3 etapas.
+    assert settings.job_queue_waiting_limit == 30
+    assert settings.presence_start_limit_per_window == 60
+    assert settings.presence_capture_limit_per_window == 300
+    assert settings.capture_max_bytes_per_capture == 2 * 1024 * 1024
+    with pytest.raises(ValidationError, match="WEB_JOB_QUEUE_WAITING_LIMIT"):
+        _settings(job_queue_waiting_limit=100)
+
+
 def test_settings_web_rejeita_segredo_curto_sem_reexibi_lo() -> None:
     segredo = "curto-e-sensivel"
 

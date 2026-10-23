@@ -42,9 +42,18 @@ class WebSettings(BaseSettings):
     legacy_image_storage_dir: Path | None = None
     maintenance_dir: Path | None = None
     backup_exclusions_file: Path | None = None
-    capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 8 * 1024 * 1024
+    # Uma captura 960x720 JPEG tem ~100-250 KB; 2 MiB mantém folga e deixa a cota
+    # de 300 MiB reservar espaço para a fila inteira (6 MiB por job).
+    capture_max_bytes_per_capture: Annotated[int, Field(gt=0)] = 2 * 1024 * 1024
     capture_max_frames: Literal[3] = 3
     capture_storage_quota_bytes: Annotated[int, Field(gt=0)] = 300 * 1024 * 1024
+    # Uma tentativa de presença ocupa vaga na fila durante todo o desafio; 30 cobre
+    # uma turma de 20 verificando ao mesmo tempo.
+    job_queue_waiting_limit: Annotated[int, Field(gt=0, le=1000)] = 30
+    # Por link e IP numa janela de 15 min. Na faculdade a sala inteira sai pelo
+    # mesmo IP: 20 alunos x 3 tentativas = 60 inícios; x 3 etapas = 180 capturas.
+    presence_start_limit_per_window: Annotated[int, Field(gt=0, le=100_000)] = 60
+    presence_capture_limit_per_window: Annotated[int, Field(gt=0, le=100_000)] = 300
     mediapipe_model_path: Path | None = None
     mediapipe_python_executable: Path | None = None
     job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
@@ -221,6 +230,16 @@ class WebSettings(BaseSettings):
         if self.capture_storage_quota_bytes < self.capture_max_bytes_per_capture * 3:
             raise ValueError(
                 "WEB_CAPTURE_STORAGE_QUOTA_BYTES deve comportar um job completo."
+            )
+        # Cada job reserva 3 capturas; a fila (+1 em processamento) precisa caber
+        # na cota, senão ela trava em silêncio antes do limite configurado.
+        reserva_da_fila = (
+            self.capture_max_bytes_per_capture * 3 * (self.job_queue_waiting_limit + 1)
+        )
+        if self.capture_storage_quota_bytes < reserva_da_fila:
+            raise ValueError(
+                "WEB_JOB_QUEUE_WAITING_LIMIT excede o que "
+                "WEB_CAPTURE_STORAGE_QUOTA_BYTES comporta."
             )
         if self.job_lease_seconds < 3:
             raise ValueError("WEB_JOB_LEASE_SECONDS deve ser de ao menos 3s.")

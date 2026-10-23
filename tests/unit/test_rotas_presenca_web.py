@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
+from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -34,7 +35,7 @@ from src.presentation.web.app import WebServices, create_app
 AGORA = dt.datetime(2026, 10, 18, 12, 0, tzinfo=dt.UTC)
 
 
-def _app(services: WebServices | None = None) -> TestClient:
+def _app(services: WebServices | None = None, **ajustes: Any) -> TestClient:
     settings = WebSettings(
         environment="test",
         database_url="postgresql+psycopg://usuario:senha@localhost:5432/facediff_test",
@@ -42,6 +43,7 @@ def _app(services: WebServices | None = None) -> TestClient:
         retention_days=14,
         database_disposable=True,
         public_origin="https://facediff.test",
+        **ajustes,
     )
     return TestClient(create_app(settings, services or WebServices()))
 
@@ -67,6 +69,7 @@ class _RepositorioPresenca:
         self.tentativa: TentativaPresenca | None = None
         self.link_id = uuid4()
         self.limitadas: list[tuple[str, dt.datetime]] = []
+        self.limites_usados: list[object] = []
         self.recebimentos: list[dict[str, object]] = []
         self.sessao_criada: SessaoPresenca | None = None
         self.erro_inicio: Exception | None = None
@@ -111,8 +114,9 @@ class _RepositorioPresenca:
             "jobs_temporarios": self.arquivos_cancelados,
         }
 
-    def limitar_requisicao(self, chave_hash: str, *, agora, **_kwargs):
+    def limitar_requisicao(self, chave_hash: str, *, agora, **kwargs):
         self.limitadas.append((chave_hash, agora))
+        self.limites_usados.append(kwargs.get("limite"))
         return self.espera_rate_limit
 
     def consultar_contexto_inicio(self, **_kwargs):
@@ -412,6 +416,40 @@ def test_rotas_autenticadas_editam_e_excluem_sessao() -> None:
         "tentativas_removidas": 1,
         "limpeza_pendente": False,
     }
+
+
+def test_limites_de_presenca_por_link_e_ip_vem_da_configuracao() -> None:
+    presencas = _RepositorioPresenca()
+    services = WebServices(
+        link_repository=_RepositorioLinks(),
+        presenca_repository=presencas,
+        fila_facial=_Fila(),
+        desafio_captura=_Desafios(),
+        capture_storage=_Capturas(),
+        rate_limit_secret=b"s" * 32,
+        clock=lambda: AGORA,
+    )
+
+    with _app(
+        services,
+        presence_start_limit_per_window=42,
+        presence_capture_limit_per_window=99,
+    ) as client:
+        inicio = client.post(
+            "/api/v1/sessoes/7/tentativas",
+            headers={
+                "Authorization": "Bearer token-do-link-sintetico",
+                "Idempotency-Key": "chave-idempotente-sintetica-042",
+            },
+            json={"matricula": "00042"},
+        )
+        client.post(
+            f"/api/v1/tentativas/{inicio.json()['id']}/capturas",
+            headers={"Authorization": "Bearer credencial-captura-sintetica"},
+            json={"etapa": 1, "nonce": "n" * 64, "captura_base64": "YQ=="},
+        )
+
+    assert presencas.limites_usados == [42, 99]
 
 
 def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status() -> None:
