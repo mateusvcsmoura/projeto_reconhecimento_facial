@@ -129,8 +129,8 @@ No `.env`, uma variável por linha:
 - a mesma senha em `DATABASE_URL` (`localhost:5433`) e em `WEB_DATABASE_URL`
   (`host.docker.internal:5433`);
 - `WEB_SECRET_KEY`: o valor gerado acima;
-- `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pasta dos pesos (ver
-  [Primeira vez: modelos](#primeira-vez-modelos)), com barras normais.
+- `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pasta dos pesos, preenchida por
+  `scripts.baixar_modelos` (ver [Primeira vez: modelos](#primeira-vez-modelos)).
 
 ```powershell
 # 2. Banco (porta 5433, para não colidir com um PostgreSQL nativo)
@@ -178,22 +178,19 @@ do primeiro build; sem o `face_landmarker.task`, o build falha com
 `"/models/face_landmarker.task": not found`.
 
 ```powershell
-$ProgressPreference = 'SilentlyContinue'   # acelera o Invoke-WebRequest
-
-# Landmarks: copiado para a imagem no build e montado no worker
-Invoke-WebRequest https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task -OutFile models\face_landmarker.task
-(Get-FileHash models\face_landmarker.task).Hash   # compare com models/README.md
-
-# Pesos do DeepFace (~99 MB): montados no worker somente para leitura
-$w = "$HOME\.deepface\weights"; New-Item -ItemType Directory -Force $w | Out-Null
-Invoke-WebRequest https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5 -OutFile "$w\facenet512_weights.h5"
-Invoke-WebRequest https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/raw/master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth -OutFile "$w\2.7_80x80_MiniFASNetV2.pth"
-Invoke-WebRequest https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/raw/master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth -OutFile "$w\4_0_0_80x80_MiniFASNetV1SE.pth"
+py -3.12 -m scripts.baixar_modelos
 ```
 
-São as URLs oficiais que o próprio DeepFace usa. Aponte
-`WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR` para essa pasta, por exemplo
-`C:/Users/<usuario>/.deepface/weights`.
+O script usa só a biblioteca padrão e baixa ~103 MB das URLs oficiais (as
+mesmas que o DeepFace usa), conferindo o SHA-256 de cada arquivo:
+
+- `models/face_landmarker.task`: copiado para a imagem no build;
+- pesos do FaceNet512 e do anti-spoofing em `~/.deepface/weights`: montados no
+  worker somente para leitura e usados também pela CLI.
+
+Ele também grava no `.env`, se existir, `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`
+com a pasta dos pesos deste computador. Arquivos já presentes e íntegros não
+são baixados de novo, então rodar outra vez é seguro.
 
 ### Subir
 

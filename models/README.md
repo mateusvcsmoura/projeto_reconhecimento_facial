@@ -2,7 +2,9 @@
 
 O runtime opcional espera `face_landmarker.task` nesta pasta. O arquivo do
 modelo é ignorado pelo Git (`/models/*.task`) e deve ser obtido somente durante
-setup local explícito. A aplicação não faz download automático.
+setup local explícito. A aplicação não faz download automático; o setup é
+`python -m scripts.baixar_modelos`, que baixa da origem abaixo e confere o
+SHA-256.
 
 - Modelo: Face Landmarker, bundle `float16`, versão `1`.
 - Origem oficial versionada:
