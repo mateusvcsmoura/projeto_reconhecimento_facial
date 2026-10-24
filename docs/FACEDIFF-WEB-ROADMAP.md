@@ -3,11 +3,11 @@
 Data: 20/10/2026. **Tarefas 009–019A implementadas; gate do backend aprovado em ambiente local descartável. A interface 020 está parcialmente implementada.**
 O runtime HTTP e a instalação/importação da stack ML foram provados em Ubuntu
 24.04/Python 3.12; inferência com pesos e validação integrada continuam gates
-futuros, conforme o [resultado 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
+futuros, conforme o resultado 009.
 Tarefa 010 foi implementada, validada e publicada: 984 testes unitários,
 3 testes PostgreSQL em banco descartável, revisão `0005` aplicada ao banco local
 e `alembic check` aprovado. Deploy e validação operacional continuam pendentes; veja o
-[resultado 010](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
+resultado 010.
 Especificação: [planejamento principal](PLANEJAMENTO-FUTURO-PRESENCA-WEB.md).
 Arquitetura: [operação KVM2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
 
@@ -27,24 +27,24 @@ interface e não poderiam honestamente ser declarados aprovados antes dela.
 ## 2. Pacotes executáveis
 
 Cada pasta contém desenho, plano e prompt para **Luna 6 High**.
-O [contrato comum](../tasks/WEB-CONTRATO-EXECUCAO.md) e o
-[contrato de migrations](../tasks/WEB-MIGRACOES.md) são leitura obrigatória.
+O contrato comum e o
+contrato de migrations são leitura obrigatória.
 
 | Task | Escopo | Dependência | Prompt |
 |---|---|---|---|
-| 009 | Fundação web e compatibilidade Linux | 008 como referência histórica; planejamento consolidado | [Executar 009](../tasks/009-web-fundacao-linux/PROMPT.md) |
-| 010 | Contas, autenticação, professor responsável e auditoria | 009 | [Executar 010](../tasks/010-web-autenticacao-autorizacao/PROMPT.md) |
-| 011 | Três referências, cadastro pendente e versionamento biométrico | 010 | [Executar 011](../tasks/011-web-referencias-cadastro-pendente/PROMPT.md) |
-| 012 | Worker facial único, fila limitada e temporários | 011 e runtime009 validado para a parte executada | [Executar 012](../tasks/012-web-worker-fila/PROMPT.md) |
-| 013 | Desafio facial no servidor e verificação 1:1 | 012 | [Executar 013](../tasks/013-web-desafio-verificacao-1a1/PROMPT.md) |
-| 014 | API de cadastro por link e aprovação | 010–013 | [Executar 014](../tasks/014-web-api-cadastro-aprovacao/PROMPT.md) |
-| 015 | Sessões, tentativas e presença por API | 014 | [Executar 015](../tasks/015-web-api-sessoes-presencas/PROMPT.md) |
-| 016 | CRUD autorizado, revisão manual, auditoria e CSV | 015 | [Executar 016](../tasks/016-web-gestao-revisao-relatorios/PROMPT.md) |
-| 017 | Backup cifrado, retenção e restauração | 016 | [Executar 017](../tasks/017-web-backup-retencao/PROMPT.md) |
-| 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | [Resultado parcial](../tasks/018-web-infraestrutura-compose/RESULTADO.md) |
-| 019 | Validação integrada do backend e gate para a interface | 009–018 implementadas; não basta existirem seus documentos | [Executar 019](../tasks/019-web-validacao-backend/PROMPT.md) |
-| 019A | Fechamento do restore, runtime Compose, proteção pública e fluxo integrado | 019; gate backend aprovado com PostgreSQL/rclone crypt e Compose Linux descartáveis | [Resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md) |
-| 020 | Interface web responsiva e validação ponta a ponta | Backend aprovado; implementação parcial; browser/E2E visual ainda pendente | [Resultado 020](../tasks/020-web-interface-final/RESULTADO.md) |
+| 009 | Fundação web e compatibilidade Linux | 008 como referência histórica; planejamento consolidado | Executar 009 |
+| 010 | Contas, autenticação, professor responsável e auditoria | 009 | Executar 010 |
+| 011 | Três referências, cadastro pendente e versionamento biométrico | 010 | Executar 011 |
+| 012 | Worker facial único, fila limitada e temporários | 011 e runtime009 validado para a parte executada | Executar 012 |
+| 013 | Desafio facial no servidor e verificação 1:1 | 012 | Executar 013 |
+| 014 | API de cadastro por link e aprovação | 010–013 | Executar 014 |
+| 015 | Sessões, tentativas e presença por API | 014 | Executar 015 |
+| 016 | CRUD autorizado, revisão manual, auditoria e CSV | 015 | Executar 016 |
+| 017 | Backup cifrado, retenção e restauração | 016 | Executar 017 |
+| 018 | Artefatos de implantação Ubuntu, Compose e Caddy | 017 | Resultado parcial |
+| 019 | Validação integrada do backend e gate para a interface | 009–018 implementadas; não basta existirem seus documentos | Executar 019 |
+| 019A | Fechamento do restore, runtime Compose, proteção pública e fluxo integrado | 019; gate backend aprovado com PostgreSQL/rclone crypt e Compose Linux descartáveis | Resultado 019A |
+| 020 | Interface web responsiva e validação ponta a ponta | Backend aprovado; implementação parcial; browser/E2E visual ainda pendente | Resultado 020 |
 
 A sequência recomendada é linear009→020, embora os contratos descrevam
 dependências mais específicas. Não paralelizar alterações de schema/contratos
@@ -54,8 +54,8 @@ A task018 possui artefatos Compose, Dockerfiles, Caddy, preflight, healthcheck
 do worker e runbook. Em 19/10/2026, a task019A construiu e executou localmente os
 targets Linux com secrets/volumes descartáveis, validou Caddy, healthchecks,
 permissões e persistência após recriação. Isso não representa deploy nem medição
-na VPS; consulte o [resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md)
-e o [resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md).
+na VPS; consulte o resultado 018
+e o resultado 019A.
 
 ## 3. Cobertura do planejamento anterior
 
@@ -100,8 +100,8 @@ mock de SQL ou relato histórico não aprova o gate.
 HTTP sintéticos e integrações PostgreSQL descartáveis. A task019A executou o
 roundtrip PostgreSQL/rclone crypt, runtime Compose/Linux, rate limit concorrente
 e fluxo completo até painel/CSV. `GATE_BACKEND_PARA_INTERFACE: APROVADO`; veja
-os [resultados 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
-[019A](../tasks/019a-fechamento-backend/RESULTADO.md). O gate de dados reais
+os resultados 019 e
+019A. O gate de dados reais
 permanece `PENDENTE`; a interface 020 está parcialmente implementada e ainda
 aguarda inspeção visual e E2E em navegador, conforme seu resultado.
 

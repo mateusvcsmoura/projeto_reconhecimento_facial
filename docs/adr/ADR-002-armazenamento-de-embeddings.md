@@ -100,7 +100,7 @@ centenas de vetores é mais rápida e mais simples que um índice aproximado.
 ### Nota de evidência — tarefa 004
 
 O benchmark atual e seu protocolo estão registrados em
-[`tasks/004-benchmark-matching/RESULTADO.md`](../../tasks/004-benchmark-matching/RESULTADO.md).
+`tasks/004-benchmark-matching/RESULTADO.md`.
 Ele compara a matriz vetorizada com um laço Python que executa `NumPy dot` por
 embedding, usando somente vetores sintéticos. Esse laço não reconstrói o
 protótipo de `DeepFace.verify()` nem mede inferência. A nova medição não

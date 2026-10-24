@@ -55,7 +55,7 @@ temporal com relógio controlado, ambiguidade com embeddings sintéticos e os
 contratos do benchmark. Embora `tests/conftest.py` defina fixtures de banco
 para testes que as pedem, os módulos selecionados não as usam nem abrem
 PostgreSQL. A saída e a quantidade aprovada observadas nesta reprodução estão
-no [resultado da tarefa 005](../tasks/005-consolidacao-demonstracao/RESULTADO.md).
+no resultado da tarefa 005.
 
 ```powershell
 .\.venv-ml\Scripts\python.exe -m scripts.benchmark_matcher --help
@@ -66,7 +66,7 @@ O smoke compara 12 consultas artificiais e não grava JSON. Observe o código
 de saída, o estado da validação e as divergências; não use esses tempos para
 prever latência operacional. O último comando não repete as medições padrão da
 tarefa 004. Para apresentá-las, consulte os três JSONs agregados e o
-[relatório 004](../tasks/004-benchmark-matching/RESULTADO.md).
+relatório 004.
 
 Não executar o modo da aplicação, acessar `.env`, banco, câmera, modelos,
 `storage/` ou `avaliacao/` para esta demonstração.

@@ -90,6 +90,6 @@ Não houve teste com pessoas, imagens biométricas, webcam ou implantação. A
 validação não substitui o gate integrado
 do backend previsto na tarefa 019.
 
-Consulte o [resultado da tarefa 016](../tasks/016-web-gestao-revisao-relatorios/RESULTADO.md)
-e os [contratos de execução](../tasks/WEB-CONTRATO-EXECUCAO.md) e de
-[migrations](../tasks/WEB-MIGRACOES.md).
+Consulte o resultado da tarefa 016
+e os contratos de execução e de
+migrations.

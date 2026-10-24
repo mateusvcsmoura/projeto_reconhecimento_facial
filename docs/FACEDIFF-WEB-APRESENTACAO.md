@@ -1,7 +1,7 @@
 # FaceDiff web — roteiro de apresentação e contingência
 
 Este roteiro acompanha a interface da tarefa 020. A implementação está parcial;
-consulte o [resultado 020](../tasks/020-web-interface-final/RESULTADO.md) para
+consulte o resultado 020 para
 separar testes aprovados das validações ainda pendentes. Este documento não
 autoriza deploy nem o uso de pessoas ou dados reais.
 

@@ -29,10 +29,10 @@ abaixo e o estado completo tem fontes em
 | Métricas de clustering | ARI, NMI, homogeneity, completeness, V-measure e métricas internas | `scripts/agrupamento_embeddings.py` | 4 | Testes sintéticos de agrupamento | Implementadas; nenhum valor de identidade real medido |
 | Rastreabilidade/reprodutibilidade | Scripts, seeds, versões, caches e artefatos isolados | `scripts/experimento_*.py`; `requirements-ml.txt`; `.gitignore` | 0–4 | Relatórios das Etapas 0–4 e testes unitários atuais | Implementado; depende de autorização e proveniência para dados reais |
 | Registro de presença | Persistência após confirmação do operador | `src/application/use_cases/registrar_presenca.py`; repositórios PostgreSQL | Base | `tests/unit/test_registrar_presenca.py`; integração histórica | Operacional; não foi acessado na Etapa 5 |
-| Qualidade de captura | Checagem optativa de tamanho, luminância e nitidez antes do embedding | `src/domain/services/qualidade_captura.py`; adaptador DeepFace | Tarefa 001 | `tests/unit/test_qualidade_captura.py`; [relatório](../tasks/001-qualidade-captura/RESULTADO.md) | Implementada; heurísticas sintéticas, orientação facial explícita não verificada |
-| Consistência temporal | Sequência optativa de IDs iguais e revalidação em nova captura antes de registrar | `src/domain/services/consistencia_temporal.py`; `src/presentation/cli/menu.py` | Tarefa 002 | `tests/unit/test_consistencia_temporal.py`; [relatório](../tasks/002-consistencia-temporal/RESULTADO.md) | Implementada; frames correlacionados, sem alegação de melhora biométrica |
-| Rejeição por ambiguidade | Gap entre as duas menores distâncias de identidades distintas após o limiar | `src/domain/services/matcher.py` | Tarefa 003 | `tests/unit/test_matcher_ambiguidade.py`; [relatório](../tasks/003-rejeicao-ambiguidade/RESULTADO.md) | Opt-in; margem positiva sem calibração biométrica |
-| Benchmark vetorizado | Comparação com laço Python e `NumPy dot` sobre vetores sintéticos 512D | `scripts/benchmark_matcher.py` | Tarefa 004 | `tests/unit/test_benchmark_matcher.py`; [relatório](../tasks/004-benchmark-matching/RESULTADO.md) e [JSONs agregados](../tasks/004-benchmark-matching/evidencias/) | Três execuções sem divergência; custo computacional local, não acurácia ou inferência |
+| Qualidade de captura | Checagem optativa de tamanho, luminância e nitidez antes do embedding | `src/domain/services/qualidade_captura.py`; adaptador DeepFace | Tarefa 001 | `tests/unit/test_qualidade_captura.py`; relatório | Implementada; heurísticas sintéticas, orientação facial explícita não verificada |
+| Consistência temporal | Sequência optativa de IDs iguais e revalidação em nova captura antes de registrar | `src/domain/services/consistencia_temporal.py`; `src/presentation/cli/menu.py` | Tarefa 002 | `tests/unit/test_consistencia_temporal.py`; relatório | Implementada; frames correlacionados, sem alegação de melhora biométrica |
+| Rejeição por ambiguidade | Gap entre as duas menores distâncias de identidades distintas após o limiar | `src/domain/services/matcher.py` | Tarefa 003 | `tests/unit/test_matcher_ambiguidade.py`; relatório | Opt-in; margem positiva sem calibração biométrica |
+| Benchmark vetorizado | Comparação com laço Python e `NumPy dot` sobre vetores sintéticos 512D | `scripts/benchmark_matcher.py` | Tarefa 004 | `tests/unit/test_benchmark_matcher.py`; relatório e JSONs agregados | Três execuções sem divergência; custo computacional local, não acurácia ou inferência |
 
 Os arquivos de teste existem e os casos unitários usam dados sintéticos/fakes. Os relatórios das Etapas 2–4 documentam que não abriram embeddings biométricos nem produziram métricas faciais reais.
 
@@ -50,7 +50,7 @@ A tarefa 005 executou os quatro módulos de teste das melhorias 001–004 e um
 smoke curto do benchmark, sem executar a suíte inteira, integração/BDD,
 câmera, banco, modelo ou dados faciais. O comando exato, total aprovado,
 códigos de saída e interpretação estão no
-[`resultado da tarefa 005`](../tasks/005-consolidacao-demonstracao/RESULTADO.md).
+`resultado da tarefa 005`.
 Essa seleção confirma contratos funcionais locais; não constitui teste
 biométrico nem reavalia todos os módulos da matriz.
 

@@ -65,5 +65,4 @@ pytest==9.1.1
 
 # Removido nesta fase:
 #   pyserial==3.5 — nenhum import no projeto (verificado por grep). Residuo de
-#   uma versao com leitor biometrico serial. REFACTORING_PLAN.md, Fase 1,
-#   item 3 (problema A16).
+#   uma versao com leitor biometrico serial.

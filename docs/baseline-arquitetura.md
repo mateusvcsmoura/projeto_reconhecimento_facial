@@ -6,10 +6,10 @@
 >
 > Está preservada de propósito: é o retrato do ponto de partida, e os
 > problemas que ela cataloga (`P1`–`P14`) são referenciados pelo
-> [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md) e pelos ADRs. Sem ela, o
+> `REFACTORING_PLAN.md` e pelos ADRs. Sem ela, o
 > que foi feito depois perde a medida.
 >
-> **Para a arquitetura atual, veja [`ARCHITECTURE.md`](../ARCHITECTURE.md).**
+> **Para a arquitetura atual, veja `ARCHITECTURE.md`.**
 
 ---
 

@@ -2,8 +2,8 @@
 
 **Base analisada:** 16/10/2026, `main` na revisão `31028e706ec8a90f41747c241ea724e9e380d142`; migration `0004` aplicada ao PostgreSQL local configurado nesta data.
 **Atualização web:** 19/10/2026, após as tarefas 009–019A; o gate do backend foi aprovado em Compose/PostgreSQL/rclone descartáveis. Isso não é deploy, acesso ao banco `escola` ou validação biométrica operacional.
-**Atualização da interface:** 20/10/2026, tarefa 020 parcialmente implementada no workspace; testes sintéticos/unitários e servidor local disponíveis. Revisão visual por navegador e E2E completo permanecem pendentes; ver [resultado 020](../tasks/020-web-interface-final/RESULTADO.md).
-**Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em [RESULTADO.md](../tasks/007-captura-automatica/RESULTADO.md).
+**Atualização da interface:** 20/10/2026, tarefa 020 parcialmente implementada no workspace; testes sintéticos/unitários e servidor local disponíveis. Revisão visual por navegador e E2E completo permanecem pendentes; ver resultado 020.
+**Atualizações anteriores:** tarefa 007 implementada e verificada em 15/10/2026; resultados detalhados em RESULTADO.md.
 **Finalidade:** projeto da disciplina de Inteligência Artificial da Fatec,
 para estudar identificação facial aberta 1:N como apoio ao registro de
 presença. Não é um TCC. Este registro separa o que o código implementa, o que
@@ -34,13 +34,13 @@ ao limiar. Esse indicador não é probabilidade de identidade nem foi calibrado.
 
 | Tarefa | Comportamento e configuração | Fontes e testes | Limite da evidência |
 |---|---|---|---|
-| 001 — qualidade de captura | Opt-in (`FACE_QUALITY_ENABLED=false`). Quando ativa, verifica menor dimensão da face (80 px), luminância média (40–215) e variância do Laplaciano (mínimo 100); exige a área original do detector. O adaptador já recusa zero ou múltiplas faces. | `src/domain/services/qualidade_captura.py`, `src/infrastructure/face_recognition/deepface_adapter.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/menu.py`; `tests/unit/test_qualidade_captura.py`; [resultado 001](../tasks/001-qualidade-captura/RESULTADO.md). | Limites são heurísticas; não há checagem explícita de orientação facial nem calibração com rostos. Testes usam recortes sintéticos. Qualidade não substitui anti-spoofing. |
-| 002 — consistência temporal | Opt-in (`FACE_TEMPORAL_ENABLED=false`). Padrão de 3 identificações iguais, nos ciclos a cada 8 frames, dentro de 5 s; a mais recente precisa ter até 2 s. ENTER lê outro frame, identifica de novo e só registra o mesmo ID; tentativa concluída consome a sequência. | `src/domain/services/consistencia_temporal.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_consistencia_temporal.py` e testes de menu; [resultado 002](../tasks/002-consistencia-temporal/RESULTADO.md). | Observações correlacionadas não demonstram melhora de acurácia. Timestamp antes da leitura não garante frescor físico do sensor; câmeras podem bufferizar frames. |
-| 003 — ambiguidade | Opt-in (`FACE_AMBIGUITY_ENABLED=false`; margem padrão `None`, obrigatória ao ativar). Primeiro o melhor candidato deve passar por `FACE_THRESHOLD`; depois calcula-se o gap para a menor distância de outra identidade, mesmo se ela estiver acima do limiar. Empate exato ou gap menor que a margem recusa; igualdade positiva aceita. Duplicatas do mesmo ID não concorrem. | `src/domain/services/matcher.py`, `src/application/use_cases/reconhecer_aluno.py`, `src/main.py`, `src/presentation/cli/menu.py`; `tests/unit/test_matcher_ambiguidade.py`; [resultado 003](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). | Margem positiva não calibrada. Empate, desconhecido e múltiplas faces são decisões distintas. Recusar candidatos próximos não prova identidade correta. |
-| 004 — benchmark de matching | Script compara a matriz NumPy vetorizada com referência independente de laço Python e um `NumPy dot` por embedding. Gera vetores sintéticos 512D; valida decisões e distâncias antes de cronometrar. | `scripts/benchmark_matcher.py`, `tests/unit/test_benchmark_matcher.py`; [resultado 004](../tasks/004-benchmark-matching/RESULTADO.md); [execuções agregadas](../tasks/004-benchmark-matching/evidencias/). | Não executa DeepFace, não usa dados faciais, não mede acurácia nem latência ponta a ponta, e não compara `pgvector`/ANN. `tracemalloc` não é RSS nem toda a memória nativa. |
-| 006 — landmarks visuais no cadastro | Opt-in (`FACE_LANDMARKS_ENABLED=false`), provider MediaPipe Tasks em worker Python local isolado apenas na janela Cadastro facial. Desenha contornos sobre cópia; a imagem original segue inalterada. | `src/domain/services/facial_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks_worker.py`, `src/presentation/cli/landmarks_overlay.py`, `src/presentation/cli/viewer.py`, `src/main.py`; testes unitários sintéticos; [resultado 006](../tasks/006-facial-landmarks/RESULTADO.md). | 841 testes unitários; Ruff, mypy e formato dos arquivos alterados passaram; `pip check` passou nos dois ambientes. Smoke com o modelo local e frame sintético passou; inspeção visual manual ainda pendente. Não há evidência de reconhecimento, qualidade ou prova de vida. |
-| 007 — captura automática | Padrão (`FACE_AUTO_CAPTURE_ENABLED=true`): cadastro sonda sem gravar e prepara um frame final; reconhecimento exige pelo menos 3 análises distintas durante 5 s por padrão e confirma um frame novo da mesma identidade. `false` preserva os atalhos manuais. | `src/domain/services/captura_automatica.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/captura_automatica.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_captura_automatica.py`, `test_menu_automatico.py`, `test_main_automatico.py`; [resultado 007](../tasks/007-captura-automatica/RESULTADO.md). | Limites de tempo são valores de engenharia. Testes dublados comprovam contratos funcionais, não frescor físico da câmera, acurácia 1:N nem melhora biométrica. A inspeção visual manual permanece pendente. |
-| 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; [resultado 008](../tasks/008-turmas/RESULTADO.md). | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram na implementação. Migration `0003 -> 0004` aplicada ao banco local; `alembic check` passou. Testes de integração PostgreSQL e BDD não foram executados; atualizar outros ambientes exige coordenação dos escritores antigos. |
+| 001 — qualidade de captura | Opt-in (`FACE_QUALITY_ENABLED=false`). Quando ativa, verifica menor dimensão da face (80 px), luminância média (40–215) e variância do Laplaciano (mínimo 100); exige a área original do detector. O adaptador já recusa zero ou múltiplas faces. | `src/domain/services/qualidade_captura.py`, `src/infrastructure/face_recognition/deepface_adapter.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/menu.py`; `tests/unit/test_qualidade_captura.py`; resultado 001. | Limites são heurísticas; não há checagem explícita de orientação facial nem calibração com rostos. Testes usam recortes sintéticos. Qualidade não substitui anti-spoofing. |
+| 002 — consistência temporal | Opt-in (`FACE_TEMPORAL_ENABLED=false`). Padrão de 3 identificações iguais, nos ciclos a cada 8 frames, dentro de 5 s; a mais recente precisa ter até 2 s. ENTER lê outro frame, identifica de novo e só registra o mesmo ID; tentativa concluída consome a sequência. | `src/domain/services/consistencia_temporal.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_consistencia_temporal.py` e testes de menu; resultado 002. | Observações correlacionadas não demonstram melhora de acurácia. Timestamp antes da leitura não garante frescor físico do sensor; câmeras podem bufferizar frames. |
+| 003 — ambiguidade | Opt-in (`FACE_AMBIGUITY_ENABLED=false`; margem padrão `None`, obrigatória ao ativar). Primeiro o melhor candidato deve passar por `FACE_THRESHOLD`; depois calcula-se o gap para a menor distância de outra identidade, mesmo se ela estiver acima do limiar. Empate exato ou gap menor que a margem recusa; igualdade positiva aceita. Duplicatas do mesmo ID não concorrem. | `src/domain/services/matcher.py`, `src/application/use_cases/reconhecer_aluno.py`, `src/main.py`, `src/presentation/cli/menu.py`; `tests/unit/test_matcher_ambiguidade.py`; resultado 003. | Margem positiva não calibrada. Empate, desconhecido e múltiplas faces são decisões distintas. Recusar candidatos próximos não prova identidade correta. |
+| 004 — benchmark de matching | Script compara a matriz NumPy vetorizada com referência independente de laço Python e um `NumPy dot` por embedding. Gera vetores sintéticos 512D; valida decisões e distâncias antes de cronometrar. | `scripts/benchmark_matcher.py`, `tests/unit/test_benchmark_matcher.py`; resultado 004; execuções agregadas. | Não executa DeepFace, não usa dados faciais, não mede acurácia nem latência ponta a ponta, e não compara `pgvector`/ANN. `tracemalloc` não é RSS nem toda a memória nativa. |
+| 006 — landmarks visuais no cadastro | Opt-in (`FACE_LANDMARKS_ENABLED=false`), provider MediaPipe Tasks em worker Python local isolado apenas na janela Cadastro facial. Desenha contornos sobre cópia; a imagem original segue inalterada. | `src/domain/services/facial_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks.py`, `src/infrastructure/face_recognition/mediapipe_landmarks_worker.py`, `src/presentation/cli/landmarks_overlay.py`, `src/presentation/cli/viewer.py`, `src/main.py`; testes unitários sintéticos; resultado 006. | 841 testes unitários; Ruff, mypy e formato dos arquivos alterados passaram; `pip check` passou nos dois ambientes. Smoke com o modelo local e frame sintético passou; inspeção visual manual ainda pendente. Não há evidência de reconhecimento, qualidade ou prova de vida. |
+| 007 — captura automática | Padrão (`FACE_AUTO_CAPTURE_ENABLED=true`): cadastro sonda sem gravar e prepara um frame final; reconhecimento exige pelo menos 3 análises distintas durante 5 s por padrão e confirma um frame novo da mesma identidade. `false` preserva os atalhos manuais. | `src/domain/services/captura_automatica.py`, `src/application/use_cases/cadastrar_aluno.py`, `src/presentation/cli/captura_automatica.py`, `src/presentation/cli/menu.py`, `src/main.py`; `tests/unit/test_captura_automatica.py`, `test_menu_automatico.py`, `test_main_automatico.py`; resultado 007. | Limites de tempo são valores de engenharia. Testes dublados comprovam contratos funcionais, não frescor físico da câmera, acurácia 1:N nem melhora biométrica. A inspeção visual manual permanece pendente. |
+| 008 — turmas e presença por turma | Menu exige turma ativa; aluno global tem matrícula única e pode ter vínculos N:N; nova presença é única por turma/aluno/dia; vínculo removido e turma excluída preservam histórico. Registros anteriores permanecem sem turma. | `src/domain/entities/turma.py`, `src/application/use_cases/gerenciar_turmas.py`, `src/infrastructure/repositories/postgres_turma_repository.py`, repositórios de aluno/presença, migration `0004`; unitários em `tests/unit/test_turmas.py`, `test_gerenciar_turmas.py`, `test_modelos_turmas.py`, `test_migracao_turmas.py` e testes de regressão; resultado 008. | 955 testes unitários, Ruff, mypy, formatação e `git diff --check` passaram na implementação. Migration `0003 -> 0004` aplicada ao banco local; `alembic check` passou. Testes de integração PostgreSQL e BDD não foram executados; atualizar outros ambientes exige coordenação dos escritores antigos. |
 
 ## Backend web e fechamento anterior à interface
 
@@ -60,8 +60,8 @@ persistência após recriação e smoke local sintético foram verificados.
 comandos e limites; este resumo não autoriza consulta ao banco local `escola`
 nem indica deploy. A tarefa 020 tem implementação parcial de UI e consumo de
 APIs; inspeção visual/E2E em navegador ainda pendentes. Consulte
-[resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md),
-[resultado 019](../tasks/019-web-validacao-backend/RESULTADO.md) e
+resultado 019A,
+resultado 019 e
 [runtime web](FACEDIFF-WEB-RUNTIME.md).
 
 `GATE_OPERACIONAL_DADOS_REAIS=PENDENTE`: não houve VPS, Drive, operação com
@@ -81,13 +81,13 @@ contêm ambiente, comandos e limites.
 
 | Fonte e data registrada | Resultado | Escopo |
 |---|---|---|
-| Tarefa 001, 13/10/2026 | 611 testes unitários; Ruff e mypy aprovados | Comportamento de software com doubles e arrays sintéticos; sem webcam, modelo ou banco. [Relatório](../tasks/001-qualidade-captura/RESULTADO.md). |
-| Tarefa 002 | 707 testes unitários; Ruff e mypy aprovados | Serviço temporal e integração unitária com relógio/dados sintéticos. Frames consecutivos não são amostras independentes. [Relatório](../tasks/002-consistencia-temporal/RESULTADO.md). |
-| Tarefa 003 | 776 testes unitários; Ruff e mypy aprovados | Decisão de margem com embeddings sintéticos; sem integração/BDD ou dados faciais. [Relatório](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). |
-| Tarefa 004, 13/10/2026 | 812 testes unitários; Ruff, mypy e formatação aprovados | Verificações de software registradas no [relatório](../tasks/004-benchmark-matching/RESULTADO.md); benchmark sintético em três execuções sequenciais. |
-| Tarefa 006, 14/10/2026 | 839 testes unitários; Ruff, mypy, formatação e `pip check` dos dois ambientes aprovados | Worker MediaPipe local em doubles e array preto sintético com modelo; sem webcam, pessoas ou banco. A inspeção visual manual continua pendente; [relatório](../tasks/006-facial-landmarks/RESULTADO.md). |
-| Tarefa 007, 15/10/2026 | 911 testes unitários; Ruff, mypy, formato dos Python alterados e `git diff --check` aprovados | Relógios, frames e serviços dublados; sem webcam, banco ou dados faciais. A inspeção visual manual permanece pendente; [relatório](../tasks/007-captura-automatica/RESULTADO.md). |
-| Tarefa 008, 16/10/2026 | 955 testes unitários; Ruff, mypy, formato, compilação sintática de integration/features e `git diff --check` aprovados; migration `0003 -> 0004` aplicada; `alembic check` sem operações pendentes | Evidência funcional com doubles e dados sintéticos. Testes PostgreSQL/BDD não foram executados; `presencas` tinha 0 linhas antes e depois do upgrade. [Relatório](../tasks/008-turmas/RESULTADO.md). |
+| Tarefa 001, 13/10/2026 | 611 testes unitários; Ruff e mypy aprovados | Comportamento de software com doubles e arrays sintéticos; sem webcam, modelo ou banco. Relatório. |
+| Tarefa 002 | 707 testes unitários; Ruff e mypy aprovados | Serviço temporal e integração unitária com relógio/dados sintéticos. Frames consecutivos não são amostras independentes. Relatório. |
+| Tarefa 003 | 776 testes unitários; Ruff e mypy aprovados | Decisão de margem com embeddings sintéticos; sem integração/BDD ou dados faciais. Relatório. |
+| Tarefa 004, 13/10/2026 | 812 testes unitários; Ruff, mypy e formatação aprovados | Verificações de software registradas no relatório; benchmark sintético em três execuções sequenciais. |
+| Tarefa 006, 14/10/2026 | 839 testes unitários; Ruff, mypy, formatação e `pip check` dos dois ambientes aprovados | Worker MediaPipe local em doubles e array preto sintético com modelo; sem webcam, pessoas ou banco. A inspeção visual manual continua pendente; relatório. |
+| Tarefa 007, 15/10/2026 | 911 testes unitários; Ruff, mypy, formato dos Python alterados e `git diff --check` aprovados | Relógios, frames e serviços dublados; sem webcam, banco ou dados faciais. A inspeção visual manual permanece pendente; relatório. |
+| Tarefa 008, 16/10/2026 | 955 testes unitários; Ruff, mypy, formato, compilação sintática de integration/features e `git diff --check` aprovados; migration `0003 -> 0004` aplicada; `alembic check` sem operações pendentes | Evidência funcional com doubles e dados sintéticos. Testes PostgreSQL/BDD não foram executados; `presencas` tinha 0 linhas antes e depois do upgrade. Relatório. |
 
 Cada JSON da tarefa 004 registra `status=ok`, 240 consultas comparadas, zero
 divergências de status/ID, zero divergências numéricas, zero distâncias não
@@ -103,7 +103,7 @@ Na tarefa 005, a seleção dos quatro módulos de teste passou com 167 testes em
 código 0, validou 12 comparações, registrou zero divergências e erro absoluto
 máximo `1.1920928955078125e-7` ante tolerância `1e-5`, sem gravar JSON. Esses
 resultados e os comandos estão em
-[`tasks/005-consolidacao-demonstracao/RESULTADO.md`](../tasks/005-consolidacao-demonstracao/RESULTADO.md).
+`tasks/005-consolidacao-demonstracao/RESULTADO.md`.
 Essa seleção não é a suíte unitária inteira nem a suíte completa.
 
 Na correção da tarefa 006, a suíte `tests/unit` passou com 839 testes. O
@@ -112,19 +112,19 @@ bundle local e recebeu um frame preto sintético; o resultado não continha
 rostos, e esse caso não avalia precisão. Os ambientes `.venv-app` e
 `.venv-landmarks` passaram em `pip check` e mantêm fornecedores `cv2`
 separados. A inspeção visual manual permanece pendente. Veja o
-[resultado 006](../tasks/006-facial-landmarks/RESULTADO.md).
+resultado 006.
 
 ## Séries de numeração
 
 - **Fases 0–9 de refatoração:** sequência do plano original em
-  [`REFACTORING_PLAN.md`](../REFACTORING_PLAN.md), baseada no estado inicial
+  `REFACTORING_PLAN.md`, baseada no estado inicial
   preservado em [`baseline-arquitetura.md`](baseline-arquitetura.md).
 - **Etapas 0–5 de ML:** experimentos e consolidação acadêmica em
   [`ML-CONSOLIDACAO-ACADEMICA.md`](ML-CONSOLIDACAO-ACADEMICA.md). A Etapa 5
   histórica não é esta tarefa 005.
 - **Tarefas 001–008:** melhorias de captura/decisão, benchmark,
   consolidação documental e overlay visual, indexadas em
-  [`../tasks/README.md`](../tasks/README.md). Tarefa 005 não é a prioridade 5
+  `../tasks/README.md`. Tarefa 005 não é a prioridade 5
   do AGENTS.md nem a Etapa 5 de ML.
 
 ## Pendências confirmadas
@@ -152,5 +152,5 @@ separados. A inspeção visual manual permanece pendente. Veja o
 
 Não foram usados novos datasets externos nem dados de alunos. Não há alegação
 de acurácia atual, melhoria biométrica, aprovação ética ou licença nova. Veja
-também [`ARCHITECTURE.md`](../ARCHITECTURE.md), o
+também `ARCHITECTURE.md`, o
 [`README.md`](../README.md) e os relatórios vinculados acima.

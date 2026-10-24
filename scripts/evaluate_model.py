@@ -2,7 +2,7 @@
 
 Isto NAO e teste de software. Teste de software verifica se o pipeline faz
 o que promete; avaliacao de modelo mede se o modelo ACERTA -- e sao coisas
-diferentes (instructions/03-qa.md, secao 4).
+diferentes.
 
 Serve para responder com dado uma pergunta que hoje e respondida por
 heranca: quanto deve valer FACE_THRESHOLD?

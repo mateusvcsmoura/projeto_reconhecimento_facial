@@ -205,10 +205,10 @@ renomeia nem substitui as Etapas de ML.
 
 | Tarefa | Implementação atual | Evidência e limite |
 |---|---|---|
-| 001 — qualidade | Política optativa de tamanho, luminância e nitidez antes do embedding. `FACE_QUALITY_ENABLED` permanece `false`; orientação facial explícita não é verificada. | Testes com recortes sintéticos; limites heurísticos sem calibração. [Resultado 001](../tasks/001-qualidade-captura/RESULTADO.md). |
-| 002 — temporal | Confirmação optativa de IDs consecutivos e revalidação em novo frame antes do registro. `FACE_TEMPORAL_ENABLED` permanece `false`. | Relógio controlado e testes de fluxo; frames consecutivos são correlacionados e não provam ganho de acurácia. [Resultado 002](../tasks/002-consistencia-temporal/RESULTADO.md). |
-| 003 — ambiguidade | Política optativa que compara o gap entre identidades distintas após o melhor candidato passar por `FACE_THRESHOLD`. | Embeddings sintéticos; margem positiva não calibrada. [Resultado 003](../tasks/003-rejeicao-ambiguidade/RESULTADO.md). |
-| 004 — benchmark | Matching vetorizado comparado com referência independente de laço Python e `NumPy dot`, usando embeddings artificiais 512D. | Três execuções padrão de 240 consultas, sem divergências; não mede DeepFace, biometria ou latência ponta a ponta. `tracemalloc` não é RSS. [Resultado 004](../tasks/004-benchmark-matching/RESULTADO.md). |
+| 001 — qualidade | Política optativa de tamanho, luminância e nitidez antes do embedding. `FACE_QUALITY_ENABLED` permanece `false`; orientação facial explícita não é verificada. | Testes com recortes sintéticos; limites heurísticos sem calibração. Resultado 001. |
+| 002 — temporal | Confirmação optativa de IDs consecutivos e revalidação em novo frame antes do registro. `FACE_TEMPORAL_ENABLED` permanece `false`. | Relógio controlado e testes de fluxo; frames consecutivos são correlacionados e não provam ganho de acurácia. Resultado 002. |
+| 003 — ambiguidade | Política optativa que compara o gap entre identidades distintas após o melhor candidato passar por `FACE_THRESHOLD`. | Embeddings sintéticos; margem positiva não calibrada. Resultado 003. |
+| 004 — benchmark | Matching vetorizado comparado com referência independente de laço Python e `NumPy dot`, usando embeddings artificiais 512D. | Três execuções padrão de 240 consultas, sem divergências; não mede DeepFace, biometria ou latência ponta a ponta. `tracemalloc` não é RSS. Resultado 004. |
 
 Os relatórios registram snapshots unitários de 611 (001), 707 (002), 776
 (003) e 812 (004), em execuções e datas diferentes. A última suíte completa

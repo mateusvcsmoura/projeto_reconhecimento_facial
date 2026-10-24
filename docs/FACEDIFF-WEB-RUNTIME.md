@@ -1,15 +1,15 @@
 # Runtime web e compatibilidade Linux
 
 Atualizado em 19/10/2026 pelas tarefas
-[009 — fundação web](../tasks/009-web-fundacao-linux/RESULTADO.md),
-[010 — autenticação](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md) e
-[012 — worker/fila](../tasks/012-web-worker-fila/RESULTADO.md) e
-[013 — desafio e verificação 1:1](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md) e
-[014 — API de cadastro e aprovação](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md) e
-[015 — sessões e presença por API](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
+009 — fundação web,
+010 — autenticação e
+012 — worker/fila e
+013 — desafio e verificação 1:1 e
+014 — API de cadastro e aprovação e
+015 — sessões e presença por API.
 O fechamento 019A adicionou rate limits às rotas públicas de cadastro, corrigiu
 falhas do runtime Compose e aprovou o gate do backend com restore local cifrado;
-veja [`019A — resultado`](../tasks/019a-fechamento-backend/RESULTADO.md).
+veja `019A — resultado`.
 Este documento descreve o runtime HTTP e a validação local; não declara deploy
 nem validação biométrica real. A migration `0005` foi aplicada ao banco local
 `escola`; `0007`–`0010` foram validadas em bancos descartáveis, não em `escola`.
@@ -267,10 +267,10 @@ A validação Linux usa containers descartáveis Ubuntu 24.04 amd64/Python 3.12.
 um para `requirements-dev.txt`, testes sintéticos e smoke HTTP; outro para
 `requirements.txt`, `pip check` e imports da stack ML com bibliotecas de sistema.
 Os comandos e números exatos da validação Linux da tarefa 009 estão em
-[RESULTADO.md da tarefa009](../tasks/009-web-fundacao-linux/RESULTADO.md); aquela
+RESULTADO.md da tarefa009; aquela
 validação não acessou banco, webcam, imagem ou peso de modelo. A task010 usou
 somente o banco local de desenvolvimento e um PostgreSQL descartável, conforme
-o [resultado 010](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
+o resultado 010.
 
 Para parar o runtime, encerre Uvicorn e o worker; deixe de iniciar
 `src.web_main:create_web_app` e `src.face_worker_main`. A CLI continua iniciada
@@ -292,4 +292,4 @@ simular inicialização fria, tempo quente, taxa de chegada e falhas com
 `--falha-falsa-a-cada`. CPU, RAM e RSS são coletados onde o sistema fornece os
 contadores; PSS depende de `/proc` e será `null` fora do Linux. O relatório da
 execução sintética Windows está em
-[`benchmark-fake-20261019.json`](../tasks/019-web-validacao-backend/evidencias/benchmark-fake-20261019.json).
+`benchmark-fake-20261019.json`.

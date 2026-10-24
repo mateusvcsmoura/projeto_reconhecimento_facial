@@ -1,7 +1,7 @@
 """Configuracao do logging da aplicacao.
 
 Substitui o print() como mecanismo de diagnostico
-(instructions/02-desenvolvedor.md, secao 8). O print() continua existindo,
+nas camadas internas. O print() continua existindo,
 mas apenas na camada de apresentacao, para falar com o operador.
 
 Regra de privacidade: log de rotina identifica aluno pelo id interno,

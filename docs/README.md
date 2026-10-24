@@ -9,11 +9,10 @@
 - [FaceDiff web: contas, sessões e autorização](FACEDIFF-WEB-AUTH.md)
 - [FaceDiff web: runtime e compatibilidade Linux](FACEDIFF-WEB-RUNTIME.md)
 - [FaceDiff web: HTTPS e domínio para a VPS](FACEDIFF-WEB-HTTPS-DOMINIO.md)
-- [Tarefas: desenhos, planos, prompts e resultados](../tasks/README.md)
 
 ## Arquitetura e privacidade
 
-- [Arquitetura atual](../ARCHITECTURE.md)
+- [Arquitetura atual](../README.md#arquitetura)
 - [Baseline da arquitetura](baseline-arquitetura.md)
 - [Decisões de arquitetura](adr/)
 - [LGPD e tratamento de dados](lgpd.md)
@@ -38,6 +37,16 @@
 Os relatórios `ML-ETAPA-*-RESULTADO.md` e a auditoria histórica foram
 preservados como fontes das evidências. Seus números descrevem as execuções
 registradas, não resultados atuais ou comprovação de acurácia biométrica.
+
+## Limpeza documental de 24/10/2026
+
+Foram removidos do repositório os documentos que serviam apenas de contexto
+para agentes de IA: `tasks/` (desenhos, planos, prompts e resultados das
+tarefas 001–020), `instructions/` (papéis de agentes), `REFACTORING_PLAN.md` e
+`ARCHITECTURE.md`. A arquitetura atual passou a ser descrita no
+[README](../README.md). Links para esses arquivos viraram texto simples; quando
+uma evidência citada for necessária, ela continua no histórico do Git, por
+exemplo `git show dfda402:tasks/019a-fechamento-backend/RESULTADO.md`.
 
 ## Limpeza documental de 17/10/2026
 

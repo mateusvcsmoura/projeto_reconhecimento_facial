@@ -68,7 +68,7 @@ jobs:
         run: alembic check
 
       - name: Testes com cobertura
-        # O piso de 80% e o criterio do REFACTORING_PLAN para dominio e
+        # O piso de 80% e o criterio adotado na refatoracao para dominio e
         # aplicacao; medimos o pacote inteiro, que ja esta acima disso.
         # A medicao de cobertura continua focada nos pacotes definidos abaixo;
         # scripts experimentais tambem sao executados, mas nao elevam esse piso.

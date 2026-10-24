@@ -17,7 +17,7 @@ o schema, a concorrência transacional revisão/worker e a recusa de downgrade
 com revisão persistida. tmpfs compartilhado de produção, validação com
 pessoas, inspeção visual/E2E da interface e deploy continuam pendentes. A tarefa
 020 já implementou parcialmente os templates e fluxos web; consulte seu
-[resultado](../tasks/020-web-interface-final/RESULTADO.md). O
+resultado. O
 armazenamento privado recebe a raiz por injeção; em Windows, a conta de serviço
 precisa de ACL exclusiva. Nenhum root de produção foi configurado.
 
@@ -28,8 +28,8 @@ worker serializa execução por lock local e lock advisory de sessão, invalida 
 ativos no reinício e aceita resultado somente sob lease/prazo válido. O smoke
 com pesos locais ocorreu em Windows com entrada sintética; não prova desempenho
 ou inferência operacional em Linux. Veja [runtime web](FACEDIFF-WEB-RUNTIME.md)
-e [resultado 012](../tasks/012-web-worker-fila/RESULTADO.md).
-Veja também o [resultado 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
+e resultado 012.
+Veja também o resultado 013.
 
 Em 19/10/2026, a task018 acrescentou artefatos revisáveis de deploy em
 `deploy/web`: Compose, imagens separadas para API/worker, Caddy, secrets por
@@ -38,8 +38,8 @@ esses targets localmente com projeto e volumes descartáveis, validou o Caddy,
 healthchecks, migrations e persistência após recriação. Isso não é deploy: DNS,
 firewall, KVM2, Drive e operação real continuam pendentes. Consulte o
 [runbook de deploy](../deploy/web/README.md), o
-[resultado 018](../tasks/018-web-infraestrutura-compose/RESULTADO.md) e o
-[resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md).
+resultado 018 e o
+resultado 019A.
 
 A task016 adiciona operações administrativas por turma, correção manual de
 presença versionada e auditada, revisão solicitada pelo bearer de uma sessão,

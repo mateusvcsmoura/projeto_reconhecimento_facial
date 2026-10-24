@@ -3,7 +3,7 @@
 Existem para que uma falha tenha significado. O prototipo transformava
 qualquer excecao em "rosto nao reconhecido" com `except Exception: continue`,
 o que tornava indistinguiveis "nenhum rosto no frame" e "TensorFlow
-quebrado" (problema A6 do REFACTORING_PLAN.md).
+quebrado".
 """
 
 from __future__ import annotations

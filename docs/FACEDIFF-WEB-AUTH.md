@@ -1,7 +1,7 @@
 # FaceDiff web — contas, sessões e autorização
 
 Atualizado em 18/10/2026 pela tarefa
-[010 — autenticação e autorização](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md).
+010 — autenticação e autorização.
 O código e a migration estão publicados na `main`. Em 18/10/2026, `0005` foi aplicada
 ao banco local de desenvolvimento `escola`; os três testes de integração
 PostgreSQL passaram em um banco descartável identificado. Não houve deploy.
@@ -105,5 +105,5 @@ O downgrade de `0005` recusa remoção se houver conta, sessão, auditoria ou tu
 com responsável. Para o banco local, prefira rollback de
 aplicação com schema expandido; reversão de schema exige cópia de segurança e
 análise dos dados, sem apagá-los para forçar o downgrade. Veja o
-[resultado de execução](../tasks/010-web-autenticacao-autorizacao/RESULTADO.md)
+resultado de execução
 para comandos e evidências exatas desta etapa.

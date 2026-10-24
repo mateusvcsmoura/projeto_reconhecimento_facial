@@ -1,7 +1,7 @@
 """Persistencia de alunos em PostgreSQL.
 
 Todo o SQL do sistema vive aqui e no repositorio de presencas. Nenhum
-caso de uso executa SQL (instructions/02-desenvolvedor.md, secao 4).
+caso de uso executa SQL.
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 Gerada por autogenerate e revisada a mao: o autogenerate detectou as tres
 colunas, mas -- como na 0001 -- nao emitiu a CheckConstraint.
 
-Motivacao (REFACTORING_PLAN.md, problema A5): o desenho anterior chamava
+Motivacao: o desenho anterior chamava
 DeepFace.verify() para cada aluno a cada ciclo de comparacao, recalculando
 do zero o embedding do frame E o da foto de referencia -- ate 2N inferencias
 Facenet512 por ciclo, sendo N delas puro desperdicio, ja que as fotos de

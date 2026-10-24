@@ -16,7 +16,7 @@ anteriores. As revisões `0006` a `0010` foram validadas em PostgreSQL descartá
 Em 19/10/2026, `0006–0011` também foram aplicadas em sequência ao banco local
 `escola`, que estava na revisão `0005`; `alembic check` confirmou `0011`. O worker/fila, desafio 1:1 e fluxos HTTP de
 cadastro/aprovação e presença por sessão estão implementados; templates, assets
-e fluxos da interface foram iniciados na tarefa 020. Veja o [resultado 020](../tasks/020-web-interface-final/RESULTADO.md)
+e fluxos da interface foram iniciados na tarefa 020. Veja o resultado 020
 e o [roteiro de apresentação](FACEDIFF-WEB-APRESENTACAO.md). A stack ML foi instalada/importada em Ubuntu 24.04/Python
 3.12.3; o MediaPipe `0.10.35` também foi inicializado em Linux/WSL com modelo local
 e entrada sintética. Isso não valida biometria real. Capacidade, operação e
@@ -33,7 +33,7 @@ Documentos complementares:
 
 - [Arquitetura, segurança e operação na KVM 2](FACEDIFF-WEB-ARQUITETURA-OPERACAO.md).
 - [Roadmap, testes e critérios de aceite](FACEDIFF-WEB-ROADMAP.md).
-- [Arquitetura atual](../ARCHITECTURE.md), [turmas atuais](TURMAS.md) e
+- Arquitetura atual, [turmas atuais](TURMAS.md) e
   [evidências históricas](ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 ## 1. Resumo executivo
@@ -64,7 +64,7 @@ do backend antes da interface. Pacotes009–019A cobrem fundação, APIs, modelo
 gestão, operação e fechamento do backend. A interface completa fica exclusivamente
 na020, condicionada à aprovação do gate de backend após as tarefas 019 e 019A,
 aprovado em 19/10/2026. A interface está parcialmente implementada; testes móveis
-e E2E de câmera ainda precisam ser executados. Ver [tasks](../tasks/README.md)
+e E2E de câmera ainda precisam ser executados. Ver tasks
 e [roadmap](FACEDIFF-WEB-ROADMAP.md); a antiga ordem W01–W12 foi substituída.
 
 Legenda: **C** = confirmado pelo usuário; **R** = recomendação técnica deste
@@ -464,7 +464,7 @@ opcional; importação em lote não foi adicionada.
 - 19/10/2026: task019 executou 1228 testes unitários, provas HTTP sintéticas,
   19 testes de integração em PostgreSQL descartável e `alembic check`. A
   configuração Compose estática passou; o `rclone` ausente impede provar o
-  restore cifrado local. Ver [resultado da task019](../tasks/019-web-validacao-backend/RESULTADO.md).
+  restore cifrado local. Ver resultado da task019.
 
 - 17/10/2026: gerados pacotes009–020 para Luna6High, somente documentação;
   interface movida para a última task por solicitação do usuário, após gate019.
@@ -472,7 +472,7 @@ opcional; importação em lote não foi adicionada.
   configuráveis e comprova fluxo até painel/CSV, concorrência PostgreSQL,
   roundtrip PostgreSQL/rclone crypt e runtime Compose Linux descartáveis.
   `GATE_BACKEND_PARA_INTERFACE` aprovado; gate operacional permanece pendente.
-  [Resultado 019A](../tasks/019a-fechamento-backend/RESULTADO.md).
+  Resultado 019A.
 
 - 17/10/2026: proposta inicial de presença remota, cadastro, CSV e 10 dias.
 - 17/10/2026: usuário verificou oferta KVM 2 de um mês e escolheu opção principal.
@@ -486,33 +486,33 @@ opcional; importação em lote não foi adicionada.
   24.04/Python 3.12.3. A stack `requirements.txt` também foi instalada e passou
   em `pip check` e imports de OpenCV/NumPy/PyTorch CPU/TensorFlow/DeepFace/RetinaFace;
   a inferência com pesos continua pendente, sem download automático. Evidências e
-  comandos estão em [RESULTADO 009](../tasks/009-web-fundacao-linux/RESULTADO.md).
+  comandos estão em RESULTADO 009.
 - 18/10/2026: tarefa 011 adicionou a revisão `0006`, armazenamento privado
   injetável e casos de uso de solicitação, três referências, aprovação,
   atualização e limpeza. Suíte unitária e integração PostgreSQL descartável
   passaram; não há API de convite, worker/fila, inferência ou ativação em runtime.
   Evidências e limitações estão em
-  [RESULTADO 011](../tasks/011-web-referencias-cadastro-pendente/RESULTADO.md).
+  RESULTADO 011.
 - 18/10/2026: tarefa 012 adicionou a revisão `0007`, fila PostgreSQL com admissão
   atômica e limite 10+1, idempotência, worker serial com lease, storage temporário
   e consulta autenticada de status. Quatro testes PostgreSQL passaram em banco
   descartável; suíte completa, verificações estáticas e smoke dos pesos locais
   passaram no workspace. Ainda faltam handlers/rotas de submissão das tasks
   014/015, tmpfs Linux e medição da VPS. Consulte
-  [RESULTADO 012](../tasks/012-web-worker-fila/RESULTADO.md).
+  RESULTADO 012.
 - 18/10/2026: tarefa 013 adicionou a revisão `0008`, verificação fechada 1:1
    com três referências, desafio servidor frente/virada/retorno, anti-spoofing,
    qualidade, continuidade e provider MediaPipe isolado. Cinco testes PostgreSQL,
    suíte unitária e verificações estáticas passaram. O smoke Linux usou modelo
    local e imagem sintética; não há validação biométrica real, rotas HTTP,
-   interface ou deploy. Veja [RESULTADO 013](../tasks/013-web-desafio-verificacao-1a1/RESULTADO.md).
+   interface ou deploy. Veja RESULTADO 013.
 - 18/10/2026: tarefa 014 adicionou a revisão `0009`, links de cadastro, credencial
   efêmera, consentimento, captura de três frames com nonce hash-only e sequência
   de pose, aprovação/rejeição e atualização biométrica. Migration e um teste
   PostgreSQL foram validados em banco descartável; 1127 unitários passaram com
   81,87% de cobertura, Ruff, formato, mypy e `pip check` aprovados. Sem interface,
   deploy ou validação biométrica com pessoas. Veja
-  [RESULTADO 014](../tasks/014-web-api-cadastro-aprovacao/RESULTADO.md).
+  RESULTADO 014.
 - 18/10/2026: tarefa 015 adicionou a revisão `0010`, sessões, links de finalidade
   presença, até três tentativas idempotentes, upload com prazo do servidor e
   commit de presença revalidado pelo worker/lease. Cinco testes PostgreSQL
@@ -522,7 +522,7 @@ opcional; importação em lote não foi adicionada.
   timestamps do cliente. A suíte unitária passou com 80,09% de cobertura. A migration
   foi revertida pela fixture no banco descartável `task015_presenca_test_20261018`;
   `escola` não foi alterada durante a execução da task015. Sem validação com pessoas, interface, medição na
-  VPS ou deploy. Veja [RESULTADO 015](../tasks/015-web-api-sessoes-presencas/RESULTADO.md).
+  VPS ou deploy. Veja RESULTADO 015.
 - 18–19/10/2026: tarefa 016 adicionou CRUD autorizado, revisão manual auditada,
   controle de versão/resultado tardio, reativação auditada de quota, painel e
   CSV com proteção contra fórmulas. A migration `0011` foi aplicada a `escola`
@@ -531,7 +531,7 @@ opcional; importação em lote não foi adicionada.
   check` passou na fixture e em `escola`. A suíte completa passou com 1209
   aprovados, 80 ignorados e 80,23% de cobertura; Ruff, formato e mypy passaram. Não houve
   biometria real, interface, deploy nem validação na VPS. Consulte
-  [RESULTADO 016](../tasks/016-web-gestao-revisao-relatorios/RESULTADO.md).
+  RESULTADO 016.
 
 Não há pergunta de produto bloqueando o início futuro das tarefas de fundação.
 Validações de desafio, Linux e capacidade bloqueiam a liberação biométrica;
