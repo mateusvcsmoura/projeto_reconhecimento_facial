@@ -118,22 +118,41 @@ carregada. Detalhes da decisão em
 ```powershell
 # 1. Configuração — o .env real nunca vai para o Git
 copy .env.example .env
-#    edite POSTGRES_PASSWORD, DATABASE_URL e as variáveis WEB_*
+py -3.12 -c "import secrets; print(secrets.token_urlsafe(48))"   # valor de WEB_SECRET_KEY
+notepad .env
+```
 
+No `.env`, uma variável por linha:
+
+- `POSTGRES_PASSWORD`: use só letras e números, para não precisar codificar a
+  senha nas URLs;
+- a mesma senha em `DATABASE_URL` (`localhost:5433`) e em `WEB_DATABASE_URL`
+  (`host.docker.internal:5433`);
+- `WEB_SECRET_KEY`: o valor gerado acima;
+- `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pasta dos pesos (ver
+  [Primeira vez: modelos](#primeira-vez-modelos)), com barras normais.
+
+```powershell
 # 2. Banco (porta 5433, para não colidir com um PostgreSQL nativo)
-docker compose up -d
+docker compose up -d db
 
-# 3. Dependências da CLI e das migrations
+# 3. Schema — a aplicação nunca cria tabelas, só migrations.
+#    Ambiente leve, só para o Alembic, sem TensorFlow (versões do requirements.txt):
+py -3.12 -m venv .venv-migrations
+.venv-migrations\Scripts\python.exe -m pip install alembic==1.19.2 SQLAlchemy==2.0.52 "psycopg[binary]==3.3.5" pydantic-settings==2.15.0 tzdata
+.venv-migrations\Scripts\python.exe -m alembic upgrade head
+```
+
+O `tzdata` é necessário no Windows, que não traz a base de fusos usada por
+`APP_TIMEZONE`. Para usar a CLI, instale o ambiente completo, que também roda
+o `alembic`. Ele baixa TensorFlow e PyTorch: ~500 MB e alguns minutos.
+
+```powershell
 py -3.12 -m venv .venv-app
 .venv-app\Scripts\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-# 4. Schema — a aplicação nunca cria tabelas, só migrations
-alembic upgrade head
 ```
-
-A instalação baixa TensorFlow e PyTorch: ~500 MB e alguns minutos.
 
 | Arquivo | Para quê |
 |---|---|
@@ -148,29 +167,51 @@ A instalação baixa TensorFlow e PyTorch: ~500 MB e alguns minutos.
 
 ## Executar a interface web
 
-O caminho suportado é o perfil `web` do Docker Compose, que sobe API e worker
-com os mesmos volumes temporários:
+O caminho suportado é o perfil `web` do Docker Compose, que sobe banco, API e
+worker com os mesmos volumes temporários. Faça antes a [instalação](#instalação)
+(`.env`, banco e schema).
+
+### Primeira vez: modelos
+
+Os modelos ficam fora do Git, e o worker não acessa a internet. Baixe-os antes
+do primeiro build; sem o `face_landmarker.task`, o build falha com
+`"/models/face_landmarker.task": not found`.
 
 ```powershell
-docker compose --profile web up -d --build
-docker compose --profile web ps
+$ProgressPreference = 'SilentlyContinue'   # acelera o Invoke-WebRequest
+
+# Landmarks: copiado para a imagem no build e montado no worker
+Invoke-WebRequest https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task -OutFile models\face_landmarker.task
+(Get-FileHash models\face_landmarker.task).Hash   # compare com models/README.md
+
+# Pesos do DeepFace (~99 MB): montados no worker somente para leitura
+$w = "$HOME\.deepface\weights"; New-Item -ItemType Directory -Force $w | Out-Null
+Invoke-WebRequest https://github.com/serengil/deepface_models/releases/download/v1.0/facenet512_weights.h5 -OutFile "$w\facenet512_weights.h5"
+Invoke-WebRequest https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/raw/master/resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth -OutFile "$w\2.7_80x80_MiniFASNetV2.pth"
+Invoke-WebRequest https://github.com/minivision-ai/Silent-Face-Anti-Spoofing/raw/master/resources/anti_spoof_models/4_0_0_80x80_MiniFASNetV1SE.pth -OutFile "$w\4_0_0_80x80_MiniFASNetV1SE.pth"
+```
+
+São as URLs oficiais que o próprio DeepFace usa. Aponte
+`WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR` para essa pasta, por exemplo
+`C:/Users/<usuario>/.deepface/weights`.
+
+### Subir
+
+```powershell
+docker compose --profile web up -d --build   # o primeiro build demora
+docker compose --profile web ps              # aguarde os 3 serviços healthy
 Invoke-RestMethod http://127.0.0.1:8000/health/ready
 
 # primeira vez: conta administrativa (usuário e senha pedidos no prompt)
 docker compose exec web python -m scripts.criar_admin_web
 ```
 
-Antes, configure no `.env`:
-
-- `WEB_DATABASE_URL`: acessível de dentro do container, normalmente via
-  `host.docker.internal:5433`.
-- `WEB_SECRET_KEY`: segredo aleatório com ao menos 32 caracteres.
-- `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pesos locais do DeepFace.
-
-O worker também precisa do bundle `models/face_landmarker.task`; origem e
-SHA-256 estão em [`models/README.md`](models/README.md). Abra
-`http://127.0.0.1:8000`; a câmera do navegador só funciona em `localhost` ou
-HTTPS. O worker demora a ficar `healthy` porque carrega os modelos.
+Abra `http://127.0.0.1:8000` e entre com o administrador; contas de professor
+são criadas pela tela de administração. A câmera do navegador só funciona em
+`localhost` ou HTTPS. O worker demora a ficar `healthy` porque carrega os
+modelos. Nas próximas vezes, com o Docker Desktop aberto,
+`docker compose --profile web up -d` basta; use `--build` só depois de mudar
+código.
 
 Para parar sem perder dados, use
 `docker compose --profile web stop web face-worker`. Não use `down -v`. Depois
