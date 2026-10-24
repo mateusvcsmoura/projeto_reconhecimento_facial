@@ -1,40 +1,115 @@
-# Sistema de Reconhecimento Facial para Controle de Presença
+# FaceDiff — Reconhecimento Facial para Controle de Presença
 
-Projeto acadêmico da disciplina de IA da Fatec, não um TCC. Aplicação CLI que
-cadastra referências faciais e apoia o registro automático de presença após
-uma sequência temporal de verificações. PostgreSQL e arquitetura em camadas.
-O registro do estado atual, das fontes, verificações e limitações das tarefas
-001–008 está em
-[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md). Na
-correção da tarefa 006, 841 testes unitários passaram; os ambientes principal
-e auxiliar passaram em `pip check`. Os landmarks usam um worker local isolado;
-o resultado detalha instalação, evidências e validação visual ainda pendente.
-A tarefa 008 acrescenta gestão e reconhecimento por turma. Seu código está
-publicado, e a migration `0004` foi aplicada ao PostgreSQL local configurado.
-Os testes de integração PostgreSQL/BDD continuam pendentes; veja
-[`docs/TURMAS.md`](docs/TURMAS.md) antes de atualizar outros ambientes.
+Projeto acadêmico da disciplina de Inteligência Artificial da Fatec, não um
+TCC. O sistema cadastra referências faciais de alunos e registra presença por
+reconhecimento facial, com PostgreSQL e arquitetura em camadas.
+
+Há duas interfaces sobre o mesmo domínio:
+
+- **Web (FaceDiff):** o professor gerencia turmas, links de cadastro, sessões
+  de presença e revisões; o aluno usa a câmera do navegador. É a interface
+  principal em desenvolvimento.
+- **CLI:** menu de terminal com webcam local, usado desde o protótipo.
+
+Os testes usam dados sintéticos e comprovam comportamento funcional, não
+acurácia biométrica. Não houve deploy nem validação com pessoas reais. O
+registro de estado, evidências e pendências está em
+[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
 
 | | |
 |---|---|
-| **Arquitetura** | [`ARCHITECTURE.md`](ARCHITECTURE.md) — diagramas e estrutura |
-| **Decisões** | [`docs/adr/`](docs/adr/) — quatro ADRs com alternativas descartadas |
+| **Índice da documentação** | [`docs/README.md`](docs/README.md) |
+| **Decisões** | [`docs/adr/`](docs/adr/) — ADRs com alternativas descartadas |
 | **Dados pessoais** | [`docs/lgpd.md`](docs/lgpd.md) — o que é tratado, por quê e por quanto tempo |
-| **Apresentação** | [`docs/apresentacao.md`](docs/apresentacao.md) — roteiro de demonstração |
-| **Estado e evidências** | [`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md) — implementação, fontes, testes e limites |
-| **Landmarks visuais** | [`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md) — setup local, configuração e validação manual |
-| **Captura automática** | [`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md) — fluxo, parâmetros, fallback manual e roteiro visual |
-| **Turmas** | [`docs/TURMAS.md`](docs/TURMAS.md) — vínculos, menus, dados legados e ativação futura |
-| **Como chegou aqui** | [`REFACTORING_PLAN.md`](REFACTORING_PLAN.md) e [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) |
+| **Web: runtime** | [`docs/FACEDIFF-WEB-RUNTIME.md`](docs/FACEDIFF-WEB-RUNTIME.md) — execução local, Linux e Compose |
+| **Web: contas e gestão** | [`docs/FACEDIFF-WEB-AUTH.md`](docs/FACEDIFF-WEB-AUTH.md), [`docs/FACEDIFF-WEB-GESTAO.md`](docs/FACEDIFF-WEB-GESTAO.md) |
+| **Web: implantação** | [`deploy/web/README.md`](deploy/web/README.md), [`docs/FACEDIFF-WEB-HTTPS-DOMINIO.md`](docs/FACEDIFF-WEB-HTTPS-DOMINIO.md) |
+| **Turmas (CLI)** | [`docs/TURMAS.md`](docs/TURMAS.md) |
+| **Material acadêmico** | [`docs/ML-CONSOLIDACAO-ACADEMICA.md`](docs/ML-CONSOLIDACAO-ACADEMICA.md) |
+| **Baseline histórico** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo monolítico de origem |
+
+---
+
+## Arquitetura
+
+```text
+Presentation   src/presentation/cli, src/presentation/web (FastAPI + SPA)
+     ↓
+Application    src/application/use_cases, src/application/services
+     ↓
+Domain         src/domain/entities, src/domain/repositories, src/domain/services
+     ↑
+Infrastructure src/infrastructure/{database,repositories,face_recognition,
+               camera,storage,workers,backup}
+```
+
+O domínio não importa `DeepFace`, `cv2`, MediaPipe nem SQLAlchemy. Ele declara
+protocolos (`FaceRecognitionProvider`, repositórios, armazenamento, câmera,
+desafio de captura), e a infraestrutura os implementa. Os casos de uso
+recebem as dependências prontas, por isso a lógica de negócio é testada sem
+webcam, banco ou modelo.
+
+| Camada | Conteúdo principal |
+|---|---|
+| `presentation/cli` | Menus, prompts, viewer OpenCV, overlay de landmarks e captura automática |
+| `presentation/web` | `app.py` (fábrica, CSP, assets), `routes/` (auth, cadastros, gestão, links, presenças, operações), `rate_limit.py`, `schemas.py`, `static/` (módulos ES sem build) e `templates/index.html` |
+| `application/use_cases` | Cadastro, reconhecimento e presença da CLI; cadastro web, aprovação, links, sessões, tentativas, revisão, exportação CSV, contas e turmas |
+| `application/services` | `FilaFacial` (fila PostgreSQL limitada), `WorkerFacial` (processamento serial) e orquestração de backup |
+| `domain/services` | `matcher` (1:N vetorizado), `verificacao_identidade` (1:1), desafio de captura, autorização, qualidade, consistência temporal e captura automática |
+| `infrastructure/face_recognition` | `DeepFaceAdapter` (FaceNet512, detector, anti-spoofing), `DesafioMovimentoAdapter` (pose via MediaPipe em subprocesso) e processadores de jobs web |
+| `infrastructure/repositories` | Repositórios `Postgres*`; o SQL fica somente aqui |
+| `infrastructure/storage` | Referências privadas, capturas temporárias e imagens legadas |
+| `infrastructure/workers`, `backup` | Lock de instância única, gate de manutenção, healthcheck, `pg_dump`/restore e rclone |
+| `config` | `settings.py` (CLI) e `web_settings.py` (variáveis `WEB_*`), validados com Pydantic |
+
+Pontos de entrada:
+
+- `src/main.py`: CLI.
+- `src/web_main.py`: fábrica ASGI `create_web_app`, servida pelo Uvicorn.
+- `src/face_worker_main.py`: worker facial que consome a fila.
+
+### Fluxo web
+
+```text
+Professor                         Aluno (navegador)                Worker facial
+─────────                         ─────────────────                ─────────────
+cria turma e link de cadastro ──► abre link, aceita aviso,
+                                  envia 3 frames com desafio ────► detecção, anti-spoofing,
+                                  de pose (frente/virada/retorno)  pose e embeddings
+aprova ou rejeita o cadastro ◄──────────────────────────────────── referências pendentes
+cria sessão e link de presença ─► informa matrícula, cumpre
+                                  o desafio, envia capturas ─────► verificação 1:1:
+                                                                   mediana de 3 distâncias
+                                                                   cosseno ≤ 0,30
+consulta presenças, revisa,   ◄──────────────────────────────────── presença registrada
+edita/exclui sessões, exporta CSV                                  ou recusa explicada
+```
+
+A API não carrega modelos. Ela grava cada captura em armazenamento temporário
+privado e enfileira um job; o worker processa um job por vez e confirma o
+resultado em transação. O navegador mostra landmarks com MediaPipe
+`tasks-vision` (WASM) apenas como guia; a decisão é sempre do servidor.
+
+### Fluxo CLI
+
+```text
+Cadastro:   frame → detecção → anti-spoofing → embedding → PostgreSQL
+Presença:   frame → detecção → anti-spoofing → embedding → matcher 1:N → registro
+```
+
+Os embeddings de referência são calculados no cadastro e persistidos com o
+nome do modelo; o reconhecimento compara cada consulta com a matriz já
+carregada. Detalhes da decisão em
+[`ADR-002`](docs/adr/ADR-002-armazenamento-de-embeddings.md).
 
 ---
 
 ## Requisitos
 
-- **Python 3.12 ou 3.13.** A faixa é estreita porque duas dependências a
-  apertam pelos dois lados: o TensorFlow publica wheels até 3.13, e o
+- **Python 3.12 ou 3.13.** O TensorFlow publica wheels até 3.13, e o
   `numpy==2.5.3` só a partir de 3.12.
-- **Docker** (ou um PostgreSQL 16+ local).
-- **Webcam**, para cadastro e reconhecimento.
+- **Docker** (ou PostgreSQL 16+ local).
+- **Webcam** para a CLI; navegador com câmera para a interface web.
 
 ---
 
@@ -43,139 +118,117 @@ Os testes de integração PostgreSQL/BDD continuam pendentes; veja
 ```powershell
 # 1. Configuração — o .env real nunca vai para o Git
 copy .env.example .env
-#    edite POSTGRES_PASSWORD e DATABASE_URL
+#    edite POSTGRES_PASSWORD, DATABASE_URL e as variáveis WEB_*
 
-# 2. Banco
+# 2. Banco (porta 5433, para não colidir com um PostgreSQL nativo)
 docker compose up -d
 
-# 3. Dependências
+# 3. Dependências da CLI e das migrations
 py -3.12 -m venv .venv-app
 .venv-app\Scripts\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Schema — a aplicação NUNCA cria tabelas, só migrations
-# Aplica as revisões pendentes; no banco local do projeto, 0004 já está aplicada.
+# 4. Schema — a aplicação nunca cria tabelas, só migrations
 alembic upgrade head
-
-# 5. Integração PostgreSQL é uma etapa separada e destrutiva.
-# Consulte docs/TURMAS.md; não basta criar um banco com outro nome.
 ```
 
 A instalação baixa TensorFlow e PyTorch: ~500 MB e alguns minutos.
 
-O container publica na porta **5433** por padrão, para não colidir com um
-PostgreSQL nativo na 5432.
+| Arquivo | Para quê |
+|---|---|
+| `requirements.txt` | CLI completa: DeepFace, TensorFlow, PyTorch, OpenCV, SQLAlchemy, Alembic |
+| `requirements-web.txt` | API web leve: FastAPI, Uvicorn, Pydantic, SQLAlchemy, sem modelos |
+| `requirements-ml.txt` | Worker facial |
+| `requirements-landmarks.txt` / `-linux.txt` | MediaPipe em ambiente isolado (outro fornecedor de `cv2`) |
+| `requirements-dev.txt` | Testes, Ruff e mypy |
+| `requirements-experimentos.txt` | Scripts de experimentos de ML |
 
 ---
 
-## Executar
+## Executar a interface web
+
+O caminho suportado é o perfil `web` do Docker Compose, que sobe API e worker
+com os mesmos volumes temporários:
+
+```powershell
+docker compose --profile web up -d --build
+docker compose --profile web ps
+Invoke-RestMethod http://127.0.0.1:8000/health/ready
+
+# primeira vez: conta administrativa (usuário e senha pedidos no prompt)
+docker compose exec web python -m scripts.criar_admin_web
+```
+
+Antes, configure no `.env`:
+
+- `WEB_DATABASE_URL`: acessível de dentro do container, normalmente via
+  `host.docker.internal:5433`.
+- `WEB_SECRET_KEY`: segredo aleatório com ao menos 32 caracteres.
+- `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pesos locais do DeepFace.
+
+O worker também precisa do bundle `models/face_landmarker.task`; origem e
+SHA-256 estão em [`models/README.md`](models/README.md). Abra
+`http://127.0.0.1:8000`; a câmera do navegador só funciona em `localhost` ou
+HTTPS. O worker demora a ficar `healthy` porque carrega os modelos.
+
+Para parar sem perder dados, use
+`docker compose --profile web stop web face-worker`. Não use `down -v`. Depois
+de mudar só código da API ou do frontend, reconstrua apenas `web`:
+`docker compose --profile web up -d --build web`.
+
+No Windows com Docker Desktop, limite a VM do WSL2 em
+`%USERPROFILE%\.wslconfig` (por exemplo `memory=4GB` e
+`autoMemoryReclaim=dropCache`). O motivo está em
+[`docs/FACEDIFF-WEB-RUNTIME.md`](docs/FACEDIFF-WEB-RUNTIME.md).
+
+---
+
+## Executar a CLI
 
 ```powershell
 python -m src.main
 ```
 
 ```text
-Menu principal:
-1 - Criar turma
-2 - Listar e selecionar turma
-3 - Consultar histórico de turmas excluídas
-4 - Administração global (aluno e presenças legadas)
-5 - Sair
-
-Menu de turma ativa:
-1 - Cadastrar aluno novo
-2 - Vincular matrícula existente
-3 - Listar alunos da turma
-4 - Reconhecer e registrar presença
-5 - Consultar presenças
-6 - Remover vínculo
-7 - Atualizar matéria/período
-8 - Excluir turma
-9 - Voltar
+Menu principal:                     Menu de turma ativa:
+1 - Criar turma                     1 - Cadastrar aluno novo
+2 - Listar e selecionar turma       2 - Vincular matrícula existente
+3 - Histórico de turmas excluídas   3 - Listar alunos da turma
+4 - Administração global            4 - Reconhecer e registrar presença
+5 - Sair                            5 - Consultar presenças
+                                    6 - Remover vínculo
+                                    7 - Atualizar matéria/período
+                                    8 - Excluir turma
+                                    9 - Voltar
 ```
 
-**Cadastrar aluno novo (1)** — dentro da turma, informe nome e matrícula e
-leia o termo de consentimento. A matrícula continua única no sistema; o aluno
-e seu vínculo com a turma são gravados juntos.
-**Sem o aceite a câmera nem liga.** No modo automático padrão, mantenha um
-rosto único visível durante a sequência indicada; ESC cancela antes de gravar.
-ESPAÇO não antecipa a captura. Para recuperar o fluxo manual, configure
-`FACE_AUTO_CAPTURE_ENABLED=false`; nesse modo, ESPAÇO captura e ESC cancela.
+- **Cadastro:** sem o aceite do termo de consentimento, a câmera nem liga. No
+  modo automático, mantenha um rosto visível durante a sequência; ESC cancela.
+- **Reconhecimento:** opera só na turma selecionada. A presença é registrada
+  após 5 s de observações válidas, pelo menos três análises e uma
+  reidentificação final da mesma pessoa. O percentual exibido deriva da
+  distância ao limiar; **não é probabilidade nem foi calibrado**.
+- `FACE_AUTO_CAPTURE_ENABLED=false` volta ao modo manual (ESPAÇO captura,
+  ENTER registra, ESC sai).
+- Excluir turma é lógico. A exclusão global de um aluno, com imagem, embedding
+  e presenças, fica na administração e exige confirmação.
 
-Com `FACE_QUALITY_ENABLED=true`, dimensão, iluminação e nitidez são
-checadas após a detecção. Se a captura for recusada, ajuste o enquadramento
-e capture de novo; nome, matrícula e consentimento não são solicitados
-novamente. ESC cancela sem persistir a tentativa recusada.
-
-**Reconhecer (4), modo automático padrão** — opera somente na turma selecionada.
-O overlay mostra o nome e um indicador
-derivado da distância ao limiar, apresentado em porcentagem. Esse valor **não
-é probabilidade nem foi calibrado**. Abaixo de 40% avisa "confiança baixa"
-— vale conferir antes de registrar. Uma recusa de qualidade mostra uma
-orientação amarela e remove o candidato anterior. Uma presença só é registrada
-após 5 s de observações válidas, pelo menos três análises e uma reidentificação
-final recente da mesma pessoa; ESC cancela. ENTER e ESPAÇO não antecipam o
-registro. Cada abertura registra ou informa que a presença já existe e fecha a
-câmera. Para recuperar a confirmação manual, use
-`FACE_AUTO_CAPTURE_ENABLED=false`: ENTER registra uma identidade reconhecida,
-ESC sai.
-
-No modo manual, com `FACE_TEMPORAL_ENABLED=true`, ENTER só fica habilitado após três
-identificações consecutivas da mesma pessoa, feitas nos ciclos de comparação
-(um a cada oito frames), dentro de uma janela de 5 s. A observação mais
-recente precisa ter até 2 s. Ao pressionar ENTER, o sistema lê outro frame e
-faz uma identificação nova; só registra se ela ainda reconhecer a mesma
-pessoa. Desconhecido, troca de identidade, qualidade insuficiente e expiração
-interrompem a sequência. Uma presença registrada ou já existente consome a
-confirmação. Isso pode adicionar uma inferência no ENTER elegível.
-
-Com `FACE_AMBIGUITY_ENABLED=true`, o matcher também compara as duas menores
-distâncias de **identidades distintas**, depois de verificar se a melhor está
-no limiar `FACE_THRESHOLD`. A segunda identidade conta mesmo se sua distância
-ficar acima do limiar. Margem zero recusa apenas empates exatos calculados;
-uma margem positiva recusa gaps menores que o valor configurado, e igualdade
-positiva com a margem é aceita. Não há margem calibrada ou recomendada. Uma
-recusa mostra orientação amarela e, no modo temporal, limpa a sequência.
-Desconhecido significa que ninguém passou pelo limiar; múltiplos rostos são
-uma falha de captura distinta; ambiguidade significa um rosto com identidades
-candidatas próximas. A política pode aumentar recusas, e um gap grande não
-garante que a identidade esteja correta. Com a flag desligada, inclusive o
-desempate pela primeira linha continua como antes.
-
-As observações de frames consecutivos são correlacionadas: consistência
-temporal verifica o fluxo de decisão, mas não comprova melhora biométrica e
-pode repetir uma identificação errada. O marco de tempo ocorre antes da
-leitura da câmera; buffers do dispositivo podem manter frames antigos. O modo
-não rastreia a pessoa continuamente nem elimina a latência da câmera.
-
-**Listar (3)** — matrícula, nome e situação dos alunos vinculados à turma.
-Para matrícula já existente, use a opção 2: o vínculo não recaptura nem
-altera a biometria, o nome ou o consentimento. Alunos marcados como *sem
-embedding* existem no cadastro mas **não serão reconhecidos**; rode o
-backfill antes da aula.
-
-**Presenças (5)** — consulta o histórico da turma. A mesma pessoa pode registrar
-presença em turmas diferentes no mesmo dia; presença antiga sem turma continua
-disponível na administração global como legado.
-
-**Remover vínculo (6)** mantém o aluno global e o histórico. **Excluir turma
-(8)** é lógico e preserva dados para consulta. A exclusão global do aluno,
-incluindo imagem, embedding e presenças, fica separada na administração
-principal e exige confirmação.
-
-Na primeira execução o modelo é carregado **antes** de qualquer câmera
-abrir, com aviso na tela: os pesos do DeepFace são baixados nesse momento e
-isso demora. Sem esse pré-aquecimento, a espera aconteceria com o aluno já
-parado na frente da câmera.
+Na primeira execução, o modelo é carregado antes de a câmera abrir, e os pesos
+do DeepFace são baixados nesse momento. Estados e limites da captura estão em
+[`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md); turmas e vínculos,
+em [`docs/TURMAS.md`](docs/TURMAS.md); o overlay de landmarks, em
+[`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md).
 
 ---
 
 ## Configuração
 
-As configurações da aplicação vêm do `.env`. `DATABASE_URL` não tem default:
-a aplicação falha no boot se ela faltar, em vez de apontar silenciosamente
-para o banco errado.
+Tudo vem do `.env` ou do ambiente. As variáveis obrigatórias não têm default:
+a aplicação falha no boot em vez de apontar silenciosamente para o banco
+errado.
+
+### CLI e núcleo de reconhecimento
 
 | Variável | Padrão | Para quê |
 |---|---|---|
@@ -183,97 +236,49 @@ para o banco errado.
 | `APP_TIMEZONE` | `America/Sao_Paulo` | Define o "dia" da presença |
 | `LOG_LEVEL` | `INFO` | |
 | `CAMERA_INDEX` | `0` | |
-| `CAMERA_LARGURA` / `CAMERA_ALTURA` | `1280` / `720` | Recorte de rosto maior melhora embedding e anti-spoofing |
-| `CAMERA_BACKEND` | `auto` | DirectShow no Windows — ver *Problemas conhecidos* |
+| `CAMERA_LARGURA` / `CAMERA_ALTURA` | `1280` / `720` | Recorte maior melhora embedding e anti-spoofing |
+| `CAMERA_BACKEND` | `auto` | DirectShow no Windows; ver *Problemas conhecidos* |
 | `FACE_MODEL` | `Facenet512` | Trocar exige backfill |
 | `FACE_DETECTOR` | `opencv` | |
-| `FACE_THRESHOLD` | `0.30` | Ainda não calibrado — [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
+| `FACE_THRESHOLD` | `0.30` | Ainda não calibrado; ver [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
 | `FACE_ANTI_SPOOFING` | `true` | Recusa foto impressa e tela |
-| `FACE_AUTO_CAPTURE_ENABLED` | `true` | Captura e registro automáticos; `false` recupera ESPAÇO/ENTER |
+| `FACE_AUTO_CAPTURE_ENABLED` | `true` | `false` recupera ESPAÇO/ENTER |
 | `FACE_AUTO_CAPTURE_WAIT_SECONDS` | `5.0` | Duração mínima da sequência válida |
-| `FACE_AUTO_CAPTURE_SAMPLE_SECONDS` | `0.5` | Intervalo mínimo entre análises, medido do fim da análise anterior |
-| `FACE_AUTO_CAPTURE_MAX_AGE_SECONDS` | `2.0` | Idade/gap máximo das observações; maior que o intervalo de análise |
-| `FACE_LANDMARKS_ENABLED` | `false` | Mostra landmarks somente na prévia de cadastro; opt-in |
-| `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local; caminho relativo à raiz do projeto |
-| `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Interpretador local isolado do worker MediaPipe |
-| `FACE_QUALITY_ENABLED` | `false` | Ativa checagens heurísticas de captura; opt-in |
-| `FACE_QUALITY_MIN_FACE_PX` | `80` | Menor dimensão informada pelo detector, em pixels |
-| `FACE_QUALITY_MIN_BRIGHTNESS` / `FACE_QUALITY_MAX_BRIGHTNESS` | `40` / `215` | Faixa fechada da luminosidade média, de 0 a 255 |
-| `FACE_QUALITY_MIN_SHARPNESS` | `100` | Variância mínima do Laplaciano discreto |
-| `FACE_TEMPORAL_ENABLED` | `false` | Exige sequência consistente antes de ENTER; opt-in |
-| `FACE_TEMPORAL_MIN_OBSERVATIONS` | `3` | Identificações consecutivas (não frames exibidos) |
-| `FACE_TEMPORAL_WINDOW_SECONDS` | `5.0` | Janela máxima das observações |
-| `FACE_TEMPORAL_MAX_AGE_SECONDS` | `2.0` | Idade máxima da observação mais recente |
-| `FACE_AMBIGUITY_ENABLED` | `false` | Opt-in da rejeição entre identidades próximas |
-| `FACE_AMBIGUITY_MIN_MARGIN` | `None` | Obrigatória ao ativar; diferença mínima `d2 - d1`, finita entre 0 e 2 |
+| `FACE_AUTO_CAPTURE_SAMPLE_SECONDS` | `0.5` | Intervalo mínimo entre análises |
+| `FACE_AUTO_CAPTURE_MAX_AGE_SECONDS` | `2.0` | Idade máxima das observações |
+| `FACE_LANDMARKS_ENABLED` | `false` | Landmarks na prévia de cadastro da CLI |
+| `FACE_LANDMARKS_MODEL_PATH` | `models/face_landmarker.task` | Bundle local |
+| `FACE_LANDMARKS_PYTHON_PATH` | `.venv-landmarks/Scripts/python.exe` | Interpretador isolado do MediaPipe |
+| `FACE_QUALITY_ENABLED` | `false` | Checagens heurísticas de nitidez, luz e tamanho (opt-in) |
+| `FACE_TEMPORAL_ENABLED` | `false` | Sequência consistente antes de ENTER no modo manual (opt-in) |
+| `FACE_AMBIGUITY_ENABLED` | `false` | Recusa identidades próximas; exige `FACE_AMBIGUITY_MIN_MARGIN` |
 | `STORAGE_DIR` | `./storage/faces` | Fora do Git |
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
 
-Os testes PostgreSQL da tarefa 008 leem variáveis do processo, **não** do
-`.env`: `FACE_TURMAS_TEST_DB_AUTORIZACAO`,
-`FACE_TURMAS_TEST_DATABASE_URL` e `FACE_TURMAS_MIGRATION_DATABASE_URL`. Só
-devem ser configuradas após autorização e identificação dos bancos
-descartáveis conforme [`docs/TURMAS.md`](docs/TURMAS.md).
+Os limites de qualidade, temporais e de ambiguidade são parâmetros de
+engenharia sem calibração biométrica e não alteram o limiar nem o
+anti-spoofing. A lista completa, com os limites de cada checagem, está no
+`.env.example`.
 
-Os limites de qualidade são heurísticas iniciais, não calibradas com rostos.
-Com a flag desligada, a aceitação anterior continua como baseline; a flag
-não altera `FACE_THRESHOLD` nem o anti-spoofing. Testes com imagens
-sintéticas demonstram apenas comportamento funcional, não acurácia facial.
-Os limites temporais também são parâmetros iniciais de engenharia, sem
-calibração biométrica. A flag temporal não muda o limiar, a qualidade de
-captura ou o anti-spoofing; esses controles podem ser habilitados de forma
-independente. A política de ambiguidade também é independente e não altera
-o limiar ou o anti-spoofing. Ao ativá-la, escolha a margem explicitamente;
-`0.0` significa rejeitar somente empates exatos, não uma margem recomendada.
-Nenhum teste sintético calibra valores nem mede desempenho biométrico.
+### Interface web
 
-A captura automática exige no mínimo três análises com timestamps distintos,
-além da duração configurada. Tempo decorrido sem observações não dispara ação;
-frames correlacionados não demonstram ganho de acurácia. O timestamp é obtido
-antes da leitura, mas a câmera pode entregar frames antigos de seu buffer. Veja
-os estados, limites e procedimento manual em
-[`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md).
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `WEB_DATABASE_URL` | — | **Obrigatória** |
+| `WEB_SECRET_KEY` | — | **Obrigatória**; assina sessões e credenciais |
+| `WEB_RETENTION_DAYS` | — | **Obrigatória**; retenção dos dados web, em dias |
+| `WEB_PURPOSE_END_AT` | — | Fim da finalidade do tratamento; obrigatória em produção |
+| `WEB_PUBLIC_ORIGIN` | `http://127.0.0.1:8000` no Compose | Endereço aberto no navegador (validação de origem e CSRF) |
+| `WEB_TRUSTED_PROXY_CIDRS` | vazio | Proxies cujo `X-Forwarded-For` é aceito |
+| `WEB_JOB_QUEUE_WAITING_LIMIT` | `30` | Jobs aguardando na fila facial |
+| `WEB_PRESENCE_START_LIMIT_PER_WINDOW` | `60` | Inícios de presença por link e IP a cada 15 min |
+| `WEB_PRESENCE_CAPTURE_LIMIT_PER_WINDOW` | `300` | Capturas de presença por link e IP a cada 15 min |
+| `WEB_PUBLIC_REGISTRATION_CONTEXT_LIMIT_PER_MINUTE` | `40` | Acessos públicos ao cadastro por minuto |
+| `WEB_CAPTURE_MAX_BYTES_PER_CAPTURE` | `2 MiB` | Tamanho máximo de cada frame |
+| `WEB_CAPTURE_STORAGE_QUOTA_BYTES` | `300 MiB` | Quota temporária; precisa ser ≥ 3 × máximo × (fila + 1) |
 
-O overlay visual de landmarks é independente dessas decisões. Ele só é
-habilitado em `Cadastro facial`, desenha na cópia da prévia e nunca envia
-pixels alterados ao cadastro. MediaPipe Tasks roda em processo local isolado
-para manter um único fornecedor de `cv2` em cada ambiente. Veja a
-[configuração e os limites](docs/FACIAL-LANDMARKS.md) e o
-[resultado da tarefa 006](tasks/006-facial-landmarks/RESULTADO.md).
-
-A tarefa 008 altera o schema por meio da migration `0004`; ela já foi aplicada
-ao banco local configurado. O aplicativo deste código requer essa revisão para
-operar com turmas. Ao atualizar outros ambientes, coordene os escritores da
-versão antiga, que usam a constraint global removida. Os testes PostgreSQL
-exigem opt-in, marcador no banco descartável
-e, para migrations, um segundo banco fisicamente separado. A suíte unitária
-não valida DDL ou locks reais.
-
----
-
-## Benchmark de matching
-
-O benchmark de engenharia usa apenas embeddings sintéticos de 512 dimensões.
-Compara o matcher vetorizado com um laço Python que chama `NumPy dot` por
-embedding e valida as decisões antes de cronometrar. O protocolo padrão usa
-galerias de 10, 50, 200 e 1000 IDs, seed 1234 e limiar local 0.30; os cenários
-de referência, ortogonalidade e empate são artificiais.
-
-```powershell
-python -m scripts.benchmark_matcher
-python -m scripts.benchmark_matcher --saida-json resultado.json
-```
-
-O primeiro comando mostra latência por chamada, montagem da matriz e picos
-observados por `tracemalloc`; o segundo também grava um JSON agregado em um
-arquivo novo. `tracemalloc` não mede RSS ou toda alocação nativa, e o payload
-dos arrays não é a memória total do processo. O laço de referência não
-representa `DeepFace.verify()` nem inferência facial. Nenhuma dessas medições
-avalia acurácia biométrica, calibra margens ou compara com `pgvector`.
-
-Os resultados atuais e os três artefatos reproduzíveis estão em
-[`tasks/004-benchmark-matching/RESULTADO.md`](tasks/004-benchmark-matching/RESULTADO.md)
-e [`tasks/004-benchmark-matching/evidencias/`](tasks/004-benchmark-matching/evidencias/).
+Os limites comportam uma turma inteira atrás do mesmo IP (Wi-Fi do campus).
+Os demais parâmetros estão em `src/config/web_settings.py`.
 
 ---
 
@@ -288,43 +293,37 @@ alembic check                   # acusa divergência entre modelos e banco
 alembic revision --autogenerate -m "descricao"
 ```
 
-Toda revisão implementa `downgrade()`. O autogenerate é ponto de partida: a
-revisão gerada deve ser **revisada à mão** — ele não emite `CHECK` nem
-`IDENTITY` de forma confiável.
-
-**Estado da tarefa 008:** `0004` está aplicada no PostgreSQL local configurado;
-`alembic check` confirmou que o schema corresponde aos modelos. Em outro
-ambiente, confira o alvo e coordene a parada dos escritores antigos antes do
-upgrade; leia [`docs/TURMAS.md`](docs/TURMAS.md).
+As revisões vão de `0001` a `0011`. Toda revisão implementa `downgrade()`, e
+o autogenerate é só ponto de partida: revise à mão, porque ele não emite
+`CHECK` nem `IDENTITY` de forma confiável. A URL vem de `DATABASE_URL` (ou
+`ALEMBIC_DATABASE_URL`).
 
 ### Trocar de modelo de reconhecimento
 
 Vetores de modelos diferentes **não são comparáveis**. O modelo fica gravado
-junto do vetor, e uma divergência levanta erro em vez de identificar a
-pessoa errada em silêncio.
-
-Depois de mudar `FACE_MODEL`, recalcule:
+junto do vetor, e uma divergência levanta erro em vez de identificar a pessoa
+errada em silêncio. Depois de mudar `FACE_MODEL`:
 
 ```bash
 python -m scripts.backfill_embeddings            # simula
 python -m scripts.backfill_embeddings --apply    # efetiva
 ```
 
-O mesmo script preenche embeddings de alunos cadastrados antes da Fase 5.
-
-### Retenção de presenças
+### Retenção e backup
 
 ```bash
-python -m scripts.expurgar_presencas            # simula
-python -m scripts.expurgar_presencas --apply    # efetiva
+python -m scripts.expurgar_presencas            # CLI: simula
+python -m scripts.expurgar_presencas --apply    # CLI: efetiva
 ```
 
-Feito para rodar agendado. Não requer câmera nem DeepFace. A retenção vale
-para o histórico de presença, nunca para o cadastro do aluno.
+A retenção vale para o histórico de presença, nunca para o cadastro. Na web,
+retenção (`scripts.web_retencao`), backup cifrado (`scripts.web_backup`) e
+prova de restauração (`scripts.web_restore_check`) fazem parte do deploy
+descrito em [`deploy/web/README.md`](deploy/web/README.md).
 
 ### Menor privilégio no banco
 
-A aplicação não deve conectar com o dono do banco.
+A aplicação não deve conectar com o dono do banco:
 
 ```bash
 psql -U escola -d escola \
@@ -332,24 +331,30 @@ psql -U escola -d escola \
      -f scripts/sql/criar_usuario_aplicacao.sql
 ```
 
-Depois aponte o `DATABASE_URL` da aplicação para `escola_app`, e mantenha o
-usuário dono apenas para `alembic upgrade`. O papel executa somente
-`SELECT`, `INSERT`, `UPDATE` e `DELETE`; toda tentativa de alterar o schema
-é recusada pelo PostgreSQL.
+Aponte o `DATABASE_URL` da aplicação para `escola_app` e use o dono apenas no
+`alembic upgrade`. No deploy web, os papéis `facediff_app` e
+`facediff_migrator` são criados por `deploy/web/postgres-init/`.
 
 ### Importar um banco SQLite legado
 
 ```bash
-python -m scripts.import_legacy_sqlite --sqlite caminho/escola.db
-python -m scripts.import_legacy_sqlite --sqlite caminho/escola.db --apply
+python -m scripts.import_legacy_sqlite --sqlite caminho/escola.db          # simula
+python -m scripts.import_legacy_sqlite --sqlite caminho/escola.db --apply  # efetiva
 ```
 
-Abre a origem em modo somente leitura e nunca a altera. Roda em transação
-única, é idempotente e grava um relatório JSON em `storage/etl/` com **toda**
-linha que não entrou e o motivo.
+Abre a origem somente para leitura, roda em transação única, é idempotente e
+grava em `storage/etl/` um relatório com toda linha rejeitada e o motivo.
 
-Aceita datas em `dd/mm/aaaa HH:MM:SS` e `aaaa-mm-dd HH:MM:SS`. Qualquer
-outro formato é **rejeitado e relatado** — nunca adivinhado.
+### Benchmark de matching
+
+```powershell
+python -m scripts.benchmark_matcher
+python -m scripts.benchmark_matcher --saida-json resultado.json
+```
+
+Compara o matcher vetorizado com um laço Python sobre embeddings sintéticos
+512D (galerias de 10 a 1000 IDs). Mede latência e memória de engenharia, não
+inferência facial nem acurácia.
 
 ---
 
@@ -358,69 +363,55 @@ outro formato é **rejeitado e relatado** — nunca adivinhado.
 ```bash
 pip install -r requirements-dev.txt
 
-pytest tests/unit                       # unitários, sem PostgreSQL
-pytest                                   # suíte; integração exige opt-in e banco descartável marcado
-pytest --cov=src --cov-report=term       # com cobertura
+pytest tests/unit                        # unitários, sem PostgreSQL
+pytest --cov=src --cov-report=term       # suíte com cobertura
+node --test tests/e2e/web/frontend.test.mjs   # módulos do frontend
 ruff check .                             # lint
 mypy                                     # tipos
 ```
 
-`requirements-dev.txt` **não** inclui `opencv-python` nem `deepface`: a
-suíte inteira roda sem eles, usando dublês de módulo injetados em
-`sys.modules`. Se algum dia um teste passar a exigir OpenCV ou TensorFlow,
-ele quebra — e essa quebra é o aviso de que uma fronteira vazou.
-
 ```text
 tests/
-├── unit/          domínio, casos de uso, CLI, adaptadores (com dublês)
-├── integration/   PostgreSQL real: schema, constraints, repositories, ETL
-└── features/      24 cenários BDD em Gherkin (pytest-bdd)
+├── unit/          domínio, casos de uso, CLI, rotas web, adaptadores (com dublês)
+├── integration/   PostgreSQL real: schema, constraints, repositories, migrations
+├── features/      cenários BDD em Gherkin (pytest-bdd)
+└── e2e/web/       testes Node dos módulos ES do frontend
 ```
 
-Os testes de integração PostgreSQL são destrutivos. Eles não leem `.env` e
-exigem as variáveis `FACE_TURMAS_TEST_DB_AUTORIZACAO` e
-`FACE_TURMAS_TEST_DATABASE_URL`, além do comentário de banco descartável
-descrito em [`docs/TURMAS.md`](docs/TURMAS.md). Os testes de migration usam
-`FACE_TURMAS_MIGRATION_DATABASE_URL`, que precisa apontar para outro banco
-físico também marcado. Sem essas condições, os testes são ignorados; um skip
-não conta como validação. Nenhum teste lê dado real — os legados de teste são
-sintéticos.
+`requirements-dev.txt` não inclui OpenCV nem DeepFace: a suíte roda com
+dublês injetados em `sys.modules`. Se um teste passar a exigir esses pacotes,
+uma fronteira vazou.
+
+Os testes de integração PostgreSQL são destrutivos: podem truncar tabelas.
+Eles não leem o `.env` e só rodam com `FACE_TURMAS_TEST_DB_AUTORIZACAO`,
+`FACE_TURMAS_TEST_DATABASE_URL` (e `FACE_TURMAS_MIGRATION_DATABASE_URL` para
+migrations) apontando para bancos descartáveis com marcador; veja
+[`docs/TURMAS.md`](docs/TURMAS.md). Sem isso são ignorados, e um skip não conta
+como validação.
+
+### CI
+
+`.github/workflows/ci.yml` roda a cada push e PR: Ruff, mypy, migrations
+(sobem e descem), `alembic check`, testes com piso de 80% de cobertura e uma
+verificação de que nenhum arquivo sensível foi versionado.
 
 ### Avaliação do modelo (≠ teste de software)
 
 Teste de software verifica se o pipeline faz o que promete; avaliação de
-modelo mede se o modelo **acerta**.
+modelo mede se ele **acerta**.
 
 ```bash
-# estrutura + divisão treino/validação/teste por identidade (sem modelo)
 python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome> --validar-divisao
-
-# exploratório: FAR, FRR, EER, AUC sobre todos os pares (exige DeepFace)
 python -m scripts.evaluate_model --dataset avaliacao/datasets/<nome>
-
-# Etapa 1: calibração supervisionada do limiar (DeepFace + requirements-experimentos.txt)
 python -m scripts.calibrar_limiar --dataset avaliacao/datasets/lfw
 ```
 
-Espera um diretório por pessoa, com 2+ imagens cada, e conta toda imagem
-rejeitada por motivo. O modo exploratório sugere limiar e mede o erro sobre
-os **mesmos** pares — não serve para calibrar. A calibração divide por
-identidade, escolhe o limiar na validação e abre o teste uma única vez,
-comparando-o ao `FACE_THRESHOLD` atual: resultado medido em
-[`docs/ML-ETAPA-1-RESULTADO.md`](docs/ML-ETAPA-1-RESULTADO.md). Ela **não**
-altera o `FACE_THRESHOLD`. Estrutura, fontes de dados permitidas e
-descarte: [`docs/ML-EXPERIMENT-SETUP.md`](docs/ML-EXPERIMENT-SETUP.md).
-`avaliacao/` é ignorado pelo Git; **nunca use imagens dos alunos cadastrados.**
-
-A matemática vive em `scripts/metricas.py` e é coberta por testes que
-rodam sem o modelo — um erro de cálculo ali levaria a calibrar o
-`FACE_THRESHOLD` no valor errado.
-
-### CI
-
-`.github/workflows/ci.yml` roda a cada push e PR: lint, tipos, migrations
-(sobem e descem), `alembic check`, testes com piso de 80% de cobertura, e
-uma verificação de que nenhum arquivo sensível foi versionado.
+A calibração divide por identidade, escolhe o limiar na validação e abre o
+teste uma única vez; ela **não** altera o `FACE_THRESHOLD`. Resultados em
+[`docs/ML-ETAPA-1-RESULTADO.md`](docs/ML-ETAPA-1-RESULTADO.md); fontes de dados
+permitidas e descarte em
+[`docs/ML-EXPERIMENT-SETUP.md`](docs/ML-EXPERIMENT-SETUP.md). `avaliacao/` é
+ignorado pelo Git. **Nunca use imagens dos alunos cadastrados.**
 
 ---
 
@@ -428,79 +419,54 @@ uma verificação de que nenhum arquivo sensível foi versionado.
 
 ### `ImportError: Keras cannot be imported`
 
-O DeepFace liga `TF_USE_LEGACY_KERAS=1`. A partir do TensorFlow 2.16 o Keras
-3 virou o padrão, e o `tf.keras` legado passou a viver num pacote separado.
-O `requirements.txt` já fixa `tf-keras==2.21.0`. Se instalou antes disso:
-
-```powershell
-pip install tf-keras==2.21.0
-```
+O DeepFace liga `TF_USE_LEGACY_KERAS=1`, e desde o TensorFlow 2.16 o
+`tf.keras` legado vive num pacote separado. O `requirements.txt` fixa
+`tf-keras==2.21.0`; se instalou antes, rode `pip install tf-keras==2.21.0`.
 
 ### `You must install torch ... to use face anti spoofing`
 
-O anti-spoofing roda em PyTorch, não em TensorFlow. Já está no
-`requirements.txt` (`torch==2.14.0`, ~118 MB).
+O anti-spoofing roda em PyTorch. Já está no `requirements.txt`
+(`torch==2.14.0`).
 
-### Cadastro recusado com "apresentação de foto" — mas você está ao vivo
+### Cadastro recusado com "apresentação de foto", mas você está ao vivo
 
-Falso positivo do modelo MiniFASNet, não erro de configuração. Na ordem de
-eficácia:
+Falso positivo do MiniFASNet. Na ordem de eficácia:
 
-1. **Iluminação.** Luz forte atrás de você — janela, luminária — é a causa
-   mais comum. Vire-se de modo que a luz venha de frente.
-2. **Resolução.** Aumente `CAMERA_LARGURA` e `CAMERA_ALTURA`; a aplicação
-   avisa em log se a câmera não atender ao pedido.
+1. **Iluminação:** luz forte atrás de você é a causa mais comum.
+2. **Resolução:** aumente `CAMERA_LARGURA` e `CAMERA_ALTURA`.
 3. **Aproxime o rosto** da câmera.
-4. `FACE_DETECTOR=retinaface` recorta melhor que o Haar. É mais lento.
-5. Mantenha `FACE_ANTI_SPOOFING=true`; desativá-lo remove a proteção contra
-   foto impressa e tela. A qualidade de captura é uma checagem separada.
+4. `FACE_DETECTOR=retinaface` recorta melhor que o Haar, mas é mais lento.
 
-O número no log é a confiança da classificação escolhida, não a
-probabilidade de ser real: "96%" com o frame recusado significa *96% de
-confiança de que é uma fraude*.
+Mantenha `FACE_ANTI_SPOOFING=true`. O número no log é a confiança da classe
+escolhida: "96%" num frame recusado significa 96% de confiança de fraude.
 
-### A câmera demora muito para abrir
+### A câmera da CLI demora para abrir
 
-Era o backend. No Windows o OpenCV usa Media Foundation por padrão, lento
-para abrir e ainda mais lento para aceitar mudança de resolução:
-
-| Backend | Abrir | Ajustar resolução | Total |
-|---|---:|---:|---:|
-| Media Foundation (padrão do OpenCV) | 9,9 s | 17,8 s | **27,0 s** |
-| DirectShow | 0,3 s | 0,5 s | **0,8 s** |
-
-`CAMERA_BACKEND=auto` já escolhe DirectShow no Windows. Se a sua câmera não
-funcionar com ele, `CAMERA_BACKEND=msmf` volta ao anterior.
+No Windows, o Media Foundation leva ~27 s para abrir e ajustar a resolução; o
+DirectShow, ~0,8 s. `CAMERA_BACKEND=auto` já escolhe DirectShow. Se a câmera
+não funcionar com ele, use `CAMERA_BACKEND=msmf`.
 
 ### Mensagens do TensorFlow no start
 
-```text
-oneDNN custom operations are on...
-All log messages before absl::InitializeLog() is called are written to STDERR
-```
-
-São informativas, não erros. Para silenciá-las:
-
-```powershell
-$env:TF_ENABLE_ONEDNN_OPTS = "0"
-$env:TF_CPP_MIN_LOG_LEVEL = "2"
-```
+`oneDNN custom operations are on...` é informativo. Para silenciar:
+`$env:TF_ENABLE_ONEDNN_OPTS = "0"` e `$env:TF_CPP_MIN_LOG_LEVEL = "2"`.
 
 ### A primeira execução parece travada
 
-Não está: o DeepFace baixa os pesos do Facenet512 (~90 MB) e, no primeiro
+O DeepFace está baixando os pesos do Facenet512 (~90 MB) e, no primeiro
 cadastro, os do anti-spoofing (~4 MB).
 
 ---
 
 ## Dados sensíveis
 
-`*.db`, `/fotos/`, `/storage/`, `.env` e os ambientes virtuais estão no
-`.gitignore`. Política completa em [`docs/lgpd.md`](docs/lgpd.md).
+`*.db`, `/fotos/`, `/storage/`, `.env`, `/models/*.task` e os ambientes
+virtuais estão no `.gitignore`. Política completa em
+[`docs/lgpd.md`](docs/lgpd.md).
 
-O banco SQLite legado — que continha o nome real de uma pessoa ligado a 39
-registros de presença — foi removido de todo o histórico do Git em
-2026-09-07. Decisão e risco residual em
+O banco SQLite do protótipo, que ligava o nome real de uma pessoa a 39
+registros de presença, foi removido de todo o histórico do Git em 2026-09-07.
+Decisão e risco residual em
 [`ADR-003`](docs/adr/ADR-003-limpeza-do-historico.md).
 
 ```bash

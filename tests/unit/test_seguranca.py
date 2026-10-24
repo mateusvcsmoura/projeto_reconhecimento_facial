@@ -146,7 +146,7 @@ def test_limite_e_calculado_a_partir_de_hoje() -> None:
 def test_log_de_cadastro_nao_contem_o_nome_do_aluno(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Log de rotina identifica por id interno, nunca por nome (CLAUDE.md 8)."""
+    """Log de rotina identifica por id interno, nunca por nome (CLAUDE.md 7)."""
     caso, _, _ = montar_cadastro()
 
     with caplog.at_level(logging.DEBUG):
