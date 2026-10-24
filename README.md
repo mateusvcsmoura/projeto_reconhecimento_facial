@@ -126,8 +126,9 @@ No `.env`, uma variável por linha:
 
 - `POSTGRES_PASSWORD`: use só letras e números, para não precisar codificar a
   senha nas URLs;
-- a mesma senha em `DATABASE_URL` (`localhost:5433`) e em `WEB_DATABASE_URL`
-  (`host.docker.internal:5433`);
+- a mesma senha em `DATABASE_URL` (`localhost:5433`, usada fora do Docker) e
+  em `WEB_DATABASE_URL` (`db:5432`, a rede interna do compose, igual no
+  Windows e no Linux);
 - `WEB_SECRET_KEY`: o valor gerado acima;
 - `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`: pasta dos pesos, preenchida por
   `scripts.baixar_modelos` (ver [Primeira vez: modelos](#primeira-vez-modelos)).

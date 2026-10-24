@@ -231,7 +231,8 @@ volume temporário. Esse volume é um `tmpfs` limitado a 300 MiB, sem persistên
 em disco. Os pesos locais são montados somente para leitura no worker.
 
 Configure no `.env` as variáveis `WEB_DATABASE_URL` (URL acessível de dentro do
-container, normalmente `host.docker.internal:5433`), `WEB_SECRET_KEY` e
+container: `db:5432`, o serviço do compose, que funciona no Docker Desktop e
+no Docker do Linux, onde `host.docker.internal` não existe), `WEB_SECRET_KEY` e
 `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`, conforme o `.env.example`. A origem
 local padrão é `http://127.0.0.1:8000`; mantenha `WEB_PUBLIC_ORIGIN` igual ao
 endereço usado no navegador para que as mutações autenticadas passem pela
