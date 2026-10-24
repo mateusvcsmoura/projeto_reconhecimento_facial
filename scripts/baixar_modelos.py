@@ -12,12 +12,18 @@ presente com o hash certo nao e baixado de novo. Se existir um ``.env`` na
 raiz, a linha ``WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`` passa a apontar para a
 pasta dos pesos deste computador.
 
+Na VPS, ``--pasta-modelos`` grava tambem no layout de ``deploy/web``
+(``face_landmarker.task`` e ``home/.deepface/weights/``) e nao toca no
+``.env``, que o deploy nao usa.
+
 Uso:
     python -m scripts.baixar_modelos
+    sudo python3 -m scripts.baixar_modelos --pasta-modelos /srv/facediff/models
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import sys
 import urllib.request
@@ -119,10 +125,26 @@ def apontar_env(env: Path, pasta_pesos: Path) -> str:
     return linha
 
 
-def main() -> int:
-    alvos = [(LANDMARKER, RAIZ / "models")] + [(peso, PASTA_PESOS) for peso in PESOS]
-    for modelo, pasta in alvos:
-        print(f"{modelo.nome}: ", end="", flush=True)
+def alvos(pasta_modelos: Path | None) -> list[tuple[Modelo, Path]]:
+    """Onde cada modelo deve ficar. O build sempre copia o de ``models/``."""
+    lista = [(LANDMARKER, RAIZ / "models")]
+    if pasta_modelos is None:
+        return lista + [(peso, PASTA_PESOS) for peso in PESOS]
+    pesos = pasta_modelos / "home" / ".deepface" / "weights"
+    return lista + [(LANDMARKER, pasta_modelos)] + [(peso, pesos) for peso in PESOS]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Baixa os modelos da interface web.")
+    parser.add_argument(
+        "--pasta-modelos",
+        type=Path,
+        help="pasta de modelos do deploy na VPS (WEB_MODELS_HOST_DIR)",
+    )
+    pasta_modelos: Path | None = parser.parse_args(argv).pasta_modelos
+
+    for modelo, pasta in alvos(pasta_modelos):
+        print(f"{(pasta / modelo.nome).as_posix()}: ", end="", flush=True)
         try:
             baixou = garantir(modelo, pasta)
         except (OSError, HashDivergente) as erro:
@@ -131,6 +153,9 @@ def main() -> int:
             return 1
         print("baixado" if baixou else "ja presente")
 
+    if pasta_modelos is not None:
+        print(f"Deploy: WEB_MODELS_HOST_DIR={pasta_modelos.as_posix()}")
+        return 0
     env = RAIZ / ".env"
     if env.exists():
         print(f".env: {apontar_env(env, PASTA_PESOS)}")

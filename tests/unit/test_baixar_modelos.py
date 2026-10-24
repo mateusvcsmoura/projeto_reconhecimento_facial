@@ -73,6 +73,32 @@ def test_apontar_env_troca_so_a_linha_dos_pesos(tmp_path: Path) -> None:
     )
 
 
+def test_alvos_da_vps_seguem_layout_do_deploy(tmp_path: Path) -> None:
+    srv = tmp_path / "srv"
+    alvos = baixar_modelos.alvos(srv)
+    pesos = srv / "home" / ".deepface" / "weights"
+    assert (baixar_modelos.LANDMARKER, baixar_modelos.RAIZ / "models") in alvos
+    assert (baixar_modelos.LANDMARKER, srv) in alvos
+    assert [(peso, pesos) for peso in baixar_modelos.PESOS] == alvos[2:]
+
+
+def test_main_com_pasta_modelos_nao_altera_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = tmp_path / ".env"
+    env.write_text("WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR=C:/Users/X\n", encoding="utf-8")
+    gravados: list[Path] = []
+    monkeypatch.setattr(baixar_modelos, "RAIZ", tmp_path)
+    monkeypatch.setattr(
+        baixar_modelos, "garantir", lambda modelo, pasta: gravados.append(pasta)
+    )
+    assert baixar_modelos.main(["--pasta-modelos", str(tmp_path / "srv")]) == 0
+    assert env.read_text(encoding="utf-8") == (
+        "WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR=C:/Users/X\n"
+    )
+    assert tmp_path / "srv" in gravados
+
+
 def test_apontar_env_acrescenta_linha_ausente(tmp_path: Path) -> None:
     env = tmp_path / ".env"
     env.write_text("DATABASE_URL=x", encoding="utf-8")

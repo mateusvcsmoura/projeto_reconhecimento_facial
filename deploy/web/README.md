@@ -77,13 +77,21 @@ backup e capacidade. Não estão executadas por esta tarefa.
    para API/worker e a mesma forma com `facediff_migrator` para Alembic. O papel
    admin do PostgreSQL é usado apenas na criação inicial do volume. Não passe
    senhas como argumentos de linha de comando.
-6. Coloque manualmente e com origem/licença já aprovada os arquivos locais em
-   `/srv/facediff/models`: `face_landmarker.task` e, sob
+6. Baixe os modelos para `/srv/facediff/models` (`face_landmarker.task` e, sob
    `home/.deepface/weights/`, `facenet512_weights.h5`,
-   `2.7_80x80_MiniFASNetV2.pth` e `4_0_0_80x80_MiniFASNetV1SE.pth`. O worker
-   monta essa árvore como somente leitura e falha antes de iniciar se algum
-   modelo faltar. Não existe download de modelo no boot; o worker também não
-   tem rede de saída.
+   `2.7_80x80_MiniFASNetV2.pth` e `4_0_0_80x80_MiniFASNetV1SE.pth`) e para o
+   `models/` do checkout, que o build copia. Com o repositório já em
+   `/opt/facediff/current` (passo 8), rode na raiz dele:
+
+   ```sh
+   sudo python3 -m scripts.baixar_modelos --pasta-modelos /srv/facediff/models
+   ```
+
+   O script usa só a biblioteca padrão, baixa das origens oficiais e confere o
+   SHA-256 fixado de cada arquivo. Se usar outra pasta, informe-a em
+   `WEB_MODELS_HOST_DIR`. O worker monta essa árvore como somente leitura e
+   falha antes de iniciar se algum modelo faltar. Não existe download de modelo
+   no boot; o worker também não tem rede de saída.
 7. Instale e ative o tmpfs compartilhado entre API/worker:
 
    ```sh
