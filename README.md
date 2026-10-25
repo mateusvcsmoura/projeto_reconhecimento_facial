@@ -191,10 +191,10 @@ mesmas que o DeepFace usa), conferindo o SHA-256 de cada arquivo:
 
 Ele também grava no `.env`, se existir, `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`
 com a pasta dos pesos deste computador. Arquivos já presentes e íntegros não
-são baixados de novo, então rodar outra vez é seguro. Na VPS, use
-`sudo python3 -m scripts.baixar_modelos --pasta-modelos /srv/facediff/models`,
-que grava no layout do deploy e não mexe em `.env` (passo 6 de
-[`deploy/web/README.md`](deploy/web/README.md)).
+são baixados de novo, então rodar outra vez é seguro. Na VPS, o
+`deploy/web/preparar_vps.sh` roda o script com `--pasta-modelos
+/srv/facediff/models`, que grava no layout do deploy e não mexe em `.env`, junto
+com segredos e tmpfs (ver [`deploy/web/README.md`](deploy/web/README.md)).
 
 ### Subir
 

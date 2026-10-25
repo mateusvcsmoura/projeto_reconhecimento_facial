@@ -27,6 +27,7 @@ serviço monta `docker.sock`.
   do host e diretórios privados temporários.
 - `postgres-init/001-web-roles.sh`: primeira inicialização do volume cria papéis
   `facediff_app` e `facediff_migrator` com credenciais distintas.
+- `preparar_vps.sh`: executa no host os passos 4, 6 e 7 da preparação manual.
 
 Imagens-base foram consultadas no Docker Hub em 19/10/2026 e fixadas por digest:
 Python `3.12-slim-bookworm`, PostgreSQL `16.15-bookworm` e Caddy
@@ -44,6 +45,36 @@ resolvidas dos repositórios assinados Debian/PGDG durante o build; portanto,
 reproduzir exatamente bytes de imagens exige registrar também a revisão de
 repositórios na task019. A referência de deployment deve ser o SHA do commit
 que gerou as imagens, preenchido em `WEB_IMAGE_TAG`; não usar `latest`.
+
+## Preparação automatizada
+
+Com Docker Engine e Compose v2 instalados (passo 3) e o repositório clonado em
+`/opt/facediff/current`, o script faz os passos 4, 6 e 7:
+
+```sh
+cd /opt/facediff/current
+sudo bash deploy/web/preparar_vps.sh --dominio facediff.exemplo.com --email voce@exemplo.com
+```
+
+O script:
+
+- cria `/etc/facediff/web-deploy.env` a partir do `.env.example`, com
+  `WEB_IMAGE_TAG` igual ao commit do checkout, `WEB_DOMAIN` e `CADDY_ACME_EMAIL`;
+- gera os oito segredos com valores aleatórios em hexadecimal, no modo `0400`.
+  Os arquivos lidos por app, worker, migrate e backup ficam com dono `10001`, e as
+  senhas usadas só pelo PostgreSQL ficam com dono `root`. As senhas do `rclone.conf`
+  saem no formato de `rclone obscure`, conferido contra o vetor de teste do rclone;
+- baixa e confere os modelos;
+- instala o tmpfs `/run/facediff` e o override do Docker. Ele só reinicia o Docker
+  quando o override muda;
+- termina com `docker compose config` e imprime os comandos dos passos 8 a 11.
+
+Rodar de novo, por exemplo após `git pull`, atualiza `WEB_IMAGE_TAG`, o domínio e o
+e-mail. Segredos existentes nunca são sobrescritos. Se o volume do banco já existir
+sem as senhas que o criaram, o script aborta.
+
+Os passos 1, 2, 3 e 8 a 12 continuam manuais. Guarde fora da VPS uma cópia do
+`rclone.conf`: sem ela, o backup cifrado não pode ser restaurado.
 
 ## Preparação manual do host
 

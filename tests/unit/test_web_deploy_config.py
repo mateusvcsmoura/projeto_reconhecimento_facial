@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -289,3 +290,13 @@ def test_postgres_bootstrap_usa_scram_com_a_credencial_local(
     )
     assert 'PGPASSWORD="$admin_password" psql' in init_script
     assert "unset app_password migrator_password admin_password" in init_script
+
+
+def test_preparar_vps_gera_todo_segredo_do_env_exemplo() -> None:
+    env_exemplo = (DEPLOY / ".env.example").read_text(encoding="utf-8")
+    script = (DEPLOY / "preparar_vps.sh").read_text(encoding="utf-8")
+    segredos = re.findall(r"^(\w+_FILE)=", env_exemplo, flags=re.MULTILINE)
+
+    assert len(segredos) == 8
+    for nome in segredos:
+        assert f"valor_env {nome}" in script, nome
