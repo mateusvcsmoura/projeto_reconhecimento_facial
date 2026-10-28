@@ -142,10 +142,20 @@ class _RepositorioGestao:
         ]
 
     def listar_presencas_exportacao(
-        self, _ator: Any, *, turma_id: int, inicio: dt.date, fim: dt.date
+        self,
+        _ator: Any,
+        *,
+        turma_id: int,
+        inicio: dt.date | None = None,
+        fim: dt.date | None = None,
+        sessao_id: int | None = None,
     ) -> list[dict[str, object]]:
         assert turma_id == 7
-        assert inicio <= dt.date(2026, 10, 18) <= fim
+        if sessao_id is None:
+            assert inicio is not None and fim is not None
+            assert inicio <= dt.date(2026, 10, 18) <= fim
+        else:
+            assert (inicio, fim, sessao_id) == (None, None, 4)
         return [
             {
                 "turma_id": 7,
@@ -203,6 +213,7 @@ class _RemovedorLegado:
         "/api/v1/turmas/7/sessoes/21/presencas",
         "/api/v1/turmas/7/revisoes",
         "/api/v1/turmas/7/presencas.csv?inicio=2026-10-01&fim=2026-10-31",
+        "/api/v1/turmas/7/sessoes/4/presencas.csv",
     ],
 )
 def test_rotas_de_gestao_exigem_sessao_autenticada(caminho: str) -> None:
@@ -277,6 +288,32 @@ def test_csv_escapa_formulas_e_preserva_unicode_e_virgulas() -> None:
     assert rows[0]["nome"] == '\'=HYPERLINK("https://example.invalid","João, aluno")'
     assert rows[0]["materia"] == "Ciência, IA"
     assert rows[0]["matricula"] == "00042"
+
+
+def test_csv_da_sessao_baixa_so_a_sessao_escolhida() -> None:
+    settings = WebSettings(
+        environment="test",
+        database_url="postgresql+psycopg://usuario:senha@test-db:5432/face_task016_test",
+        secret_key="segredo-sintetico-para-testes-com-mais-de-32-caracteres",
+        retention_days=14,
+        database_disposable=True,
+        public_origin="https://facediff.test",
+    )
+    services = WebServices(auth_repository=_RepositorioAuth())
+    object.__setattr__(services, "gestao_repository", _RepositorioGestao())
+    app = create_app(settings, services)
+
+    with TestClient(app, base_url="https://facediff.test") as client:
+        client.cookies.set("facediff_session", "sessao-professor")
+        response = client.get("/api/v1/turmas/7/sessoes/4/presencas.csv")
+
+    rows = list(csv.DictReader(StringIO(response.content.decode("utf-8"))))
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv; charset=utf-8")
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="presencas-turma-7-sessao-4.csv"'
+    )
+    assert [row["sessao_id"] for row in rows] == ["4"]
 
 
 def test_pedido_publico_de_revisao_nao_revela_dados_do_aluno() -> None:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import csv
 import datetime as dt
 import hashlib
+from io import StringIO
 from typing import Any
 from uuid import uuid4
 
@@ -925,6 +927,50 @@ def test_painel_e_csv_limitam_se_a_presencas_registradas_e_ao_fuso_local(
     assert conteudo.decode("utf-8").splitlines()[1].count("23:30:00") == 2
     assert "embedding" not in conteudo.decode("utf-8")
     assert "ausente" not in conteudo.decode("utf-8")
+
+
+def test_csv_da_sessao_filtra_pela_sessao_da_turma(db: Any) -> None:
+    with sessionmaker(bind=db)() as session, session.begin():
+        session.add(
+            models.SessaoPresencaWeb(
+                id=22,
+                turma_id=7,
+                criada_por_conta_id=1,
+                titulo="Sessão sintética sem presença",
+                inicio_em=AGORA + dt.timedelta(days=1),
+                fim_em=AGORA + dt.timedelta(days=1, hours=1),
+                criada_em=AGORA,
+            )
+        )
+        session.add(
+            models.Presenca(
+                id=52,
+                aluno_id=11,
+                turma_id=7,
+                sessao_id=21,
+                tentativa_id=None,
+                registrado_em=AGORA,
+                data_referencia=AGORA.date(),
+                status="presente",
+                origem="manual",
+                versao=1,
+                horario_evidencia=None,
+                corrigida_em=AGORA,
+                corrigida_por_conta_id=1,
+            )
+        )
+    exportar = ExportarPresencas(PostgresGestaoWebRepository(db), "America/Sao_Paulo")
+
+    com_presenca = exportar.executar_sessao(ATOR, turma_id=7, sessao_id=21)
+    sem_presenca = exportar.executar_sessao(ATOR, turma_id=7, sessao_id=22)
+
+    linhas = list(csv.DictReader(StringIO(com_presenca.decode("utf-8"))))
+    assert [(linha["sessao_id"], linha["matricula"]) for linha in linhas] == [
+        ("21", "SINT-11")
+    ]
+    assert sem_presenca.decode("utf-8").count("\r\n") == 1
+    with pytest.raises(LookupError):
+        exportar.executar_sessao(ATOR, turma_id=7, sessao_id=999)
 
 
 def test_worker_tardio_nao_grava_presenca_com_revisao_aberta(

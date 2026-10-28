@@ -814,14 +814,7 @@ class PostgresGestaoWebRepository:
         with self._factory() as session, session.begin():
             atual = self._ator_atual(session, ator)
             self._turma_autorizada(session, atual, turma_id)
-            existe = session.scalar(
-                select(models.SessaoPresencaWeb.id).where(
-                    models.SessaoPresencaWeb.id == sessao_id,
-                    models.SessaoPresencaWeb.turma_id == turma_id,
-                )
-            )
-            if existe is None:
-                raise LookupError("Sessão não encontrada.")
+            self._exigir_sessao_da_turma(session, turma_id, sessao_id)
             linhas = session.execute(
                 select(
                     models.Aluno.nome,
@@ -853,12 +846,22 @@ class PostgresGestaoWebRepository:
         ator: AtorWeb,
         *,
         turma_id: int,
-        inicio: dt.date,
-        fim: dt.date,
+        inicio: dt.date | None = None,
+        fim: dt.date | None = None,
+        sessao_id: int | None = None,
     ) -> list[dict[str, object]]:
+        filtros = [models.Presenca.turma_id == turma_id]
+        if inicio is not None:
+            filtros.append(models.Presenca.data_referencia >= inicio)
+        if fim is not None:
+            filtros.append(models.Presenca.data_referencia <= fim)
+        if sessao_id is not None:
+            filtros.append(models.Presenca.sessao_id == sessao_id)
         with self._factory() as session, session.begin():
             atual = self._ator_atual(session, ator)
             self._turma_autorizada(session, atual, turma_id)
+            if sessao_id is not None:
+                self._exigir_sessao_da_turma(session, turma_id, sessao_id)
             linhas = session.execute(
                 select(
                     models.Presenca.id,
@@ -877,11 +880,7 @@ class PostgresGestaoWebRepository:
                 )
                 .join(models.Aluno, models.Aluno.id == models.Presenca.aluno_id)
                 .join(models.Turma, models.Turma.id == models.Presenca.turma_id)
-                .where(
-                    models.Presenca.turma_id == turma_id,
-                    models.Presenca.data_referencia >= inicio,
-                    models.Presenca.data_referencia <= fim,
-                )
+                .where(*filtros)
                 .order_by(
                     models.Presenca.data_referencia,
                     models.Presenca.registrado_em,
@@ -1254,6 +1253,19 @@ class PostgresGestaoWebRepository:
             raise LookupError("Turma não encontrada.")
         AutorizarTurma.exigir(ator, turma, "gerenciar turma web")
         return turma
+
+    @staticmethod
+    def _exigir_sessao_da_turma(
+        session: Session, turma_id: int, sessao_id: int
+    ) -> None:
+        existe = session.scalar(
+            select(models.SessaoPresencaWeb.id).where(
+                models.SessaoPresencaWeb.id == sessao_id,
+                models.SessaoPresencaWeb.turma_id == turma_id,
+            )
+        )
+        if existe is None:
+            raise LookupError("Sessão não encontrada.")
 
     @staticmethod
     def _ator_atual(session: Session, ator: AtorWeb) -> AtorWeb:

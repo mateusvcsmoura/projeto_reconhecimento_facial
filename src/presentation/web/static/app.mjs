@@ -450,7 +450,7 @@ function renderPainel(payload, { acoes = false } = {}) {
   return `<ul class="plain-list">${payload.sessoes.map((sessao) => {
     const situacao = situacaoSessao(sessao);
     const registros = (Number(sessao.presencas_presentes) || 0) + (Number(sessao.presencas_anuladas) || 0);
-    const botoes = acoes ? `${sessao.revogada ? "" : `<button class="button button--quiet" type="button" data-sessao-editar>Editar</button>`}<button class="button button--danger" type="button" data-sessao-excluir>Excluir</button>` : "";
+    const botoes = acoes ? `<button class="button button--quiet" type="button" data-sessao-exportar>Exportar CSV</button>${sessao.revogada ? "" : `<button class="button button--quiet" type="button" data-sessao-editar>Editar</button>`}<button class="button button--danger" type="button" data-sessao-excluir>Excluir</button>` : "";
     return `<li class="session-item" data-sessao-item="${escapeHtml(sessao.id)}" data-titulo="${escapeHtml(sessao.titulo)}" data-inicio="${escapeHtml(sessao.inicio_em)}" data-fim="${escapeHtml(sessao.fim_em)}" data-registros="${registros}"><div class="row-between"><strong>${texto(sessao.titulo)}</strong><div class="session-item__meta"><span class="session-status${situacao === "Aberta agora" ? " session-status--aberta" : ""}">${situacao}</span>${botoes}</div></div><p class="field-hint">${escapeHtml(periodoSessao(sessao.inicio_em, sessao.fim_em))}</p><dl class="session-stats"><div><dt>Presentes</dt><dd>${texto(sessao.presencas_presentes, "0")}</dd></div><div><dt>Anuladas</dt><dd>${texto(sessao.presencas_anuladas, "0")}</dd></div><div><dt>Revisões abertas</dt><dd>${texto(sessao.revisoes_abertas, "0")}</dd></div></dl><p class="field-hint">${escapeHtml(resumoTentativas(sessao.tentativas_por_estado))}</p>${listaPresencasMarkup(sessao)}</li>`;
   }).join("")}</ul>`;
 }
@@ -489,6 +489,16 @@ function formularioSobDemanda(acaoAbrir, acaoCancelar, form, aoFechar = () => {}
     botao?.focus();
   });
   return alternar;
+}
+
+async function baixarCsv(caminho, nome) {
+  const resposta = await api.get(apiPath(caminho));
+  const url = URL.createObjectURL(await resposta.blob());
+  const ancora = document.createElement("a");
+  ancora.href = url;
+  ancora.download = nome;
+  ancora.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function bindProfessor(turmas, atual) {
@@ -717,6 +727,15 @@ function bindProfessor(turmas, atual) {
     if (!item || !formularioSessao) return;
     const id = item.dataset.sessaoItem;
     const result = document.querySelector('[data-result="session"]');
+    if (evento.target.closest("[data-sessao-exportar]")) {
+      try {
+        await baixarCsv(`/turmas/${atual.id}/sessoes/${id}/presencas.csv`, `presencas-turma-${atual.id}-sessao-${id}.csv`);
+        avisar(`CSV da sessão "${item.dataset.titulo}" baixado.`);
+      } catch (erro) {
+        if (result) result.innerHTML = mensagem(mostrarErro(erro), "error");
+      }
+      return;
+    }
     if (evento.target.closest("[data-sessao-editar]")) {
       // Reaproveita o formulário de nova sessão, já preenchido com a sessão escolhida.
       alternarFormularioSessao(true);
@@ -750,14 +769,7 @@ function bindProfessor(turmas, atual) {
     const tipo = dados.get("tipo");
     const query = tipo === "mes" ? `mes=${encodeURIComponent(dados.get("mes"))}` : `inicio=${encodeURIComponent(dados.get("inicio"))}&fim=${encodeURIComponent(dados.get("fim"))}`;
     try {
-      const resposta = await api.get(apiPath(`/turmas/${atual.id}/presencas.csv?${query}`));
-      const blob = await resposta.blob();
-      const url = URL.createObjectURL(blob);
-      const ancora = document.createElement("a");
-      ancora.href = url;
-      ancora.download = `presencas-turma-${atual.id}.csv`;
-      ancora.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await baixarCsv(`/turmas/${atual.id}/presencas.csv?${query}`, `presencas-turma-${atual.id}.csv`);
       document.querySelector('[data-result="csv"]').textContent = "Arquivo gerado pela API e baixado.";
     } catch (erro) { formularioErro(form, erro); }
   });

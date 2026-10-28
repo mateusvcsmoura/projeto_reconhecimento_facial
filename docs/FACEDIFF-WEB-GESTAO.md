@@ -26,6 +26,7 @@ outras turmas exigem administrador, confirmação explícita e justificativa.
 | `POST /revisoes/{id}/decidir` | Professor responsável decide presente/anulada, com justificativa, versão esperada e confirmação explícita de verificação independente de identidade. |
 | `GET /turmas/{id}/painel` | Retorna contagens agregadas e `atualizado_em` para polling; não calcula faltas. |
 | `GET /turmas/{id}/presencas.csv` | Exporta período inclusivo por `inicio`+`fim` ou `mes=AAAA-MM`, no fuso configurado (`America/Sao_Paulo` por padrão). |
+| `GET /turmas/{id}/sessoes/{sessao_id}/presencas.csv` | Mesmo CSV, só com as presenças da sessão; botão "Exportar CSV" em cada sessão da aba de sessões. |
 | `POST /turmas/{id}/sessoes/{sessao_id}/alunos/{aluno_id}/reativar-quota` | Exclusivo de admin; confirmação e justificativa registradas em auditoria. |
 
 O pedido de revisão é autorizado pela credencial efêmera associada ao link e à

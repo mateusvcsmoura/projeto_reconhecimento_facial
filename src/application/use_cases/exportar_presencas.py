@@ -34,8 +34,9 @@ class RepositorioExportacaoPresencas(Protocol):
         ator: AtorWeb,
         *,
         turma_id: int,
-        inicio: dt.date,
-        fim: dt.date,
+        inicio: dt.date | None = None,
+        fim: dt.date | None = None,
+        sessao_id: int | None = None,
     ) -> list[dict[str, object]]: ...
 
 
@@ -51,15 +52,31 @@ class ExportarPresencas:
     ) -> bytes:
         if turma_id <= 0 or inicio > fim or (fim - inicio).days > 366:
             raise ValueError("O intervalo do relatório é inválido.")
-        linhas = self._repositorio.listar_presencas_exportacao(
-            ator, turma_id=turma_id, inicio=inicio, fim=fim
+        return _csv(
+            self._repositorio.listar_presencas_exportacao(
+                ator, turma_id=turma_id, inicio=inicio, fim=fim
+            ),
+            self._timezone,
         )
-        buffer = StringIO(newline="")
-        escritor = csv.writer(buffer, lineterminator="\r\n")
-        escritor.writerow(CABECALHOS_CSV)
-        for linha in linhas:
-            escritor.writerow(_linha_csv(linha, self._timezone))
-        return buffer.getvalue().encode("utf-8")
+
+    def executar_sessao(self, ator: AtorWeb, *, turma_id: int, sessao_id: int) -> bytes:
+        if turma_id <= 0 or sessao_id <= 0:
+            raise ValueError("A sessão do relatório é inválida.")
+        return _csv(
+            self._repositorio.listar_presencas_exportacao(
+                ator, turma_id=turma_id, sessao_id=sessao_id
+            ),
+            self._timezone,
+        )
+
+
+def _csv(linhas: list[dict[str, object]], timezone: ZoneInfo) -> bytes:
+    buffer = StringIO(newline="")
+    escritor = csv.writer(buffer, lineterminator="\r\n")
+    escritor.writerow(CABECALHOS_CSV)
+    for linha in linhas:
+        escritor.writerow(_linha_csv(linha, timezone))
+    return buffer.getvalue().encode("utf-8")
 
 
 def _linha_csv(linha: dict[str, object], timezone: ZoneInfo) -> tuple[str, ...]:

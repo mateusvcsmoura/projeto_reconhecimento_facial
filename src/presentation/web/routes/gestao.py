@@ -132,6 +132,17 @@ def _intervalo(
     return inicio, fim
 
 
+def _resposta_csv(conteudo: bytes, nome: str) -> RawResponse:
+    return RawResponse(
+        content=conteudo,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nome}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["gestao"])
     auth = DependenciasAuthWeb(settings, services.auth_repository)
@@ -563,14 +574,31 @@ def criar_rotas_gestao(settings: WebSettings, services: WebServices) -> APIRoute
             RuntimeError,
         ) as erro:
             raise _exigir_autenticado(erro) from None
-        nome = f"presencas-turma-{turma_id}-{desde.isoformat()}-{ate.isoformat()}.csv"
-        return RawResponse(
-            content=conteudo,
-            media_type="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": f'attachment; filename="{nome}"',
-                "X-Content-Type-Options": "nosniff",
-            },
+        return _resposta_csv(
+            conteudo,
+            f"presencas-turma-{turma_id}-{desde.isoformat()}-{ate.isoformat()}.csv",
+        )
+
+    @router.get("/turmas/{turma_id}/sessoes/{sessao_id}/presencas.csv")
+    def exportar_presencas_sessao(
+        turma_id: int,
+        sessao_id: int,
+        conta: ContaAutenticada = Depends(auth.exigir_conta),  # noqa: B008
+    ) -> RawResponse:
+        try:
+            conteudo = ExportarPresencas(
+                repositorio(), settings.app_timezone
+            ).executar_sessao(conta.como_ator(), turma_id=turma_id, sessao_id=sessao_id)
+        except (
+            AcessoTurmaNegado,
+            LookupError,
+            PermissionError,
+            ValueError,
+            RuntimeError,
+        ) as erro:
+            raise _exigir_autenticado(erro) from None
+        return _resposta_csv(
+            conteudo, f"presencas-turma-{turma_id}-sessao-{sessao_id}.csv"
         )
 
     @router.post(
