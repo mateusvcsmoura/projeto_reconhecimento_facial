@@ -833,7 +833,7 @@ def test_troca_de_link_com_token_invalido_e_recusada() -> None:
 
 
 def test_api_de_link_informa_indisponibilidade_sem_repositorio() -> None:
-    services = WebServices(link_repository=None)
+    services = WebServices(link_repository=None, clock=lambda: AGORA)
     with TestClient(create_app(_settings(), services), base_url=ORIGEM) as client:
         response = client.post("/api/v1/acessos-link", json={"token": "t" * 43})
 
