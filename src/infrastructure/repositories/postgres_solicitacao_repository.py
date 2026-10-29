@@ -75,6 +75,7 @@ def _para_solicitacao(
         desafio_expira_em=_utc(linha.desafio_expira_em),
         criada_em=_utc(linha.criada_em),
         link_criado_em=_utc(link_criado_em),
+        motivo_coleta=linha.justificativa if linha.estado == "em_coleta" else None,
     )
 
 
@@ -352,6 +353,7 @@ class PostgresSolicitacaoRepository:
                 raise PermissionError("A solicitação não está autorizada.")
             linha.job_id = job_id
             linha.estado = "em_validacao"
+            linha.justificativa = None
             session.flush()
             _auditar(
                 session,
@@ -481,6 +483,32 @@ class PostgresSolicitacaoRepository:
         motivo: str,
         agora: dt.datetime,
     ) -> None:
+        self._encerrar_validacao(
+            solicitacao_id, job_id, motivo=motivo, agora=agora, reabrir=False
+        )
+
+    def reabrir_coleta_cadastro(
+        self,
+        solicitacao_id: int,
+        job_id: uuid.UUID,
+        *,
+        motivo: str,
+        agora: dt.datetime,
+    ) -> None:
+        """Recusa corrigível (pose, luz, enquadramento): o aluno repete a coleta."""
+        self._encerrar_validacao(
+            solicitacao_id, job_id, motivo=motivo, agora=agora, reabrir=True
+        )
+
+    def _encerrar_validacao(
+        self,
+        solicitacao_id: int,
+        job_id: uuid.UUID,
+        *,
+        motivo: str,
+        agora: dt.datetime,
+        reabrir: bool,
+    ) -> None:
         instante = _utc(agora)
         with sessao(self._engine) as session:
             link_id = session.scalar(
@@ -505,18 +533,30 @@ class PostgresSolicitacaoRepository:
                 or linha.job_id != job_id
             ):
                 return
-            linha.estado = "cancelada"
-            linha.decidida_em = instante
+            if reabrir:
+                # Nova submissão exige novo job e novo desafio (o nonce foi usado).
+                linha.estado = "em_coleta"
+                linha.job_id = None
+                linha.desafio_nonce_hash = None
+                linha.desafio_direcao = None
+                linha.desafio_expira_em = None
+            else:
+                linha.estado = "cancelada"
+                linha.decidida_em = instante
             linha.justificativa = motivo[:500]
             session.flush()
             _auditar(
                 session,
                 ator_id=None,
-                acao="coleta_cadastro_web_cancelada",
+                acao=(
+                    "coleta_cadastro_web_reaberta"
+                    if reabrir
+                    else "coleta_cadastro_web_cancelada"
+                ),
                 alvo_tipo="solicitacao_cadastro_web",
                 alvo_id=solicitacao_id,
                 instante=instante,
-                depois={"estado": "cancelada", "codigo": motivo[:64]},
+                depois={"estado": linha.estado, "codigo": motivo[:64]},
             )
 
     def listar_cadastros_turma(

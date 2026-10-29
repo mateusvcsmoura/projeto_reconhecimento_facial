@@ -38,6 +38,8 @@ class SolicitacaoCadastro:
     # Metadados para a conferência do professor; preenchidos na listagem da turma.
     criada_em: dt.datetime | None = None
     link_criado_em: dt.datetime | None = None
+    # Código da recusa corrigível que reabriu a coleta (pose, luz, enquadramento).
+    motivo_coleta: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

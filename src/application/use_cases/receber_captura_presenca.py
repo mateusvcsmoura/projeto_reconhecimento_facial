@@ -102,6 +102,9 @@ class ReceberCaptura:
                 resultado.motivo_tecnico or "desafio_recusado",
             )
             raise PermissionError("A etapa nao foi aceita.")
+        # Recebimento novo (não repetido) de uma etapa que já tem captura: o worker
+        # devolveu a etapa por recusa corrigível e este envio substitui o recusado.
+        substituir = not resultado.recebimento_repetido
         try:
             nova = self._repositorio.registrar_captura(
                 tentativa_id=tentativa_id,
@@ -109,6 +112,7 @@ class ReceberCaptura:
                 ordinal=etapa,
                 payload_hash=hashlib.sha256(conteudo).hexdigest(),
                 recebida_em=instante,
+                substituir_recusada=substituir,
             )
         except Exception:
             self._rejeitar(
@@ -118,6 +122,8 @@ class ReceberCaptura:
         if not nova:
             return CapturaRecebida(tentativa_id, etapa, True)
         try:
+            if substituir:
+                self._armazenamento.remover_captura(tentativa_id, etapa)
             self._armazenamento.salvar_captura(tentativa_id, etapa, conteudo)
             manifesto = self._armazenamento.manifesto(tentativa_id)
             self._fila.submeter(tentativa_id, manifesto)

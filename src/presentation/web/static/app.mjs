@@ -215,6 +215,14 @@ function iniciarNovoCadastroCompartilhado() {
 // "Cabeça" e não "olhe": o servidor mede a rotação do rosto, não a direção do olhar.
 const INSTRUCOES_POSE = { frente: "Olhe de frente para a câmera", esquerda: "Vire a cabeça para a esquerda", direita: "Vire a cabeça para a direita" };
 const instrucaoPose = (passo) => INSTRUCOES_POSE[passo] || passo;
+// Recusas corrigíveis: o servidor devolve a etapa (presença) ou reabre a coleta (cadastro).
+const DICAS_RECUSA = {
+  movimento_nao_confirmado: "O servidor não confirmou a posição da cabeça. Siga a faixa sobre a câmera e espere a captura automática.",
+  qualidade_insuficiente: "A imagem ficou escura ou sem nitidez. Fique de frente para uma fonte de luz, segure o aparelho parado e tente de novo.",
+  face_unica_nao_confirmada: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
+  captura_invalida: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
+};
+const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "A captura não passou na validação. Tente de novo.";
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas><p class="camera-hint" data-pose-hint aria-hidden="true" hidden></p>` : "";
@@ -928,6 +936,10 @@ async function paginaCadastro(token) {
         }
         return;
       }
+      if (atual.motivo) {
+        repetirColetaCadastro(credencial, estado["cadastro.id"], atual.motivo);
+        return;
+      }
       if (estado["cadastro.desafio"]) {
         mostrarColetaCadastro(credencial, estado["cadastro.id"], estado["cadastro.desafio"]);
         return;
@@ -967,7 +979,14 @@ async function mostrarFormularioCadastro(credencial, erroInicial = null) {
   });
 }
 
-function mostrarColetaCadastro(credencial, id, desafioInicial) {
+function repetirColetaCadastro(credencial, id, motivo) {
+  // A chave anterior devolveria o job recusado; a nova submissão precisa de outra.
+  salvarEstado("cadastro.idempotency", null);
+  salvarEstado("cadastro.desafio", null);
+  mostrarColetaCadastro(credencial, id, null, `As capturas não foram aceitas. ${dicaRecusa(motivo)} Inicie a câmera e repita as três etapas.`);
+}
+
+function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "") {
   let desafio = desafioInicial;
   const sequenciaDe = (atual) => Array.isArray(atual?.sequencia) ? atual.sequencia : ["frente", "movimento indicado", "frente"];
   let sequencia = sequenciaDe(desafio);
@@ -997,7 +1016,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial) {
     const result = document.querySelector("[data-capture-result]");
     if (result) result.innerHTML = "";
   };
-  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(instrucao(sequencia[0]))}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
+  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `${aviso ? mensagem(aviso, "error") : ""}<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(instrucao(sequencia[0]))}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
   bindCamera(async (captura) => {
     capturas.push(captura.base64);
     const etapa = capturas.length;
@@ -1090,21 +1109,24 @@ function iniciarAcompanhamentoCadastro(credencial, id) {
   const controller = new AbortController();
   cleanup.push(() => controller.abort());
   const terminal = new Set(["pendente_aprovacao", "aprovada", "aprovado", "rejeitado", "rejeitada", "cancelada", "expirada"]);
+  // Coleta reaberta (em_coleta + motivo): recusa corrigível, o aluno repete as capturas.
+  const reaberta = (atual) => atual.estado === "em_coleta" && Boolean(atual.motivo);
+  const concluir = (atual) => (reaberta(atual) ? repetirColetaCadastro(credencial, id, atual.motivo) : mostrarEstadoCadastro(atual.estado));
   void acompanharOperacao(() => consultarCadastro(credencial, id, controller.signal), {
-    concluida: (atual) => terminal.has(atual.estado),
+    concluida: (atual) => terminal.has(atual.estado) || reaberta(atual),
     signal: controller.signal,
     aoAtualizar: (atual) => {
       const area = document.querySelector("[data-status-state]");
       if (area) area.textContent = `Estado informado pelo serviço: ${atual.estado}`;
     },
-  }).then((atual) => mostrarEstadoCadastro(atual.estado)).catch((erro) => {
+  }).then(concluir).catch((erro) => {
     if (erro.name !== "AbortError") {
       const area = document.querySelector("[data-status-error]");
       if (area) area.textContent = mostrarErro(erro);
     }
   });
   document.querySelector('[data-action="cadastro-status"]')?.addEventListener("click", async () => {
-    try { const atual = await consultarCadastro(credencial, id); if (terminal.has(atual.estado)) mostrarEstadoCadastro(atual.estado); else avisar(`Estado informado pelo serviço: ${atual.estado}`); }
+    try { const atual = await consultarCadastro(credencial, id); if (terminal.has(atual.estado) || reaberta(atual)) concluir(atual); else avisar(`Estado informado pelo serviço: ${atual.estado}`); }
     catch (erro) { avisar(mostrarErro(erro)); }
   });
 }
@@ -1277,9 +1299,9 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
       }, { headers: { Authorization: `Bearer ${estado["presenca.credencial_captura"]}` } });
       salvarEstado("presenca.desafio", null);
       resultado.textContent = `Etapa ${etapaEnviada} enviada. Aguardando a validação do servidor…`;
-      // O servidor só avança de etapa ou encerra a tentativa; nunca reemite a mesma etapa.
+      // O servidor avança, encerra ou devolve a mesma etapa (recusa corrigível) com o motivo.
       const atual = await acompanharOperacao(() => consultarTentativa(estadoSalvo(), controller.signal), {
-        concluida: (valor) => terminalPresenca(valor.estado) || Number(valor.desafio?.etapa) > etapaEnviada,
+        concluida: (valor) => terminalPresenca(valor.estado) || Number(valor.desafio?.etapa) >= etapaEnviada,
         intervaloMaximoMs: 4000,
         signal: controller.signal,
       });
@@ -1288,6 +1310,12 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
         return undefined;
       }
       mostrarEtapa(atual.desafio);
+      if (Number(atual.desafio.etapa) === etapaEnviada) {
+        const dica = `Etapa ${etapaEnviada} não confirmada. ${dicaRecusa(atual.desafio.motivo)}`;
+        resultado.innerHTML = mensagem(dica, "error");
+        avisar(dica);
+        return `Repita a etapa ${etapaEnviada}: ${instrucaoDe(atual.desafio)}.`;
+      }
       resultado.textContent = "";
       avisar(`Etapa ${etapaEnviada} validada. ${legendaDe(atual.desafio)}.`);
       return `Etapa ${etapaEnviada} validada. Agora: ${instrucaoDe(atual.desafio)}.`;

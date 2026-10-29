@@ -39,6 +39,13 @@ class EstadoDesafio(StrEnum):
     EXPIRADO = "expirado"
 
 
+# Recusas que o aluno corrige sozinho (pose, luz, enquadramento): a etapa volta
+# para nova captura até o prazo do desafio. Identidade e anti-spoofing encerram.
+MOTIVOS_REPETIVEIS = frozenset(
+    {"movimento_nao_confirmado", "qualidade_insuficiente", "face_unica_nao_confirmada"}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ContextoDesafio:
     """Alvo fechado e reserva já criada na fila única task012."""
@@ -76,6 +83,8 @@ class Desafio:
     primeira_orientacao: OrientacaoPose
     expira_em: datetime
     proxima_etapa: int
+    # Código da recusa que devolveu esta etapa ao aluno, para orientar a repetição.
+    motivo: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +132,7 @@ class RepositorioDesafio(Protocol):
         aprovada: bool,
         motivo: str | None,
         agora: datetime,
+        repetir: bool = False,
     ) -> RegistroDesafio | None: ...
 
     def encerrar(
@@ -244,6 +254,7 @@ class DesafioCaptura:
             primeira_orientacao=OrientacaoPose.FRENTE,
             expira_em=_utc(registro.expira_em),
             proxima_etapa=proxima,
+            motivo=registro.motivo,
         )
 
     def registrar_etapa_recebida(
@@ -326,6 +337,28 @@ class DesafioCaptura:
         evidencias: EvidenciaEtapa,
         agora: datetime,
     ) -> ResultadoEtapaDesafio:
+        return self._validar(
+            desafio_id,
+            sequencia,
+            agora,
+            lambda registro: self._motivo_recusa(registro, sequencia, evidencias),
+        )
+
+    def repetir_etapa(
+        self, desafio_id: UUID, sequencia: int, motivo: str, agora: datetime
+    ) -> ResultadoEtapaDesafio:
+        """Devolve a etapa ao aluno após recusa corrigível detectada no worker."""
+        if motivo not in MOTIVOS_REPETIVEIS:
+            raise ValueError("O motivo não permite repetir a etapa.")
+        return self._validar(desafio_id, sequencia, agora, lambda _registro: motivo)
+
+    def _validar(
+        self,
+        desafio_id: UUID,
+        sequencia: int,
+        agora: datetime,
+        motivo_de: Callable[[RegistroDesafio], str | None],
+    ) -> ResultadoEtapaDesafio:
         instante = _utc(agora)
         registro = self._repositorio.obter(desafio_id)
         if registro is None:
@@ -352,13 +385,14 @@ class DesafioCaptura:
                 desafio_id, EstadoDesafio.REJEITADO, "protocolo_invalido", instante
             )
 
-        motivo = self._motivo_recusa(registro, sequencia, evidencias)
+        motivo = motivo_de(registro)
         atualizado = self._repositorio.validar_etapa(
             desafio_id,
             sequencia,
             aprovada=motivo is None,
             motivo=motivo,
             agora=instante,
+            repetir=motivo in MOTIVOS_REPETIVEIS,
         )
         if atualizado is None:
             return self._resultado_atual(desafio_id)

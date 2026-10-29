@@ -96,6 +96,7 @@ class PostgresDesafioRepository:
         aprovada: bool,
         motivo: str | None,
         agora: datetime,
+        repetir: bool = False,
     ) -> RegistroDesafio | None:
         instante = _utc(agora)
         with self.session_factory() as session, session.begin():
@@ -112,6 +113,11 @@ class PostgresDesafioRepository:
             if instante > _utc(linha.expira_em):
                 linha.estado = EstadoDesafio.EXPIRADO.value
                 linha.motivo = "desafio_expirado"
+            elif not aprovada and repetir:
+                # A mesma etapa volta a aguardar captura; o motivo orienta o aluno.
+                linha.estado = EstadoDesafio.AGUARDANDO_ETAPA.value
+                linha.etapa_recebida = linha.etapa_validada
+                linha.motivo = motivo
             elif not aprovada:
                 linha.estado = EstadoDesafio.REJEITADO.value
                 linha.motivo = motivo or "evidencia_recusada"

@@ -87,6 +87,7 @@ class SolicitacoesFake:
     def __init__(self, solicitacao: SolicitacaoCadastro | None = None) -> None:
         self.solicitacao = solicitacao or _solicitacao()
         self.cancelamentos: list[str] = []
+        self.reaberturas: list[str] = []
         self.anexadas: list[tuple[object, ...]] = []
 
     def obter_solicitacao(self, _solicitacao_id: int) -> SolicitacaoCadastro:
@@ -103,6 +104,11 @@ class SolicitacoesFake:
         self, _solicitacao_id: int, _job_id: object, *, motivo: str, agora: datetime
     ) -> None:
         self.cancelamentos.append(motivo)
+
+    def reabrir_coleta_cadastro(
+        self, _solicitacao_id: int, _job_id: object, *, motivo: str, agora: datetime
+    ) -> None:
+        self.reaberturas.append(motivo)
 
 
 class AnexarFake:
@@ -246,7 +252,9 @@ def test_worker_recusa_quando_pose_nao_confirma_face_unica() -> None:
     resultado = processor.processar(_job(), (b"a", b"b", b"c"))
 
     assert not resultado.sucesso
-    assert repository.cancelamentos == ["face_unica_nao_confirmada"]
+    # Rosto não confirmado é corrigível: a coleta reabre em vez de cancelar.
+    assert repository.reaberturas == ["face_unica_nao_confirmada"]
+    assert not repository.cancelamentos
     assert not repository.anexadas
 
 
@@ -295,7 +303,8 @@ def test_worker_recusa_capturas_fora_da_sequencia_de_pose_do_desafio() -> None:
 
     assert not resultado.sucesso
     assert resultado.codigo is CodigoResultadoWorker.RECUSA_BIOMETRICA
-    assert repository.cancelamentos == ["movimento_nao_confirmado"]
+    assert repository.reaberturas == ["movimento_nao_confirmado"]
+    assert not repository.cancelamentos
     assert not repository.anexadas
 
 

@@ -513,6 +513,8 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
                         else desafio.direcao.value
                     ),
                     "expira_em": desafio.expira_em.isoformat(),
+                    # Preenchido quando a etapa voltou por recusa corrigível.
+                    "motivo": desafio.motivo,
                 }
         return resposta
 

@@ -418,6 +418,7 @@ class PostgresPresencaWebRepository:
         ordinal: int,
         payload_hash: str,
         recebida_em: dt.datetime,
+        substituir_recusada: bool = False,
     ) -> bool:
         instante = _utc(recebida_em)
         with self._factory()() as session, session.begin():
@@ -439,7 +440,7 @@ class PostgresPresencaWebRepository:
             anterior = session.get(
                 models.RecebimentoTentativaPresencaWeb, (tentativa_id, ordinal)
             )
-            if anterior is not None:
+            if anterior is not None and not substituir_recusada:
                 if anterior.payload_hash != payload_hash:
                     raise CapturaRepetidaDiferente()
                 return False
@@ -460,16 +461,21 @@ class PostgresPresencaWebRepository:
                 )
                 or 0
             )
-            if ordinal != count + 1:
+            if ordinal != (count if anterior is not None else count + 1):
                 raise TentativaIndisponivel()
-            session.add(
-                models.RecebimentoTentativaPresencaWeb(
-                    tentativa_id=tentativa_id,
-                    ordinal=ordinal,
-                    payload_hash=payload_hash,
-                    recebido_em=instante,
+            if anterior is not None:
+                # Etapa devolvida por recusa corrigível: o novo envio a substitui.
+                anterior.payload_hash = payload_hash
+                anterior.recebido_em = instante
+            else:
+                session.add(
+                    models.RecebimentoTentativaPresencaWeb(
+                        tentativa_id=tentativa_id,
+                        ordinal=ordinal,
+                        payload_hash=payload_hash,
+                        recebido_em=instante,
+                    )
                 )
-            )
             tentativa.estado = EstadoTentativaPresenca.RECEBIDA.value
             tentativa.recebida_em = tentativa.recebida_em or instante
             session.flush()

@@ -251,6 +251,9 @@ class _Capturas:
     def __init__(self) -> None:
         self.salvas: list[tuple[UUID, int, bytes]] = []
 
+    def remover_captura(self, _job_id: UUID, _ordinal: int) -> None:
+        return None
+
     def salvar_captura(self, job_id: UUID, ordinal: int, conteudo: bytes) -> None:
         self.salvas.append((job_id, ordinal, conteudo))
 

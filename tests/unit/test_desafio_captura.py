@@ -58,6 +58,7 @@ class RepositorioDesafioFake:
         aprovada: bool,
         motivo: str | None,
         agora: datetime,
+        repetir: bool = False,
     ) -> Any | None:
         api = importlib.import_module(MODULO)
         registro = self.registros.get(desafio_id)
@@ -69,7 +70,9 @@ class RepositorioDesafioFake:
         ):
             return None
         novo_estado = (
-            api.EstadoDesafio.REJEITADO
+            api.EstadoDesafio.AGUARDANDO_ETAPA
+            if not aprovada and repetir
+            else api.EstadoDesafio.REJEITADO
             if not aprovada
             else api.EstadoDesafio.CONCLUIDO
             if sequencia == 3
@@ -78,6 +81,9 @@ class RepositorioDesafioFake:
         atualizado = replace(
             registro,
             etapa_validada=sequencia if aprovada else registro.etapa_validada,
+            etapa_recebida=(
+                registro.etapa_validada if repetir else registro.etapa_recebida
+            ),
             estado=novo_estado,
             motivo=motivo,
             atualizada_em=agora,
@@ -218,7 +224,7 @@ def test_etapa_antiga_ou_invertida_nao_aprova() -> None:
     assert estado.desafio_ok is False
 
 
-def test_frame_estatico_na_etapa_de_movimento_rejeita() -> None:
+def test_frame_estatico_na_etapa_de_movimento_devolve_a_etapa_ate_passar() -> None:
     api = _api()
     assert api is not None, "O serviço de desafio ainda não está implementado."
     modulo, repositorio = api
@@ -229,8 +235,59 @@ def test_frame_estatico_na_etapa_de_movimento_rejeita() -> None:
 
     estado = servico.validar_etapa(desafio.id, 2, _evidencia(modulo, "frente"), AGORA)
 
-    assert estado.estado is modulo.EstadoDesafio.REJEITADO
+    # Pose errada não encerra: a etapa 2 volta, com o motivo para orientar o aluno.
+    assert estado.estado is modulo.EstadoDesafio.AGUARDANDO_ETAPA
+    assert estado.proxima_etapa == 2
+    assert estado.motivo_tecnico == "movimento_nao_confirmado"
     assert estado.desafio_ok is False
+    direcao = repositorio.registros[desafio.id].direcao.value
+    reenvio = servico.registrar_etapa_recebida(desafio.id, desafio.nonce, 2, AGORA)
+    assert reenvio.estado is modulo.EstadoDesafio.ETAPA_RECEBIDA
+    assert reenvio.recebimento_repetido is False
+    aprovada = servico.validar_etapa(desafio.id, 2, _evidencia(modulo, direcao), AGORA)
+    assert aprovada.estado is modulo.EstadoDesafio.AGUARDANDO_ETAPA
+    assert aprovada.proxima_etapa == 3
+    assert aprovada.motivo_tecnico is None
+
+
+@pytest.mark.parametrize(
+    ("ajustes", "motivo"),
+    [
+        ({"qualidade_ok": False}, "qualidade_insuficiente"),
+        ({"orientacao": "indeterminada"}, "movimento_nao_confirmado"),
+    ],
+)
+def test_recusa_corrigivel_devolve_a_etapa(
+    ajustes: dict[str, object], motivo: str
+) -> None:
+    api = _api()
+    assert api is not None, "O serviço de desafio ainda não está implementado."
+    modulo, repositorio = api
+    servico, desafio = _emitir(modulo, repositorio)
+    servico.registrar_etapa_recebida(desafio.id, desafio.nonce, 1, AGORA)
+
+    estado = servico.validar_etapa(
+        desafio.id, 1, _evidencia(modulo, "frente", **ajustes), AGORA
+    )
+
+    assert estado.estado is modulo.EstadoDesafio.AGUARDANDO_ETAPA
+    assert estado.proxima_etapa == 1
+    assert estado.motivo_tecnico == motivo
+
+
+def test_repetir_etapa_so_aceita_motivo_corrigivel() -> None:
+    api = _api()
+    assert api is not None, "O serviço de desafio ainda não está implementado."
+    modulo, repositorio = api
+    servico, desafio = _emitir(modulo, repositorio)
+    servico.registrar_etapa_recebida(desafio.id, desafio.nonce, 1, AGORA)
+
+    with pytest.raises(ValueError):
+        servico.repetir_etapa(desafio.id, 1, "identidade_nao_confirmada", AGORA)
+    estado = servico.repetir_etapa(desafio.id, 1, "face_unica_nao_confirmada", AGORA)
+
+    assert estado.estado is modulo.EstadoDesafio.AGUARDANDO_ETAPA
+    assert estado.motivo_tecnico == "face_unica_nao_confirmada"
 
 
 @pytest.mark.parametrize(
@@ -240,11 +297,9 @@ def test_frame_estatico_na_etapa_de_movimento_rejeita() -> None:
         {"quantidade_rostos": 2},
         {"quantidade_rostos": 1.0},
         {"identidade_ok": False},
-        {"qualidade_ok": False},
         {"antispoofing_ok": False},
         {"versao_referencia": 3},
         {"versao_referencia": True},
-        {"orientacao": "indeterminada"},
     ],
 )
 def test_evidencia_incompleta_ou_insegura_rejeita(ajustes: dict[str, object]) -> None:

@@ -33,6 +33,7 @@ from src.infrastructure.repositories.postgres_presenca_repository import (
     PostgresPresencaRepository,
 )
 from src.infrastructure.repositories.postgres_presenca_web_repository import (
+    CapturaRepetidaDiferente,
     PostgresPresencaWebRepository,
     QuotaTentativasEsgotada,
     TentativaAtiva,
@@ -413,6 +414,42 @@ def test_escritor_cli_diario_continua_idempotente_com_indice_parcial(
         )
         is False
     )
+
+
+def test_etapa_devolvida_substitui_o_recebimento_da_mesma_etapa(
+    postgres_presenca_engine: Engine,
+) -> None:
+    engine = postgres_presenca_engine
+    contexto = _criar_contexto_presenca(engine)
+    repo = PostgresPresencaWebRepository(engine)
+    job_id = _reservar_tentativa(engine, repo, contexto, 900, AGORA)
+    with Session(engine) as session:
+        credencial_hash = session.get(models.JobFacialWeb, job_id).credencial_hash
+
+    def registrar(payload: bytes, *, substituir: bool) -> bool:
+        return repo.registrar_captura(
+            tentativa_id=job_id,
+            credencial_hash=credencial_hash,
+            ordinal=1,
+            payload_hash=hashlib.sha256(payload).hexdigest(),
+            recebida_em=AGORA,
+            substituir_recusada=substituir,
+        )
+
+    assert registrar(b"primeira", substituir=True) is True
+    # Envio concorrente da mesma etapa (sem devolução) continua recusado.
+    with pytest.raises(CapturaRepetidaDiferente):
+        registrar(b"concorrente", substituir=False)
+    assert registrar(b"repeticao", substituir=True) is True
+    with Session(engine) as session:
+        recebimentos = (
+            session.query(models.RecebimentoTentativaPresencaWeb)
+            .filter_by(tentativa_id=job_id)
+            .all()
+        )
+    assert [(item.ordinal, item.payload_hash) for item in recebimentos] == [
+        (1, hashlib.sha256(b"repeticao").hexdigest())
+    ]
 
 
 def test_reserva_concorrente_mantem_uma_tentativa_ativa_e_limite_de_tres(

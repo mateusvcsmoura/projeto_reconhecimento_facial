@@ -147,7 +147,7 @@ def _payload_desafio(
 
 def _payload_solicitacao(solicitacao: SolicitacaoCadastro) -> dict[str, object]:
     """DTO explícito de metadados, sem foto, embedding, job ou caminho."""
-    return {
+    payload: dict[str, object] = {
         "id": solicitacao.id,
         "tipo": solicitacao.tipo,
         "estado": solicitacao.estado,
@@ -156,6 +156,10 @@ def _payload_solicitacao(solicitacao: SolicitacaoCadastro) -> dict[str, object]:
         "matricula": solicitacao.matricula,
         "expira_em": solicitacao.expira_em.isoformat(),
     }
+    if solicitacao.motivo_coleta:
+        # Coleta reaberta por recusa corrigível: o aluno repete as capturas.
+        payload["motivo"] = solicitacao.motivo_coleta
+    return payload
 
 
 def _iso(instante: datetime | None) -> str | None:

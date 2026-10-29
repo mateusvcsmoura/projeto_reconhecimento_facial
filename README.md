@@ -90,7 +90,9 @@ privado e enfileira um job; o worker processa um job por vez e confirma o
 resultado em transação. O navegador mostra landmarks com MediaPipe
 `tasks-vision` (WASM) apenas como guia: ele aplica a mesma geometria de pose do
 worker, com folga, para orientar o aluno e capturar quando a posição estiver
-certa; a decisão é sempre do servidor.
+certa; a decisão é sempre do servidor. Recusas corrigíveis (pose, qualidade da
+imagem, rosto não encontrado) devolvem a etapa na presença ou reabrem a coleta
+no cadastro, com uma dica, até o prazo; identidade e anti-spoofing encerram.
 
 ### Fluxo CLI
 

@@ -28,6 +28,7 @@ from src.domain.errors import (
     QualidadeCapturaInsuficiente,
 )
 from src.domain.services.desafio_captura import (
+    MOTIVOS_REPETIVEIS,
     DirecaoMovimento,
     OrientacaoPose,
 )
@@ -38,6 +39,8 @@ from src.infrastructure.face_recognition.processador_desafio_verificacao import 
 
 logger = logging.getLogger(__name__)
 LIMIAR_CONTINUIDADE = 0.30
+# Recusas corrigíveis pelo aluno: a coleta reabre em vez de cancelar a solicitação.
+MOTIVOS_REPETIVEIS_CADASTRO = MOTIVOS_REPETIVEIS | {"captura_invalida"}
 
 
 class AdaptadorCadastro(Protocol):
@@ -58,6 +61,15 @@ class RepositorioCadastro(Protocol):
     def obter_solicitacao(self, solicitacao_id: int) -> SolicitacaoCadastro: ...
 
     def cancelar_coleta_cadastro(
+        self,
+        solicitacao_id: int,
+        job_id: Any,
+        *,
+        motivo: str,
+        agora: datetime,
+    ) -> None: ...
+
+    def reabrir_coleta_cadastro(
         self,
         solicitacao_id: int,
         job_id: Any,
@@ -229,9 +241,13 @@ class ProcessadorCadastroWeb:
                     job, solicitacao_id, "solicitacao_indisponivel", tecnico=False
                 )
             return ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
-        except (PossivelFraude, QualidadeCapturaInsuficiente):
+        except PossivelFraude:
             return self._falhar(
                 job, self._id_solicitacao(job), "recusa_biometrica", tecnico=False
+            )
+        except QualidadeCapturaInsuficiente:
+            return self._falhar(
+                job, self._id_solicitacao(job), "qualidade_insuficiente", tecnico=False
             )
         except (NenhumRostoDetectado, MultiplosRostosDetectados, ValueError) as exc:
             logger.warning(
@@ -266,8 +282,13 @@ class ProcessadorCadastroWeb:
         tecnico: bool,
     ) -> ResultadoWorker:
         if solicitacao_id is not None:
+            encerrar = (
+                self._repositorio.reabrir_coleta_cadastro
+                if motivo in MOTIVOS_REPETIVEIS_CADASTRO
+                else self._repositorio.cancelar_coleta_cadastro
+            )
             try:
-                self._repositorio.cancelar_coleta_cadastro(
+                encerrar(
                     solicitacao_id,
                     job.id,
                     motivo=motivo,

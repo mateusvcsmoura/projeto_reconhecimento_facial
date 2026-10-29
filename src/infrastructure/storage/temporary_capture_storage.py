@@ -104,6 +104,14 @@ class TemporaryCaptureStorage:
         conteudo = caminho.read_bytes()
         return conteudo
 
+    def remover_captura(self, job_id: UUID, ordinal: int) -> None:
+        """Descarta a captura recusada de uma etapa devolvida ao aluno."""
+        if ordinal not in range(1, self._max_captures + 1):
+            raise ValueError("Ordinal de captura inválido.")
+        caminho = self._diretorio_job(job_id) / f"captura-{ordinal}.bin"
+        self._exigir_dentro_da_raiz(caminho.resolve())
+        caminho.unlink(missing_ok=True)
+
     def remover_job(self, job_id: UUID) -> None:
         diretorio = self._diretorio_job(job_id)
         self._exigir_dentro_da_raiz(diretorio.resolve())

@@ -201,20 +201,9 @@ class ProcessadorDesafioVerificacao:
                 antispoofing=False,
             )
         except QualidadeCapturaInsuficiente:
-            return self._falha(
-                registro,
-                "qualidade_insuficiente",
-                tecnico=False,
-                identidade=True,
-                qualidade=False,
-            )
+            return self._repetir(registro, "qualidade_insuficiente")
         except (NenhumRostoDetectado, MultiplosRostosDetectados):
-            return self._falha(
-                registro,
-                "face_unica_nao_confirmada",
-                tecnico=False,
-                identidade=False,
-            )
+            return self._repetir(registro, "face_unica_nao_confirmada")
         except ModeloIndisponivel:
             return self._falha(registro, "modelo_indisponivel", tecnico=True)
         except Exception:
@@ -300,7 +289,6 @@ class ProcessadorDesafioVerificacao:
         tecnico: bool,
         identidade: bool = False,
         antispoofing: bool = False,
-        qualidade: bool = False,
         distancia: float | None = None,
     ) -> ResultadoWorker:
         facial = None
@@ -312,7 +300,7 @@ class ProcessadorDesafioVerificacao:
                 identidade_ok=identidade,
                 desafio_ok=False,
                 antispoofing_ok=antispoofing,
-                qualidade_ok=qualidade,
+                qualidade_ok=False,
                 motivo_tecnico=motivo,
                 versao_referencia=registro.versao_referencia,
                 politica=POLITICA_VERIFICACAO,
@@ -326,6 +314,20 @@ class ProcessadorDesafioVerificacao:
             if tecnico
             else CodigoResultadoWorker.RECUSA_BIOMETRICA,
             resultado_facial=facial,
+        )
+
+    def _repetir(self, registro: Any, motivo: str) -> ResultadoWorker:
+        """Recusa corrigível (luz, enquadramento): a etapa volta ao aluno."""
+        resultado = self._desafio.repetir_etapa(
+            registro.id,
+            registro.etapa_recebida,
+            motivo,
+            self._utc(self._relogio()),
+        )
+        return ResultadoWorker(
+            False,
+            CodigoResultadoWorker.RECUSA_BIOMETRICA,
+            aguardando_etapa=resultado.estado is EstadoDesafio.AGUARDANDO_ETAPA,
         )
 
     def fechar(self) -> None:

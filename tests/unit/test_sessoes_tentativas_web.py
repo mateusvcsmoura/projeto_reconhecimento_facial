@@ -205,6 +205,10 @@ class RepositorioRecebimentoFake:
 class ArmazenamentoFake:
     def __init__(self) -> None:
         self.salvas: list[tuple[object, ...]] = []
+        self.removidas: list[tuple[object, ...]] = []
+
+    def remover_captura(self, job_id, ordinal):
+        self.removidas.append((job_id, ordinal))
 
     def salvar_captura(self, job_id, ordinal, conteudo):
         self.salvas.append((job_id, ordinal, conteudo))
@@ -478,6 +482,9 @@ def test_captura_recebida_no_instante_limite_e_enviada_uma_vez() -> None:
     assert len(storage.salvas) == 1
     assert len(fila.submetidos) == 1
     assert repositorio.capturas[0]["recebida_em"] == instante_limite
+    # Recebimento novo substitui a captura de etapa devolvida (no-op na primeira).
+    assert repositorio.capturas[0]["substituir_recusada"] is True
+    assert storage.removidas == [(repositorio.tentativa.id, 1)]
 
 
 def test_reenvio_igual_e_idempotente_sem_gravar_frame_duas_vezes() -> None:

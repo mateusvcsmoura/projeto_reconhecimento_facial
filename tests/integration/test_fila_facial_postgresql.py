@@ -464,6 +464,21 @@ def test_desafio_verificacao_transiciona_no_postgresql(
 
         assert recebido.estado is EstadoDesafio.ETAPA_RECEBIDA
         assert validado.estado is EstadoDesafio.AGUARDANDO_ETAPA
+        # Pose errada na etapa 2 devolve a etapa; o CHECK sequencia_coerente aceita.
+        service.registrar_etapa_recebida(desafio.id, desafio.nonce, 2, agora)
+        devolvido = service.validar_etapa(
+            desafio.id,
+            2,
+            EvidenciaEtapa(1, OrientacaoPose.FRENTE, True, True, True, 1),
+            agora,
+        )
+        assert devolvido.estado is EstadoDesafio.AGUARDANDO_ETAPA
+        assert devolvido.proxima_etapa == 2
+        assert devolvido.motivo_tecnico == "movimento_nao_confirmado"
+        reenviado = service.registrar_etapa_recebida(
+            desafio.id, desafio.nonce, 2, agora
+        )
+        assert reenviado.estado is EstadoDesafio.ETAPA_RECEBIDA
         assert fila.aguardar_proxima_etapa(ativo)
         fila.submeter(
             job_id,

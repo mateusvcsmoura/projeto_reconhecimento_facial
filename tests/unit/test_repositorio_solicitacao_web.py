@@ -348,6 +348,57 @@ def test_renovar_desafio_substitui_nonce_somente_durante_a_coleta(engine) -> Non
         )
 
 
+def test_recusa_corrigivel_reabre_a_coleta_para_nova_submissao(engine) -> None:
+    repo = PostgresSolicitacaoRepository(engine)
+    solicitacao = _criar_solicitacao(repo, "000-reabrir", "Pessoa Reabertura")
+    job_id = uuid.uuid4()
+    with Session(engine) as session, session.begin():
+        session.add(
+            models.JobFacialWeb(
+                id=job_id,
+                dono_id=str(solicitacao.id),
+                tipo="cadastro",
+                estado="recebida",
+                idempotencia_hash="c" * 64,
+                credencial_hash="a" * 64,
+                manifesto=None,
+                bytes_reservados=1,
+                prazo_reserva=AGORA + dt.timedelta(minutes=5),
+                prazo_execucao=AGORA + dt.timedelta(minutes=15),
+                criada_em=AGORA,
+                atualizada_em=AGORA,
+            )
+        )
+        session.flush()
+        linha = session.get(models.SolicitacaoCadastroWeb, solicitacao.id)
+        linha.estado = "em_validacao"
+        linha.job_id = job_id
+
+    repo.reabrir_coleta_cadastro(
+        solicitacao.id, job_id, motivo="movimento_nao_confirmado", agora=AGORA
+    )
+
+    reaberta = repo.obter_solicitacao(solicitacao.id)
+    assert reaberta.estado == "em_coleta"
+    assert reaberta.motivo_coleta == "movimento_nao_confirmado"
+    assert reaberta.desafio_nonce_hash is None
+    with Session(engine) as session:
+        assert session.get(models.SolicitacaoCadastroWeb, solicitacao.id).job_id is None
+    # Job antigo não pode mais encerrar a coleta reaberta.
+    repo.cancelar_coleta_cadastro(
+        solicitacao.id, job_id, motivo="falha_tecnica", agora=AGORA
+    )
+    assert repo.obter_solicitacao(solicitacao.id).estado == "em_coleta"
+    renovada = repo.renovar_desafio_coleta(
+        solicitacao.id,
+        agora=AGORA,
+        desafio_nonce_hash="d" * 64,
+        desafio_direcao="direita",
+        desafio_expira_em=AGORA + dt.timedelta(minutes=2),
+    )
+    assert renovada.desafio_nonce_hash == "d" * 64
+
+
 def test_professor_de_outra_turma_nao_aprova_solicitacao(
     engine, tmp_path: Path
 ) -> None:

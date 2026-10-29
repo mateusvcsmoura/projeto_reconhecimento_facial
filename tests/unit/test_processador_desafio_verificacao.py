@@ -19,6 +19,7 @@ from src.application.services.fila_facial import (
 )
 from src.application.services.worker_facial import CodigoResultadoWorker
 from src.domain.entities.face_embedding import FaceEmbedding
+from src.domain.errors import IluminacaoInsuficiente
 from src.domain.services.desafio_captura import (
     ContextoDesafio,
     DesafioCaptura,
@@ -104,10 +105,13 @@ class RepositorioDesafioFake:
         aprovada: bool,
         motivo: str | None,
         agora: datetime,
+        repetir: bool = False,
     ) -> Any | None:
         registro = self.registros[desafio_id]
         estado = (
-            EstadoDesafio.REJEITADO
+            EstadoDesafio.AGUARDANDO_ETAPA
+            if not aprovada and repetir
+            else EstadoDesafio.REJEITADO
             if not aprovada
             else EstadoDesafio.CONCLUIDO
             if sequencia == 3
@@ -117,6 +121,9 @@ class RepositorioDesafioFake:
             registro,
             estado=estado,
             etapa_validada=sequencia if aprovada else registro.etapa_validada,
+            etapa_recebida=(
+                registro.etapa_validada if repetir else registro.etapa_recebida
+            ),
             motivo=motivo,
             atualizada_em=agora,
         )
@@ -262,6 +269,34 @@ def test_worker_confirma_identidade_pose_qualidade_e_antispoofing() -> None:
     assert resultado.resultado_facial.qualidade_ok is True
     assert resultado.resultado_facial.desafio_ok is False
     assert not hasattr(resultado.resultado_facial, "embedding")
+
+
+class FaceEscura:
+    def gerar_embedding(self, _imagem: bytes) -> FaceEmbedding:
+        raise IluminacaoInsuficiente("luminosidade=12.0")
+
+
+def test_worker_devolve_a_etapa_quando_a_captura_esta_escura() -> None:
+    job_id, desafio, refs, _, repositorio = _preparar(1)
+    processor = ProcessadorDesafioVerificacao(
+        repositorio,
+        ReferenciasFake(refs),
+        desafio,
+        FaceEscura(),
+        PoseFake(OrientacaoPose.FRENTE),
+        relogio=lambda: AGORA,
+        decodificador=lambda content: content,
+    )
+
+    resultado = processor.processar(_job(job_id, 1, (b"frame-1",)), (b"frame-1",))
+
+    # Luz insuficiente é corrigível: a tentativa continua e a etapa 1 volta.
+    assert resultado.sucesso is False
+    assert resultado.aguardando_etapa is True
+    registro = repositorio.obter(job_id)
+    assert registro.estado is EstadoDesafio.AGUARDANDO_ETAPA
+    assert registro.etapa_recebida == registro.etapa_validada == 0
+    assert registro.motivo == "qualidade_insuficiente"
 
 
 def test_worker_recusa_duas_pessoas_ou_face_landmarker_sem_face() -> None:
