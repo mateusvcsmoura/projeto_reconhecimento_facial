@@ -5,6 +5,7 @@ import test from "node:test";
 import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
 import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
 import {
+  avaliarPose,
   criarVisualizadorLandmarks,
   desenharLandmarks,
 } from "../../../src/presentation/web/static/landmarks.mjs";
@@ -129,6 +130,30 @@ test("guia de landmarks desenha apenas os pontos locais detectados", () => {
     ["arc", 50, 50, 1.6, 0, Math.PI * 2],
     ["arc", 150, 50, 1.6, 0, Math.PI * 2],
   ]);
+});
+
+test("guia de pose só aprova dentro da faixa aceita pelo servidor", () => {
+  // Mesmos pontos sintéticos de test_desafio_movimento_adapter.py: olhos em
+  // 0.35/0.65, nariz deslocado em yaw * 0.3 (deslocamento = yaw).
+  const rosto = (yaw) => {
+    const pontos = Array.from({ length: 468 }, () => ({ x: 0.5, y: 0.5 }));
+    pontos[33] = { x: 0.35, y: 0.4 };
+    pontos[263] = { x: 0.65, y: 0.4 };
+    pontos[1] = { x: 0.5 + yaw * 0.3, y: 0.5 };
+    return pontos;
+  };
+  const ok = (yaw, esperada) => avaliarPose([rosto(yaw)], esperada).ok;
+
+  assert.equal(ok(0, "frente"), true);
+  assert.equal(ok(0.07, "frente"), false, "servidor aceita até 0.08; o guia deixa folga");
+  assert.equal(ok(0.25, "esquerda"), true);
+  assert.equal(ok(-0.25, "direita"), true);
+  assert.equal(ok(0.14, "esquerda"), false, "faixa 0.08–0.12 é indeterminada no servidor");
+  assert.equal(ok(0.45, "esquerda"), false, "virada demais perde o detector frontal");
+  assert.match(avaliarPose([rosto(0.25)], "direita").dica, /Lado oposto/);
+  assert.match(avaliarPose([], "frente").dica, /Posicione/);
+  assert.match(avaliarPose([rosto(0), rosto(0)], "frente").dica, /apenas um rosto/);
+  assert.equal(avaliarPose([rosto(0)], "movimento indicado"), null);
 });
 
 test("guia de landmarks usa CPU para funcionar sem aceleração gráfica", async () => {

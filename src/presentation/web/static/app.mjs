@@ -1,6 +1,6 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
 import { criarControladorCamera } from "./camera.mjs";
-import { criarVisualizadorLandmarks } from "./landmarks.mjs";
+import { avaliarPose, criarVisualizadorLandmarks } from "./landmarks.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
 import {
@@ -217,38 +217,69 @@ const INSTRUCOES_POSE = { frente: "Olhe de frente para a câmera", esquerda: "Vi
 const instrucaoPose = (passo) => INSTRUCOES_POSE[passo] || passo;
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
-  const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas>` : "";
+  const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas><p class="camera-hint" data-pose-hint aria-hidden="true" hidden></p>` : "";
   // Legenda sobre o vídeo: a orientação fica visível junto da câmera, não só no topo da página.
   const legenda = instrucao ? `<p class="camera-instruction" data-camera-instruction>${escapeHtml(instrucao)}</p>` : "";
   const statusGuia = guiaFacial ? `<p class="field-hint" data-landmarks-status aria-live="polite">O guia facial será iniciado junto com a câmera. Ele é local e não substitui a validação do servidor.</p>` : "";
   return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
-function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}) {
+function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseEsperada = () => null } = {}) {
   const video = document.querySelector("#camera-video");
   const placeholder = document.querySelector("#camera-placeholder");
   const status = document.querySelector("[data-camera-status]");
   const landmarksCanvas = document.querySelector("[data-face-landmarks]");
   const landmarksStatus = document.querySelector("[data-landmarks-status]");
+  const poseHint = document.querySelector("[data-pose-hint]");
   const deviceSelect = document.querySelector("#camera-device");
   if (!video || !status || !deviceSelect) return;
   const captureButton = document.querySelector('[data-action="capture-step"]');
   const captureButtonLabel = captureButton?.textContent;
   let automaticTimer = null;
   let capturing = false;
+  let guiaAtivo = false;
+  let poseCerta = 0;
+  let liberadoEm = Infinity;
   const landmarks = landmarksCanvas ? criarVisualizadorLandmarks() : null;
   const setStatus = (value, type = "") => {
     status.className = type ? `notice notice--${type}` : "field-hint";
     status.textContent = value;
   };
   const scheduleAutomaticCapture = (prefixo = "") => {
-    if (autoCaptureMs === null || !camera.stream || !video.isConnected || capturing || captureButton?.disabled) return;
+    if (!camera.stream || !video.isConnected || capturing || captureButton?.disabled) return;
     clearTimeout(automaticTimer);
+    if (guiaAtivo && poseEsperada()) {
+      // Com o guia de pose, a captura espera a posição certa em vez do relógio.
+      poseCerta = 0;
+      liberadoEm = performance.now() + 1000;
+      setStatus(`${prefixo}A captura é automática quando a posição estiver certa. Você também pode usar o botão.`, prefixo ? "success" : "");
+      return;
+    }
+    if (autoCaptureMs === null) return;
     setStatus(`${prefixo}Captura automática em 3 segundos. Você também pode capturar antes ou encerrar a câmera.`, prefixo ? "success" : "");
     automaticTimer = setTimeout(() => { void takeCapture(); }, autoCaptureMs);
   };
+  const guiarPose = (faces) => {
+    const avaliacao = camera.stream ? avaliarPose(faces, poseEsperada()) : null;
+    if (poseHint) poseHint.hidden = !avaliacao;
+    if (!avaliacao) return false;
+    if (poseHint && poseHint.textContent !== avaliacao.dica) {
+      poseHint.textContent = avaliacao.dica;
+      poseHint.classList.toggle("camera-hint--ok", avaliacao.ok);
+      if (landmarksStatus) {
+        landmarksStatus.className = avaliacao.ok ? "notice notice--success" : "field-hint";
+        landmarksStatus.textContent = `Guia de posição: ${avaliacao.dica}`;
+      }
+    }
+    // ~0,4 s estável (o guia roda a cada 100 ms) antes de capturar sozinho.
+    poseCerta = avaliacao.ok ? poseCerta + 1 : 0;
+    if (poseCerta >= 4 && performance.now() >= liberadoEm && !capturing && !captureButton?.disabled) void takeCapture();
+    return true;
+  };
   const takeCapture = async () => {
     clearTimeout(automaticTimer);
+    // Após falha, a captura automática só volta depois de uma captura manual.
+    liberadoEm = Infinity;
     if (capturing) {
       setStatus("Uma captura já está em andamento. Aguarde a confirmação.");
       return;
@@ -296,11 +327,11 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
       else stage?.classList.add("camera-stage--mirror");
       placeholder.hidden = true;
       setStatus("Câmera pronta. Siga a orientação exibida e use o controle de captura.", "success");
-      if (landmarks) await landmarks.iniciar(video, landmarksCanvas, (textoGuia, tipo = "") => {
+      if (landmarks) guiaAtivo = await landmarks.iniciar(video, landmarksCanvas, (textoGuia, tipo = "") => {
         if (!landmarksStatus) return;
         landmarksStatus.className = tipo ? `notice notice--${tipo}` : "field-hint";
         landmarksStatus.textContent = textoGuia;
-      });
+      }, guiarPose);
       await onStart();
       const devices = await camera.enumerar();
       deviceSelect.replaceChildren(new Option("Câmera padrão", ""));
@@ -321,6 +352,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {} } = {}
     clearTimeout(automaticTimer);
     camera.encerrar(video);
     landmarks?.encerrar(landmarksCanvas);
+    if (poseHint) poseHint.hidden = true;
     placeholder.hidden = false;
     setStatus("Câmera encerrada.");
   };
@@ -1010,9 +1042,10 @@ function mostrarColetaCadastro(credencial, id, desafioInicial) {
     }
   }, {
     autoCaptureMs: null,
+    poseEsperada: () => sequencia[capturas.length],
     onStart: async () => {
       await renovarDesafio();
-      avisar(`Câmera pronta. Etapa 1: ${instrucao(sequencia[0])}. Capture cada etapa somente quando estiver na posição pedida.`);
+      avisar(`Câmera pronta. Etapa 1: ${instrucao(sequencia[0])}. Siga a faixa sobre a câmera: cada etapa é capturada quando a posição estiver certa.`);
     },
   });
   document.querySelector('[data-action="student-cancel"]')?.addEventListener("click", () => {
@@ -1219,7 +1252,7 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
   const legendaDe = (atual) => `Etapa ${texto(atual.etapa)} de 3: ${instrucaoDe(atual)}`;
   const prazoDe = (atual) => `Prazo indicado pelo serviço: ${dataLocal(atual.expira_em || estado["presenca.expira_em"])}`;
   salvarEstado("presenca.desafio", desafio);
-  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação atual emitida pelo servidor. A captura é enviada para validação; este navegador não avalia movimento nem identidade.", `<p class="challenge-step"><span class="challenge-step__number" data-stage-number>${texto(desafio.etapa)}</span><strong data-stage-instruction>${escapeHtml(instrucaoDe(desafio))}</strong></p><p class="field-hint" data-stage-deadline>${escapeHtml(prazoDe(desafio))}</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaDe(desafio) })}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}</div><div data-capture-result role="status" aria-live="polite"></div>` , "Presença");
+  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação atual emitida pelo servidor. O guia do navegador ajuda a acertar a posição; a validação de movimento e identidade é do servidor.", `<p class="challenge-step"><span class="challenge-step__number" data-stage-number>${texto(desafio.etapa)}</span><strong data-stage-instruction>${escapeHtml(instrucaoDe(desafio))}</strong></p><p class="field-hint" data-stage-deadline>${escapeHtml(prazoDe(desafio))}</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaDe(desafio) })}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}</div><div data-capture-result role="status" aria-live="polite"></div>` , "Presença");
   const controller = new AbortController();
   cleanup.push(() => controller.abort());
   // Atualiza a etapa na mesma tela: a câmera e o guia continuam ligados entre as etapas.
@@ -1262,7 +1295,11 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
       resultado.textContent = "";
       throw new Error(mostrarErro(erro));
     }
-  }, { autoCaptureMs: 3000, onStart: () => avisar(`Câmera pronta. ${legendaDe(desafio)}. A captura começa em três segundos; você pode capturar antes.`) });
+  }, {
+    autoCaptureMs: 3000,
+    poseEsperada: () => desafio?.orientacao,
+    onStart: () => avisar(`Câmera pronta. ${legendaDe(desafio)}. A captura é automática quando a posição estiver certa; você também pode usar o botão.`),
+  });
 }
 
 async function iniciar() {

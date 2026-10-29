@@ -18,6 +18,36 @@ export function desenharLandmarks(canvas, faces = []) {
   return faces.length;
 }
 
+// Mesma geometria do DesafioMovimentoAdapter (servidor: frente <= 0.08, virada
+// 0.12–0.50), com folga: o guia só aprova dentro da faixa que o servidor aceita.
+const OLHO_A = 33;
+const OLHO_B = 263;
+const NARIZ = 1;
+const FRENTE_MAXIMO = 0.06;
+const VIRADA_MINIMA = 0.16;
+const VIRADA_MAXIMA = 0.4;
+const POSE_CERTA = Object.freeze({ ok: true, dica: "Posição certa. Mantenha assim." });
+
+export function avaliarPose(faces, esperada) {
+  if (!["frente", "esquerda", "direita"].includes(esperada)) return null;
+  if (faces.length !== 1) {
+    return { ok: false, dica: faces.length ? "Mantenha apenas um rosto na câmera." : "Posicione o rosto dentro do enquadramento." };
+  }
+  const [a, b, nariz] = [faces[0][OLHO_A], faces[0][OLHO_B], faces[0][NARIZ]];
+  const distancia = Math.abs(b?.x - a?.x);
+  if (!(distancia >= 0.05) || !Number.isFinite(nariz?.x)) return { ok: false, dica: "Aproxime o rosto da câmera." };
+  const deslocamento = (nariz.x - (a.x + b.x) / 2) / distancia;
+  if (esperada === "frente") {
+    return Math.abs(deslocamento) <= FRENTE_MAXIMO ? POSE_CERTA : { ok: false, dica: "Olhe de frente para a câmera, sem inclinar a cabeça." };
+  }
+  // Frame cru (sem espelho): a esquerda da pessoa leva o nariz para a direita da imagem.
+  const giro = esperada === "esquerda" ? deslocamento : -deslocamento;
+  if (giro < -FRENTE_MAXIMO) return { ok: false, dica: `Lado oposto: vire a cabeça para a sua ${esperada}.` };
+  if (giro < VIRADA_MINIMA) return { ok: false, dica: `Vire a cabeça um pouco mais para a sua ${esperada}.` };
+  if (giro > VIRADA_MAXIMA) return { ok: false, dica: "Vire um pouco menos, sem tirar o rosto da câmera." };
+  return POSE_CERTA;
+}
+
 async function carregarVision() {
   return import(VISION_PACKAGE_URL);
 }
@@ -37,7 +67,8 @@ export function criarVisualizadorLandmarks({ carregar = carregarVision } = {}) {
     limpar(canvas);
   };
 
-  async function iniciar(video, canvas, informar = () => {}) {
+  // aoDetectar(faces) devolve true quando já cuidou do aviso (guia de pose).
+  async function iniciar(video, canvas, informar = () => {}, aoDetectar = () => false) {
     if (!video || !canvas) return false;
     encerrar(canvas);
     informar("Preparando o guia facial local…");
@@ -58,7 +89,9 @@ export function criarVisualizadorLandmarks({ carregar = carregarVision } = {}) {
         canvas.height = video.videoHeight;
         try {
           const resultado = detector.detectForVideo(video, agora);
-          const quantidade = desenharLandmarks(canvas, resultado.faceLandmarks || []);
+          const faces = resultado.faceLandmarks || [];
+          const quantidade = desenharLandmarks(canvas, faces);
+          if (aoDetectar(faces)) return;
           if (quantidade === 1) informar("Guia facial: um rosto detectado localmente.", "success");
           else if (quantidade > 1) informar("Guia facial: mantenha apenas um rosto na câmera.", "error");
           else informar("Guia facial: posicione um rosto dentro do enquadramento.");

@@ -32,6 +32,8 @@ class DesafioMovimentoAdapter:
     """Converte landmarks normalizados em frente/esquerda/direita/indefinida."""
 
     # Limites iniciais de engenharia; devem ser medidos com ensaios autorizados.
+    # O guia do navegador (static/landmarks.mjs) replica esta geometria com
+    # folga: ao mudar um, ajuste o outro.
     FRENTE_MAXIMO = 0.08
     VIRADA_MINIMA = 0.12
     VIRADA_MAXIMA = 0.50

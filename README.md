@@ -88,7 +88,9 @@ edita/exclui sessões, exporta CSV                                  ou recusa ex
 A API não carrega modelos. Ela grava cada captura em armazenamento temporário
 privado e enfileira um job; o worker processa um job por vez e confirma o
 resultado em transação. O navegador mostra landmarks com MediaPipe
-`tasks-vision` (WASM) apenas como guia; a decisão é sempre do servidor.
+`tasks-vision` (WASM) apenas como guia: ele aplica a mesma geometria de pose do
+worker, com folga, para orientar o aluno e capturar quando a posição estiver
+certa; a decisão é sempre do servidor.
 
 ### Fluxo CLI
 
