@@ -33,6 +33,7 @@ from src.domain.errors import (
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
     PossivelFraude,
+    QualidadeCapturaInsuficiente,
 )
 from src.domain.services.face_recognition import FacePreparada
 from src.domain.services.qualidade_captura import (
@@ -220,6 +221,14 @@ class DeepFaceAdapter:
                     int(altura),
                     self._qualidade,
                 )
+            except QualidadeCapturaInsuficiente as exc:
+                # Só o tipo e o valor medido: base para calibrar os limites.
+                logger.warning(
+                    "Captura recusada pela qualidade: %s (%s).",
+                    type(exc).__name__,
+                    exc,
+                )
+                raise
             except ValueError as exc:
                 raise ModeloIndisponivel(
                     "O provider devolveu um recorte incompativel com a politica "

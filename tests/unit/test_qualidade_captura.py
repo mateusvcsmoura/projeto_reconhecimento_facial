@@ -27,7 +27,8 @@ def _xadrez(tamanho: int = 8) -> np.ndarray:
 
 
 def test_plano_com_luz_intermediaria_e_recusado_por_falta_de_nitidez() -> None:
-    with pytest.raises(RostoSemNitidez):
+    # A mensagem leva o valor medido: é o que o worker registra para calibrar.
+    with pytest.raises(RostoSemNitidez, match=r"^nitidez=0\.0$"):
         avaliar_qualidade(_patch_constante(120), 80, 80, ParametrosQualidade())
 
 

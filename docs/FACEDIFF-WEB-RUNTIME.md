@@ -145,6 +145,15 @@ API e worker precisam compartilhar a mesma montagem tmpfs privada. Configure
 `WEB_JOB_DEADLINE_SECONDS=900` e `WEB_JOB_LEASE_SECONDS=120`. São parâmetros de
 laboratório, não capacidade aprovada para produção.
 
+Qualidade da captura no worker (padrões entre parênteses, heurísticas sem
+calibração com rostos): `WEB_FACE_QUALITY_MIN_FACE_PX` (80),
+`WEB_FACE_QUALITY_MIN_BRIGHTNESS` (40) e `WEB_FACE_QUALITY_MAX_BRIGHTNESS` (215),
+brilho médio do recorte em 0–255, e `WEB_FACE_QUALITY_MIN_SHARPNESS` (100),
+variância do Laplaciano. Cada recusa grava no log do worker o tipo e o valor
+medido (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…)`); calibre
+por esses valores. No compose de `deploy/web`, defina-as no env do host e recrie
+só o `face-worker`.
+
 Limites pensados para uma turma no mesmo Wi-Fi, onde todos saem pelo mesmo IP
 público (padrões entre parênteses):
 

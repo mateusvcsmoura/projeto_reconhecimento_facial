@@ -59,6 +59,12 @@ class WebSettings(BaseSettings):
     job_reservation_seconds: Annotated[int, Field(gt=0)] = 300
     job_deadline_seconds: Annotated[int, Field(gt=0)] = 900
     job_lease_seconds: Annotated[int, Field(gt=0)] = 120
+    # Política de qualidade do worker (ParametrosQualidade): heurísticas sem
+    # calibração com rostos; cada recusa registra no log o valor medido.
+    face_quality_min_face_px: Annotated[int, Field(ge=3)] = 80
+    face_quality_min_brightness: Annotated[float, Field(ge=0, le=255)] = 40.0
+    face_quality_max_brightness: Annotated[float, Field(ge=0, le=255)] = 215.0
+    face_quality_min_sharpness: Annotated[float, Field(ge=0)] = 100.0
     # Por link, IP e tipo de envio: uma turma de 20 se cadastrando no mesmo Wi-Fi
     # (ou na mesma operadora com CGNAT) cabe no mesmo minuto.
     public_registration_context_limit_per_minute: Annotated[

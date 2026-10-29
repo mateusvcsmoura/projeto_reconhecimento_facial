@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 
 from src.application.services.fila_facial import TipoJobFacial
 from src.config.web_settings import WebSettings
+from src.domain.services.qualidade_captura import ParametrosQualidade
 
 _deepface_stub = ModuleType("deepface")
 _deepface_stub.DeepFace = object()
@@ -66,7 +67,12 @@ def test_composicao_worker_monta_processadores_cadastro_e_presenca(
     solicitacoes_repository = object()
     desafio_repository = object()
     monkeypatch.setattr(face_worker_main, "create_engine", lambda *_a, **_k: engine)
-    monkeypatch.setattr(face_worker_main, "DeepFaceAdapter", lambda **_k: adapter)
+    argumentos_adapter: dict[str, Any] = {}
+    monkeypatch.setattr(
+        face_worker_main,
+        "DeepFaceAdapter",
+        lambda **kwargs: (argumentos_adapter.update(kwargs), adapter)[1],
+    )
     monkeypatch.setattr(
         face_worker_main, "PostgresJobRepository", lambda _factory: jobs_repository
     )
@@ -112,6 +118,7 @@ def test_composicao_worker_monta_processadores_cadastro_e_presenca(
         reference_storage_dir=tmp_path / "referencias",
         mediapipe_model_path=tmp_path / "face_landmarker.task",
         mediapipe_python_executable=tmp_path / ".venv-landmarks" / "python.exe",
+        face_quality_min_sharpness=60.0,
     )
 
     worker, adapter_result, engine_result, repository_result = (
@@ -120,6 +127,8 @@ def test_composicao_worker_monta_processadores_cadastro_e_presenca(
     worker.preaquecer()
     worker.fechar()
 
+    # Os demais padrões do WebSettings precisam coincidir com os do domínio.
+    assert argumentos_adapter["qualidade"] == ParametrosQualidade(min_sharpness=60.0)
     assert adapter_result is adapter
     assert engine_result is engine
     assert repository_result is jobs_repository

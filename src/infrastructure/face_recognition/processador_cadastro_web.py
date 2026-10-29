@@ -233,7 +233,10 @@ class ProcessadorCadastroWeb:
             return self._falhar(
                 job, self._id_solicitacao(job), "recusa_biometrica", tecnico=False
             )
-        except (NenhumRostoDetectado, MultiplosRostosDetectados, ValueError):
+        except (NenhumRostoDetectado, MultiplosRostosDetectados, ValueError) as exc:
+            logger.warning(
+                "Captura inválida no job %s: %s.", job.id, type(exc).__name__
+            )
             return self._falhar(
                 job, self._id_solicitacao(job), "captura_invalida", tecnico=False
             )

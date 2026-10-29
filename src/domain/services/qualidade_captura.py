@@ -101,16 +101,17 @@ def avaliar_qualidade(
 
     largura = int(largura_face)
     altura = int(altura_face)
+    # A mensagem leva só o valor medido, para calibrar os limites pelo log.
     if min(largura, altura) < parametros.min_face_px:
-        raise RostoMuitoPequeno()
+        raise RostoMuitoPequeno(f"face={min(largura, altura)}px")
 
     bgr = recorte_bgr.astype(np.float64, copy=False)
     cinza = 0.114 * bgr[:, :, 0] + 0.587 * bgr[:, :, 1] + 0.299 * bgr[:, :, 2]
     luminosidade = float(np.mean(cinza))
     if luminosidade < parametros.min_brightness:
-        raise IluminacaoInsuficiente()
+        raise IluminacaoInsuficiente(f"luminosidade={luminosidade:.1f}")
     if luminosidade > parametros.max_brightness:
-        raise IluminacaoExcessiva()
+        raise IluminacaoExcessiva(f"luminosidade={luminosidade:.1f}")
 
     laplaciano = (
         cinza[:-2, 1:-1]
@@ -121,7 +122,7 @@ def avaliar_qualidade(
     )
     nitidez = float(np.var(laplaciano, ddof=0))
     if nitidez < parametros.min_sharpness:
-        raise RostoSemNitidez()
+        raise RostoSemNitidez(f"nitidez={nitidez:.1f}")
 
     return MedidasQualidade(
         largura_face=largura,

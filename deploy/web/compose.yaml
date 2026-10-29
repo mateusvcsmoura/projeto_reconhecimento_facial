@@ -150,6 +150,11 @@ services:
       WEB_JOB_RESERVATION_SECONDS: "300"
       WEB_JOB_DEADLINE_SECONDS: "900"
       WEB_JOB_LEASE_SECONDS: "120"
+      # Qualidade da captura; ajuste no env do host e recrie só o face-worker.
+      WEB_FACE_QUALITY_MIN_FACE_PX: ${WEB_FACE_QUALITY_MIN_FACE_PX:-80}
+      WEB_FACE_QUALITY_MIN_BRIGHTNESS: ${WEB_FACE_QUALITY_MIN_BRIGHTNESS:-40}
+      WEB_FACE_QUALITY_MAX_BRIGHTNESS: ${WEB_FACE_QUALITY_MAX_BRIGHTNESS:-215}
+      WEB_FACE_QUALITY_MIN_SHARPNESS: ${WEB_FACE_QUALITY_MIN_SHARPNESS:-100}
       DEEPFACE_HOME: /var/lib/facediff/models/home
     secrets:
       - web-database-url

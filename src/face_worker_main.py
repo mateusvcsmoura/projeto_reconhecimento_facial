@@ -108,7 +108,12 @@ def construir_worker(
         modelo="Facenet512",
         detector="opencv",
         anti_spoofing=True,
-        qualidade=ParametrosQualidade(),
+        qualidade=ParametrosQualidade(
+            min_face_px=settings.face_quality_min_face_px,
+            min_brightness=settings.face_quality_min_brightness,
+            max_brightness=settings.face_quality_max_brightness,
+            min_sharpness=settings.face_quality_min_sharpness,
+        ),
         strict_resultado_antispoofing=True,
         sanitizar_erros=True,
     )
