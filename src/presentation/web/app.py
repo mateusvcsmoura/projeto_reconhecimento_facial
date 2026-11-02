@@ -486,6 +486,10 @@ def create_app(settings: WebSettings, services: WebServices) -> FastAPI:
         ):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
+        if request.url.path.startswith("/assets/"):
+            # Os módulos que app.mjs importa não levam ?v=: revalidar evita juntar
+            # app.mjs novo com camera.mjs antigo vindo do cache heurístico.
+            response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
     @app.exception_handler(StarletteHTTPException)

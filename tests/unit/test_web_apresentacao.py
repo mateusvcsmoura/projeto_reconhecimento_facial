@@ -130,6 +130,7 @@ def test_modelo_do_guia_facial_e_servido_localmente_ou_responde_404(
     assert status == 200
     assert headers["content-type"].startswith("application/octet-stream")
     assert corpo == b"modelo-sintetico"
+    assert headers["cache-control"] == "public, max-age=86400"
     assert status_ausente == 404
 
 
@@ -150,8 +151,10 @@ def test_assets_sao_servicos_locais_e_rotas_api_nao_caem_no_shell() -> None:
     assert b"localStorage" not in js
     assert b"/api/v1" in js
     assert b"Authorization" in js
-    camera_status, _camera_headers, camera = _get(app, "/assets/camera.mjs")
+    camera_status, camera_headers, camera = _get(app, "/assets/camera.mjs")
     assert camera_status == 200
+    # Módulos sem ?v= precisam revalidar, ou app.mjs novo importa camera.mjs velho.
+    assert camera_headers["cache-control"] == "no-cache"
     assert b"getUserMedia" in camera
     assert b"sessionStorage" not in camera
     landmarks_status, _landmarks_headers, landmarks = _get(app, "/assets/landmarks.mjs")
