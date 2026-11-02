@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -1041,20 +1041,41 @@ class PostgresGestaoWebRepository:
                     .with_for_update()
                 ).all()
 
+            # O cadastro aprovado deixa a solicitação sem aluno_id (com nome e
+            # matrícula); o vínculo com o aluno fica no conjunto de referências.
             solicitacao_ids = tuple(
                 session.scalars(
                     select(models.SolicitacaoCadastroWeb.id)
-                    .where(models.SolicitacaoCadastroWeb.aluno_id == aluno_id)
+                    .where(
+                        or_(
+                            models.SolicitacaoCadastroWeb.aluno_id == aluno_id,
+                            models.SolicitacaoCadastroWeb.id.in_(
+                                select(
+                                    models.ConjuntoReferenciasWeb.solicitacao_id
+                                ).where(
+                                    models.ConjuntoReferenciasWeb.aluno_id == aluno_id
+                                )
+                            ),
+                        )
+                    )
                     .order_by(models.SolicitacaoCadastroWeb.id)
                 )
             )
-            solicitacoes_jobs = tuple(
-                session.scalars(
-                    select(models.SolicitacaoCadastroWeb.job_id).where(
-                        models.SolicitacaoCadastroWeb.aluno_id == aluno_id,
-                        models.SolicitacaoCadastroWeb.job_id.is_not(None),
+            # Jobs de cadastro das solicitações, inclusive envios recusados que
+            # reabriram a coleta (a solicitação já não aponta para eles).
+            solicitacoes_jobs = (
+                tuple(
+                    session.scalars(
+                        select(models.JobFacialWeb.id).where(
+                            models.JobFacialWeb.tipo == "cadastro",
+                            models.JobFacialWeb.dono_id.in_(
+                                [str(item) for item in solicitacao_ids]
+                            ),
+                        )
                     )
                 )
+                if solicitacao_ids
+                else ()
             )
             tentativa_ids = tuple(
                 session.scalars(
@@ -1180,7 +1201,7 @@ class PostgresGestaoWebRepository:
             )
             session.execute(
                 delete(models.SolicitacaoCadastroWeb).where(
-                    models.SolicitacaoCadastroWeb.aluno_id == aluno_id
+                    models.SolicitacaoCadastroWeb.id.in_(solicitacao_ids)
                 )
             )
             if job_ids:

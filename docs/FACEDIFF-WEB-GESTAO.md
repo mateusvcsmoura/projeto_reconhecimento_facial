@@ -73,6 +73,12 @@ downgrade com revisão persistida é recusado sem apagar o registro. Antes de
 habilitar a API em outro ambiente, revisar o alvo e seguir o procedimento de
 backup do contrato de migrations.
 
+No banco, a exclusão global apaga presenças, revisões, tentativas, desafios,
+conjuntos de referências, jobs e as solicitações de cadastro do aluno. A
+solicitação de cadastro aprovada fica com `aluno_id` nulo (guarda nome e
+matrícula) e é localizada pelo conjunto de referências, junto com todos os jobs
+de cadastro dela, inclusive envios recusados.
+
 A exclusão global tenta remover os arquivos temporários e a imagem legada após
 o commit do banco. A API informa `limpeza_pendente=true` se algum armazenamento
 não puder ser limpo. Como os caminhos são retirados do banco na transação, a

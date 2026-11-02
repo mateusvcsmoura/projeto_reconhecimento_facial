@@ -662,6 +662,83 @@ def test_exclusao_global_exige_admin_confirmacao_e_audita_sem_dados_biometricos(
     assert "matricula" not in str(auditoria.antes)
 
 
+def test_exclusao_global_apaga_solicitacao_de_cadastro_aprovada_e_seus_jobs(
+    db: Any,
+) -> None:
+    # Cadastro aprovado: aluno_id fica nulo na solicitação (CHECK
+    # identificacao_coerente); o vínculo com o aluno é o conjunto.
+    repository = PostgresGestaoWebRepository(db)
+    recusado, aceito = uuid4(), uuid4()
+    with sessionmaker(bind=db)() as session, session.begin():
+        solicitacao = models.SolicitacaoCadastroWeb(
+            tipo="cadastro",
+            estado="aprovada",
+            convite_ref="convite-sintetico",
+            turma_id=7,
+            aluno_id=None,
+            matricula="SINT-11",
+            nome="Pessoa Sintética",
+            consentimento_em=AGORA,
+            consentimento_versao="aviso-v1",
+            expira_em=AGORA + dt.timedelta(days=1),
+            criada_em=AGORA,
+        )
+        session.add(solicitacao)
+        session.flush()
+        for job_id in (recusado, aceito):
+            session.add(
+                models.JobFacialWeb(
+                    id=job_id,
+                    dono_id=str(solicitacao.id),
+                    tipo="cadastro",
+                    estado="recebida",
+                    idempotencia_hash=job_id.hex * 2,
+                    credencial_hash="a" * 64,
+                    manifesto=None,
+                    bytes_reservados=1,
+                    prazo_reserva=AGORA + dt.timedelta(minutes=5),
+                    prazo_execucao=AGORA + dt.timedelta(minutes=15),
+                    criada_em=AGORA,
+                    atualizada_em=AGORA,
+                )
+            )
+        session.flush()
+        solicitacao.job_id = aceito
+        session.add(
+            models.ConjuntoReferenciasWeb(
+                solicitacao_id=solicitacao.id,
+                aluno_id=11,
+                versao=1,
+                estado="ativo",
+                job_id=str(aceito),
+                embedding_modelo="Facenet512",
+                embedding_dim=512,
+                criado_em=AGORA,
+                ativado_em=AGORA,
+            )
+        )
+        solicitacao_id = solicitacao.id
+
+    resultado = repository.excluir_aluno_global(
+        ator=ADMIN,
+        aluno_id=11,
+        confirmacao="EXCLUIR-ALUNO-11",
+        justificativa="Limpeza de cadastros de teste.",
+        agora=AGORA,
+        request_id=None,
+        armazenamento_referencias_disponivel=True,
+        armazenamento_legado_disponivel=True,
+        armazenamento_capturas_disponivel=True,
+    )
+
+    # O job recusado (coleta reaberta) também sai, embora a solicitação não o aponte.
+    assert set(resultado["jobs_temporarios"]) == {str(recusado), str(aceito)}
+    with sessionmaker(bind=db)() as session:
+        assert session.get(models.SolicitacaoCadastroWeb, solicitacao_id) is None
+        assert session.get(models.JobFacialWeb, recusado) is None
+        assert session.get(models.JobFacialWeb, aceito) is None
+
+
 def test_reativacao_de_quota_exige_admin_e_registra_evento_auditavel(db: Any) -> None:
     link_id = uuid4()
     set_id = 31
