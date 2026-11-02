@@ -378,8 +378,14 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
                 headers={"Retry-After": str(erro.retry_after_seconds)},
             ) from None
         except (TentativaIndisponivel, LookupError, PermissionError):
+            # Genérica de propósito: não revela se a matrícula existe na turma.
             raise HTTPException(
-                status_code=404, detail="Tentativa indisponivel."
+                status_code=404,
+                detail=(
+                    "Tentativa indisponível. Confira se a matrícula está correta, "
+                    "vinculada a esta turma e com o cadastro facial aprovado pelo "
+                    "professor. Se estiver tudo certo, procure o professor."
+                ),
             ) from None
         except (TypeError, ValueError):
             raise HTTPException(

@@ -535,10 +535,25 @@ def test_rotas_publicas_mapeiam_fila_cheia_e_tentativa_ativa() -> None:
             },
             json={"matricula": "00042"},
         )
+        presencas.erro_inicio = LookupError()
+        desconhecida = client.post(
+            "/api/v1/sessoes/7/tentativas",
+            headers={
+                "Authorization": "Bearer token-do-link-sintetico",
+                "Idempotency-Key": "chave-idempotente-sintetica-004",
+            },
+            json={"matricula": "99999"},
+        )
 
     assert indisponivel.status_code == 503
     assert indisponivel.headers["retry-after"] == "9"
     assert ativa.status_code == 409
+    # Matrícula fora da turma: explica o que conferir sem revelar o motivo exato.
+    assert desconhecida.status_code == 404
+    mensagem = desconhecida.json()["mensagem"]
+    assert mensagem.startswith("Tentativa indisponível.")
+    assert "vinculada a esta turma" in mensagem
+    assert "cadastro facial aprovado" in mensagem
 
 
 def test_rate_limit_retorna_retry_after_numerico() -> None:
