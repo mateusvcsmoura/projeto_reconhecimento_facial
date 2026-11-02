@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from io import BytesIO
@@ -40,6 +41,20 @@ from src.infrastructure.repositories.postgres_solicitacao_repository import (
 
 MAX_PIXELS_FRAME = 4_194_304
 MAX_LADO_FRAME = 8192
+
+logger = logging.getLogger(__name__)
+
+
+def _resumo(registro: Any, resultado: str, distancia: float | None = None) -> None:
+    """Uma linha por etapa: ids internos, resultado e distância; nunca imagem."""
+    logger.info(
+        "Presença %s aluno=%s etapa=%s: %s%s.",
+        registro.id,
+        registro.aluno_id,
+        registro.etapa_recebida,
+        resultado,
+        "" if distancia is None else f" distancia_mediana={distancia:.3f}",
+    )
 
 
 class LeitorDesafio(Protocol):
@@ -226,6 +241,12 @@ class ProcessadorDesafioVerificacao:
             evidencia,
             self._utc(self._relogio()),
         )
+        motivo = f" {validacao.motivo_tecnico}" if validacao.motivo_tecnico else ""
+        _resumo(
+            registro,
+            f"{validacao.estado.value}{motivo} orientacao={pose.orientacao.value}",
+            decisao_atual.distancia_mediana,
+        )
         facial = ResultadoFacial(
             identidade_ok=True,
             desafio_ok=validacao.desafio_ok,
@@ -296,6 +317,7 @@ class ProcessadorDesafioVerificacao:
     ) -> ResultadoWorker:
         facial = None
         if registro is not None:
+            _resumo(registro, f"recusada {motivo}", distancia)
             resultado = self._desafio.rejeitar(
                 registro.id, motivo, self._utc(self._relogio())
             )
@@ -321,6 +343,7 @@ class ProcessadorDesafioVerificacao:
 
     def _repetir(self, registro: Any, motivo: str) -> ResultadoWorker:
         """Recusa corrigível (luz, enquadramento): a etapa volta ao aluno."""
+        _resumo(registro, f"devolvida {motivo}")
         resultado = self._desafio.repetir_etapa(
             registro.id,
             registro.etapa_recebida,

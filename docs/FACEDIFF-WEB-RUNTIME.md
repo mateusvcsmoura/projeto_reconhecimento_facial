@@ -158,7 +158,11 @@ coleta ou tentativa. O guia do navegador mede o rosto com o mesmo limite
 1 s, mostra a dica de brilho e liga o flash já na primeira captura; ao mudar o
 env, ajuste também essa constante. Cada recusa grava no log do worker o tipo e os valores
 medidos (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…
-luminosidade=…)`); calibre por esses valores. No compose de `deploy/web`, defina-as no env do host e recrie
+luminosidade=…)`); calibre por esses valores. Em INFO, o worker também registra
+as medidas de cada captura aceita, uma linha por etapa de presença (ids internos
+de job e aluno, resultado, motivo, orientação e distância mediana) e por
+cadastro, e o brilho do quadro inteiro quando nenhum rosto é detectado. Nunca
+registra imagem, embedding, nome ou matrícula. No compose de `deploy/web`, defina-as no env do host e recrie
 só o `face-worker`.
 
 Limites pensados para uma turma no mesmo Wi-Fi, onde todos saem pelo mesmo IP

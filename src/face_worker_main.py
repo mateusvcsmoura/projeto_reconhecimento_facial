@@ -20,6 +20,7 @@ from src.application.services.worker_facial import (
 )
 from src.application.use_cases.anexar_referencias_web import AnexarReferencias
 from src.application.use_cases.verificar_presenca_web import ConcluirPresenca
+from src.config.logging import configurar_logging
 from src.config.web_settings import WebSettings, get_web_settings
 from src.domain.services.desafio_captura import DesafioCaptura
 from src.domain.services.qualidade_captura import ParametrosQualidade
@@ -260,6 +261,8 @@ def _marcar_worker_pronto(caminho: Path) -> None:
 
 
 def main() -> None:
+    # Sem isto só WARNING chega ao log do container; os resumos de captura são INFO.
+    configurar_logging()
     executar_worker()
 
 

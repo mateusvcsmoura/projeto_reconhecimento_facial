@@ -241,6 +241,11 @@ class ProcessadorCadastroWeb:
                 return self._falhar(
                     job, solicitacao_id, "solicitacao_indisponivel", tecnico=False
                 )
+            logger.info(
+                "Cadastro %s solicitacao=%s: 3 capturas aceitas.",
+                job.id,
+                solicitacao_id,
+            )
             return ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
         except PossivelFraude:
             return self._falhar(
@@ -286,6 +291,9 @@ class ProcessadorCadastroWeb:
         *,
         tecnico: bool,
     ) -> ResultadoWorker:
+        logger.info(
+            "Cadastro %s solicitacao=%s: recusado %s.", job.id, solicitacao_id, motivo
+        )
         if solicitacao_id is not None:
             encerrar = (
                 self._repositorio.reabrir_coleta_cadastro

@@ -69,6 +69,15 @@ def _para_bgr_uint8(face: np.ndarray) -> np.ndarray:
     return (np.clip(face, 0.0, 1.0) * 255).astype(np.uint8)[..., ::-1]
 
 
+def _luminosidade_quadro(imagem: Any) -> str:
+    """Brilho médio do quadro BGR inteiro, só para o log de rosto ausente."""
+    if not isinstance(imagem, np.ndarray) or imagem.ndim != 3 or imagem.shape[2] != 3:
+        return "luminosidade_quadro=indisponível"
+    bgr = imagem.astype(np.float64, copy=False)
+    luma = 0.114 * bgr[..., 0] + 0.587 * bgr[..., 1] + 0.299 * bgr[..., 2]
+    return f"luminosidade_quadro={float(np.mean(luma)):.1f}"
+
+
 class DeepFaceAdapter:
     def __init__(
         self,
@@ -106,7 +115,13 @@ class DeepFaceAdapter:
                 anti_spoofing=self._anti_spoofing,
             )
         except Exception as exc:
-            raise self._traduzir_falha(exc, "detectar rosto") from exc
+            erro = self._traduzir_falha(exc, "detectar rosto")
+            if isinstance(erro, NenhumRostoDetectado):
+                # Sem rosto não há recorte: o brilho do quadro diz se foi o escuro.
+                logger.warning(
+                    "Nenhum rosto detectado (%s).", _luminosidade_quadro(imagem)
+                )
+            raise erro from exc
 
         if not faces:
             raise NenhumRostoDetectado("O detector nao devolveu nenhum rosto.")
@@ -215,11 +230,18 @@ class DeepFaceAdapter:
                     "O provider devolveu facial_area.w/h ausentes ou invalidos."
                 )
             try:
-                avaliar_qualidade(
+                medidas = avaliar_qualidade(
                     recorte,
                     int(largura),
                     int(altura),
                     self._qualidade,
+                )
+                logger.info(
+                    "Captura aceita pela qualidade: face=%dpx luminosidade=%.1f "
+                    "nitidez=%.1f.",
+                    min(medidas.largura_face, medidas.altura_face),
+                    medidas.luminosidade,
+                    medidas.nitidez,
                 )
             except QualidadeCapturaInsuficiente as exc:
                 # Só o tipo e o valor medido: base para calibrar os limites.

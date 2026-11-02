@@ -291,8 +291,9 @@ class FaceRecusada:
     ],
 )
 def test_worker_devolve_a_etapa_quando_a_captura_esta_escura_ou_borrada(
-    erro: Exception, motivo: str
+    erro: Exception, motivo: str, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level("INFO")
     job_id, desafio, refs, _, repositorio = _preparar(1)
     processor = ProcessadorDesafioVerificacao(
         repositorio,
@@ -307,6 +308,7 @@ def test_worker_devolve_a_etapa_quando_a_captura_esta_escura_ou_borrada(
     resultado = processor.processar(_job(job_id, 1, (b"frame-1",)), (b"frame-1",))
 
     # Luz insuficiente é corrigível: a tentativa continua e a etapa 1 volta.
+    assert f"etapa=1: devolvida {motivo}." in caplog.text
     assert resultado.sucesso is False
     assert resultado.aguardando_etapa is True
     registro = repositorio.obter(job_id)

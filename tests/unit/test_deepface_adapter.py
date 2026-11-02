@@ -158,6 +158,19 @@ def test_ausencia_de_rosto_vira_erro_de_dominio(duble: DeepFaceDuble) -> None:
         montar(duble).extrair_face_unica(object())
 
 
+def test_ausencia_de_rosto_registra_o_brilho_do_quadro(
+    duble: DeepFaceDuble, caplog: pytest.LogCaptureFixture
+) -> None:
+    duble.erro_extract = ValueError("Face could not be detected in the image")
+    quadro = np.full((4, 4, 3), 30, dtype=np.uint8)
+
+    with pytest.raises(NenhumRostoDetectado):
+        montar(duble, sanitizar=True).extrair_face_unica(quadro)
+
+    # Só o número: distingue escuro de rosto fora do enquadramento.
+    assert "luminosidade_quadro=30.0" in caplog.text
+
+
 def test_varios_rostos_viram_erro_de_dominio(duble: DeepFaceDuble) -> None:
     duble.faces = [face_sintetica(), face_sintetica()]
 
