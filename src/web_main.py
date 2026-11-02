@@ -11,6 +11,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from src.application.services.fila_facial import FilaFacial
+from src.config.logging import configurar_logging
 from src.config.web_settings import WebSettings, get_web_settings
 from src.domain.services.desafio_captura import DesafioCaptura
 from src.infrastructure.backup.exclusions import RegistroExclusoes
@@ -61,6 +62,8 @@ def create_web_app(
     nao abre conexao ate o probe de readiness ser solicitado.
     """
 
+    # O uvicorn só configura os próprios loggers; sem isto o INFO da app some.
+    configurar_logging()
     configuracao = settings or get_web_settings()
     engine = engine_factory(
         configuracao.database_url.get_secret_value(),

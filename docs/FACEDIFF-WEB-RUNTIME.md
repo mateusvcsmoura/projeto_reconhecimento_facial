@@ -161,7 +161,10 @@ medidos (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…
 luminosidade=…)`); calibre por esses valores. Em INFO, o worker também registra
 as medidas de cada captura aceita, uma linha por etapa de presença (ids internos
 de job e aluno, resultado, motivo, orientação e distância mediana) e por
-cadastro, e o brilho do quadro inteiro quando nenhum rosto é detectado. Nunca
+cadastro, e o brilho do quadro inteiro quando nenhum rosto é detectado. A API
+registra, com o mesmo id de job, o `diagnostico` que o navegador envia em cada
+captura (flash usado e brilho do rosto medido pelo guia antes do flash; "sem
+medida" quando o guia não rodou); o campo não entra em nenhuma decisão. Nunca
 registra imagem, embedding, nome ou matrícula. No compose de `deploy/web`, defina-as no env do host e recrie
 só o `face-worker`.
 

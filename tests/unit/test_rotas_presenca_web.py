@@ -5,6 +5,7 @@ from dataclasses import replace
 from typing import Any
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.application.services.fila_facial import (
@@ -455,7 +456,10 @@ def test_limites_de_presenca_por_link_e_ip_vem_da_configuracao() -> None:
     assert presencas.limites_usados == [42, 99]
 
 
-def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status() -> None:
+def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
     presencas = _RepositorioPresenca()
     fila = _Fila()
     desafios = _Desafios()
@@ -480,10 +484,26 @@ def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status() -> N
             json={"matricula": "00042"},
         )
         tentativa_id = inicio.json()["id"]
+        # Diagnóstico do navegador fora da faixa: o schema recusa antes do handler.
+        invalida = client.post(
+            f"/api/v1/tentativas/{tentativa_id}/capturas",
+            headers={"Authorization": "Bearer credencial-captura-sintetica"},
+            json={
+                "etapa": 1,
+                "nonce": "n" * 64,
+                "captura_base64": "YQ==",
+                "diagnostico": [{"flash": True, "luz": 300}],
+            },
+        )
         captura = client.post(
             f"/api/v1/tentativas/{tentativa_id}/capturas",
             headers={"Authorization": "Bearer credencial-captura-sintetica"},
-            json={"etapa": 1, "nonce": "n" * 64, "captura_base64": "YQ=="},
+            json={
+                "etapa": 1,
+                "nonce": "n" * 64,
+                "captura_base64": "YQ==",
+                "diagnostico": [{"flash": True, "luz": 42.5}],
+            },
         )
         status = client.get(
             f"/api/v1/tentativas/{tentativa_id}",
@@ -493,7 +513,9 @@ def test_rotas_publicas_iniciam_tentativa_recebem_captura_e_exibem_status() -> N
     assert inicio.status_code == 201
     assert inicio.json()["desafio"]["etapa"] == 1
     assert len(presencas.limitadas) == 2
+    assert invalida.status_code == 422
     assert captura.status_code == 202
+    assert "etapa=1 recebida: flash=sim luz=42.5." in caplog.text
     assert captura.json()["recebida"] is True
     assert len(capturas.salvas) == 1
     assert len(fila.submissoes) == 1

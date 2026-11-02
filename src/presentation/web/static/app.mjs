@@ -221,12 +221,16 @@ const DICAS_RECUSA = {
   movimento_nao_confirmado: "Posição da cabeça não confirmada. Siga a faixa sobre a câmera.",
   qualidade_insuficiente: "Imagem sem nitidez. Segure o aparelho parado e limpe a lente.",
   iluminacao_insuficiente: "Rosto escuro. Aumente o brilho da tela; ela pisca em branco na captura.",
-  face_unica_nao_confirmada: "Rosto não encontrado. Aproxime-se e deixe só você na imagem.",
-  captura_invalida: "Rosto não encontrado. Aproxime-se e deixe só você na imagem.",
+  face_unica_nao_confirmada: "Rosto não encontrado. Aproxime-se e deixe só você na imagem; a tela pisca em branco na captura.",
+  captura_invalida: "Rosto não encontrado. Aproxime-se e deixe só você na imagem; a tela pisca em branco na captura.",
+  antispoofing_recusado: "Pode ter sido detectada uma foto. Ilumine o rosto de frente, sem luz forte atrás; a tela pisca em branco na captura.",
 };
 const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "Captura não aceita. Tente de novo.";
 // Flash frontal só depois de recusa por rosto escuro; segue ligado até o fim da coleta.
-const pedeFlash = (motivo) => motivo === "iluminacao_insuficiente";
+// Escuro com ganho alto: o celular clareia a imagem, mas o ruído faz o detector
+// perder o rosto, ver rostos a mais ou o anti-spoofing desconfiar.
+const MOTIVOS_FLASH = new Set(["iluminacao_insuficiente", "face_unica_nao_confirmada", "captura_invalida", "antispoofing_recusado"]);
+const pedeFlash = (motivo) => MOTIVOS_FLASH.has(motivo);
 const AVISO_ESCURO = "Pouca luz: aumente o brilho da tela. Ela pisca em branco na captura; fique parado.";
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
@@ -260,6 +264,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
   let medicoesLuz = 0;
   let escuras = 0;
   let escuro = false;
+  let ultimaLuz = null;
   const landmarks = landmarksCanvas ? criarVisualizadorLandmarks() : null;
   const setStatus = (value, type = "") => {
     status.className = type ? `notice notice--${type}` : "field-hint";
@@ -283,6 +288,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     let valor = null;
     try { valor = medirLuminosidade(video, canvasLuz, regiaoMedicaoLuz(faces)); } catch { /* Sem medição: o flash só vem da recusa do servidor. */ }
     medicoesLuz += 1;
+    if (valor !== null) ultimaLuz = Math.round(valor * 10) / 10;
     escuras = valor !== null && valor < LUMINOSIDADE_ESCURA ? escuras + 1 : 0;
     // ~1 s abaixo do limite do worker: avisa e liga o flash já na primeira captura.
     if (escuras >= 3 && !escuro) {
@@ -329,7 +335,10 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     let proximoStatus = null;
     try {
       const capturarQuadro = () => camera.capturar(video, document.querySelector("#capture-canvas"));
-      const captura = escuro || flashFrontal() ? await comFlashFrontal(capturarQuadro) : capturarQuadro();
+      const usarFlash = escuro || flashFrontal();
+      // Luz lida antes do flash (o ambiente); ambos vão só para o log do servidor.
+      const luz = ultimaLuz;
+      const captura = { ...(usarFlash ? await comFlashFrontal(capturarQuadro) : capturarQuadro()), flash: usarFlash, luz };
       proximoStatus = await onCapture(captura);
       if (proximoStatus) setStatus(proximoStatus, "success");
       else if (!camera.stream) setStatus("Câmera encerrada.");
@@ -1041,8 +1050,14 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
     if (result) result.innerHTML = "";
   };
   studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `${aviso ? mensagem(aviso, "error") : ""}<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
+  // diagnostico (flash e luz) só alimenta o log do servidor.
+  const corpoCapturas = () => ({
+    nonce: desafio.nonce,
+    capturas: capturas.map((item) => item.base64),
+    diagnostico: capturas.map(({ flash, luz }) => ({ flash, luz })),
+  });
   bindCamera(async (captura) => {
-    capturas.push(captura.base64);
+    capturas.push(captura);
     const etapa = capturas.length;
     const botao = document.querySelector('[data-action="capture-step"]');
     if (etapa < 3) {
@@ -1057,7 +1072,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
     try {
       const idempotency = estadoSalvo()["cadastro.idempotency"] || crypto.randomUUID();
       salvarEstado("cadastro.idempotency", idempotency);
-      await api.post(apiPath(`/cadastros/${id}/capturas`), { nonce: desafio.nonce, capturas }, {
+      await api.post(apiPath(`/cadastros/${id}/capturas`), corpoCapturas(), {
         headers: { Authorization: `Bearer ${credencial}`, "Idempotency-Key": idempotency },
       });
       capturas = [];
@@ -1075,7 +1090,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
       result.innerHTML = `${mensagem(mostrarErro(erro), "error")}<p>As imagens continuam somente na memória desta página. Você pode tentar enviar novamente enquanto ela permanecer aberta.</p>${button("Tentar envio novamente", "cadastro-retry", "button--dark")}`;
       document.querySelector('[data-action="cadastro-retry"]')?.addEventListener("click", async () => {
         try {
-          await api.post(apiPath(`/cadastros/${id}/capturas`), { nonce: desafio.nonce, capturas }, { headers: { Authorization: `Bearer ${credencial}`, "Idempotency-Key": estadoSalvo()["cadastro.idempotency"] } });
+          await api.post(apiPath(`/cadastros/${id}/capturas`), corpoCapturas(), { headers: { Authorization: `Bearer ${credencial}`, "Idempotency-Key": estadoSalvo()["cadastro.idempotency"] } });
           capturas = [];
           salvarEstado("cadastro.desafio", null);
           iniciarAcompanhamentoCadastro(credencial, id);
@@ -1320,6 +1335,7 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
     try {
       await api.post(apiPath(`/tentativas/${encodeURIComponent(estado["presenca.tentativa_id"])}/capturas`), {
         etapa: etapaEnviada, nonce: desafio.nonce, captura_base64: captura.base64,
+        diagnostico: [{ flash: captura.flash, luz: captura.luz }],
       }, { headers: { Authorization: `Bearer ${estado["presenca.credencial_captura"]}` } });
       salvarEstado("presenca.desafio", null);
       // O servidor avança, encerra ou devolve a mesma etapa (recusa corrigível) com o motivo.

@@ -29,6 +29,10 @@ from src.infrastructure.repositories.postgres_presenca_web_repository import (
     TentativaIndisponivel,
 )
 from src.presentation.web.dependencies import DependenciasAuthWeb
+from src.presentation.web.diagnostico_captura import (
+    DiagnosticoCaptura,
+    registrar_diagnostico,
+)
 from src.presentation.web.rate_limit import endereco_cliente
 
 if TYPE_CHECKING:
@@ -57,6 +61,7 @@ class ReceberCapturaRequest(_Schema):
     etapa: int = Field(ge=1, le=3)
     nonce: str = Field(min_length=32, max_length=128)
     captura_base64: str = Field(min_length=1, max_length=11_184_812)
+    diagnostico: list[DiagnosticoCaptura] = Field(default_factory=list, max_length=1)
 
 
 def _bearer(request: Request) -> str | None:
@@ -471,6 +476,11 @@ def criar_rotas_presencas(settings: WebSettings, services: WebServices) -> APIRo
             raise HTTPException(
                 status_code=503, detail="Captura indisponivel."
             ) from None
+        # Mesmo id de job dos logs do worker ("Presença <job> ... etapa=N").
+        registrar_diagnostico(
+            f"Presença {recebida.job_id} etapa={recebida.etapa} recebida",
+            body.diagnostico,
+        )
         return {
             "tentativa_id": str(recebida.job_id),
             "etapa": recebida.etapa,

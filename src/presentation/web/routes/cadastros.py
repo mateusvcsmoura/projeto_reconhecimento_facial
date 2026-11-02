@@ -46,6 +46,10 @@ from src.infrastructure.repositories.postgres_conta_repository import (
     ContaAutenticada,
 )
 from src.presentation.web.dependencies import DependenciasAuthWeb
+from src.presentation.web.diagnostico_captura import (
+    DiagnosticoCaptura,
+    registrar_diagnostico,
+)
 
 if TYPE_CHECKING:
     from src.presentation.web.app import WebServices
@@ -113,6 +117,7 @@ class ConsentimentoAtualizacaoRequest(_Schema):
 class CapturasCadastroRequest(_Schema):
     nonce: str = Field(min_length=32, max_length=128)
     capturas: list[str] = Field(min_length=3, max_length=3)
+    diagnostico: list[DiagnosticoCaptura] = Field(default_factory=list, max_length=3)
 
 
 DESAFIO_DURACAO = timedelta(seconds=120)
@@ -367,6 +372,23 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
                                         "contentEncoding": "base64",
                                     },
                                 },
+                                "diagnostico": {
+                                    "type": "array",
+                                    "maxItems": 3,
+                                    "description": "Só para o log: flash e luz medida.",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "flash": {"type": "boolean"},
+                                            "luz": {
+                                                "type": ["number", "null"],
+                                                "minimum": 0,
+                                                "maximum": 255,
+                                            },
+                                        },
+                                    },
+                                },
                             },
                         }
                     }
@@ -479,6 +501,11 @@ def criar_rotas_cadastros(settings: WebSettings, services: WebServices) -> APIRo
             raise HTTPException(
                 status_code=422, detail="As capturas não foram aceitas."
             ) from None
+        # Mesmo id de job dos logs do worker ("Cadastro <job> ...").
+        registrar_diagnostico(
+            f"Cadastro {reserva.id} solicitacao={solicitacao_id} recebido",
+            body.diagnostico,
+        )
         return {"operacao_id": str(reserva.id), "estado": "enfileirada"}
 
     @router.get("/turmas/{turma_id}/cadastros", status_code=200)
