@@ -1,5 +1,6 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
-import { comFlashFrontal, criarControladorCamera } from "./camera.mjs";
+// ?v= no import: cópia antiga em cache (sem comFlashFrontal) travava o carregamento.
+import { comFlashFrontal, criarControladorCamera } from "./camera.mjs?v=20261102-flash-frontal";
 import { avaliarPose, criarVisualizadorLandmarks } from "./landmarks.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
