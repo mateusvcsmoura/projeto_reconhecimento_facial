@@ -17,6 +17,7 @@ from src.application.services.fila_facial import (
 from src.application.services.worker_facial import CodigoResultadoWorker
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.entities.solicitacao_cadastro import SolicitacaoCadastro
+from src.domain.errors import IluminacaoInsuficiente, RostoSemNitidez
 from src.domain.services.desafio_captura import OrientacaoPose
 from src.domain.services.face_recognition import FacePreparada
 from src.infrastructure.face_recognition.processador_cadastro_web import (
@@ -256,6 +257,48 @@ def test_worker_recusa_quando_pose_nao_confirma_face_unica() -> None:
     assert repository.reaberturas == ["face_unica_nao_confirmada"]
     assert not repository.cancelamentos
     assert not repository.anexadas
+
+
+class FaceRecusada(FaceFake):
+    def __init__(self, erro: Exception) -> None:
+        super().__init__(())
+        self.erro = erro
+
+    def preparar_cadastro(self, imagem: bytes) -> FacePreparada:
+        raise self.erro
+
+
+@pytest.mark.parametrize(
+    ("erro", "motivo"),
+    [
+        (
+            IluminacaoInsuficiente("luminosidade=50.0 nitidez=20.0"),
+            "iluminacao_insuficiente",
+        ),
+        (RostoSemNitidez("nitidez=20.0 luminosidade=120.0"), "qualidade_insuficiente"),
+    ],
+)
+def test_worker_reabre_coleta_separando_rosto_escuro_de_borrado(
+    erro: Exception, motivo: str
+) -> None:
+    repository = SolicitacoesFake()
+    processor = ProcessadorCadastroWeb(
+        FaceRecusada(erro),
+        repository,
+        AnexarFake(repository),
+        PoseFake(
+            (OrientacaoPose.FRENTE, OrientacaoPose.DIREITA, OrientacaoPose.FRENTE)
+        ),
+        relogio=lambda: AGORA,
+        decodificador=lambda content: content,
+        codificador=lambda image: b"crop-" + image,
+    )
+
+    resultado = processor.processar(_job(), (b"a", b"b", b"c"))
+
+    assert not resultado.sucesso
+    assert repository.reaberturas == [motivo]
+    assert not repository.cancelamentos
 
 
 def test_worker_valida_tres_frames_e_entrega_referencias_pendentes() -> None:

@@ -119,6 +119,7 @@ def test_composicao_worker_monta_processadores_cadastro_e_presenca(
         mediapipe_model_path=tmp_path / "face_landmarker.task",
         mediapipe_python_executable=tmp_path / ".venv-landmarks" / "python.exe",
         face_quality_min_sharpness=60.0,
+        face_quality_dim_brightness=70.0,
     )
 
     worker, adapter_result, engine_result, repository_result = (
@@ -128,7 +129,9 @@ def test_composicao_worker_monta_processadores_cadastro_e_presenca(
     worker.fechar()
 
     # Os demais padrões do WebSettings precisam coincidir com os do domínio.
-    assert argumentos_adapter["qualidade"] == ParametrosQualidade(min_sharpness=60.0)
+    assert argumentos_adapter["qualidade"] == ParametrosQualidade(
+        min_sharpness=60.0, dim_brightness=70.0
+    )
     assert adapter_result is adapter
     assert engine_result is engine
     assert repository_result is jobs_repository

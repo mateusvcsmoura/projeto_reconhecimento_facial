@@ -21,6 +21,7 @@ from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.entities.referencia_facial import PreparacaoReferencia
 from src.domain.entities.solicitacao_cadastro import SolicitacaoCadastro
 from src.domain.errors import (
+    IluminacaoInsuficiente,
     ModeloIndisponivel,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
@@ -244,6 +245,10 @@ class ProcessadorCadastroWeb:
         except PossivelFraude:
             return self._falhar(
                 job, self._id_solicitacao(job), "recusa_biometrica", tecnico=False
+            )
+        except IluminacaoInsuficiente:
+            return self._falhar(
+                job, self._id_solicitacao(job), "iluminacao_insuficiente", tecnico=False
             )
         except QualidadeCapturaInsuficiente:
             return self._falhar(

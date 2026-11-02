@@ -24,6 +24,9 @@ class ParametrosQualidade:
     min_brightness: float = 40.0
     max_brightness: float = 215.0
     min_sharpness: float = 100.0
+    # Abaixo deste brilho, a falta de nitidez é atribuída à pouca luz: no
+    # escuro a imagem perde contraste antes de cair abaixo de min_brightness.
+    dim_brightness: float = 80.0
 
     def __post_init__(self) -> None:
         if (
@@ -36,6 +39,7 @@ class ParametrosQualidade:
         for nome, valor in (
             ("min_brightness", self.min_brightness),
             ("max_brightness", self.max_brightness),
+            ("dim_brightness", self.dim_brightness),
         ):
             if (
                 isinstance(valor, bool)
@@ -122,7 +126,11 @@ def avaliar_qualidade(
     )
     nitidez = float(np.var(laplaciano, ddof=0))
     if nitidez < parametros.min_sharpness:
-        raise RostoSemNitidez(f"nitidez={nitidez:.1f}")
+        if luminosidade < parametros.dim_brightness:
+            raise IluminacaoInsuficiente(
+                f"luminosidade={luminosidade:.1f} nitidez={nitidez:.1f}"
+            )
+        raise RostoSemNitidez(f"nitidez={nitidez:.1f} luminosidade={luminosidade:.1f}")
 
     return MedidasQualidade(
         largura_face=largura,

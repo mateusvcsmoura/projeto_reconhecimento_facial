@@ -15,6 +15,7 @@ from src.application.services.worker_facial import (
 )
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.errors import (
+    IluminacaoInsuficiente,
     ModeloIndisponivel,
     MultiplosRostosDetectados,
     NenhumRostoDetectado,
@@ -200,6 +201,8 @@ class ProcessadorDesafioVerificacao:
                 identidade=True,
                 antispoofing=False,
             )
+        except IluminacaoInsuficiente:
+            return self._repetir(registro, "iluminacao_insuficiente")
         except QualidadeCapturaInsuficiente:
             return self._repetir(registro, "qualidade_insuficiente")
         except (NenhumRostoDetectado, MultiplosRostosDetectados):

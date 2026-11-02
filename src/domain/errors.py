@@ -30,7 +30,10 @@ class RostoMuitoPequeno(QualidadeCapturaInsuficiente):
 
 
 class IluminacaoInsuficiente(QualidadeCapturaInsuficiente):
-    """A luminosidade media do recorte esta abaixo do limite."""
+    """A luminosidade media do recorte esta abaixo do limite.
+
+    Tambem cobre a falta de nitidez de um recorte pouco iluminado.
+    """
 
 
 class IluminacaoExcessiva(QualidadeCapturaInsuficiente):

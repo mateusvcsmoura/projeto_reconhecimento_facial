@@ -113,6 +113,7 @@ def construir_worker(
             min_brightness=settings.face_quality_min_brightness,
             max_brightness=settings.face_quality_max_brightness,
             min_sharpness=settings.face_quality_min_sharpness,
+            dim_brightness=settings.face_quality_dim_brightness,
         ),
         strict_resultado_antispoofing=True,
         sanitizar_erros=True,

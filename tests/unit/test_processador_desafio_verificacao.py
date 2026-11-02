@@ -19,7 +19,7 @@ from src.application.services.fila_facial import (
 )
 from src.application.services.worker_facial import CodigoResultadoWorker
 from src.domain.entities.face_embedding import FaceEmbedding
-from src.domain.errors import IluminacaoInsuficiente
+from src.domain.errors import IluminacaoInsuficiente, RostoSemNitidez
 from src.domain.services.desafio_captura import (
     ContextoDesafio,
     DesafioCaptura,
@@ -271,18 +271,34 @@ def test_worker_confirma_identidade_pose_qualidade_e_antispoofing() -> None:
     assert not hasattr(resultado.resultado_facial, "embedding")
 
 
-class FaceEscura:
+class FaceRecusada:
+    def __init__(self, erro: Exception) -> None:
+        self._erro = erro
+
     def gerar_embedding(self, _imagem: bytes) -> FaceEmbedding:
-        raise IluminacaoInsuficiente("luminosidade=12.0")
+        raise self._erro
 
 
-def test_worker_devolve_a_etapa_quando_a_captura_esta_escura() -> None:
+@pytest.mark.parametrize(
+    ("erro", "motivo"),
+    [
+        # Só o escuro tem motivo próprio: é ele que acende o flash frontal.
+        (
+            IluminacaoInsuficiente("luminosidade=50.0 nitidez=20.0"),
+            "iluminacao_insuficiente",
+        ),
+        (RostoSemNitidez("nitidez=20.0 luminosidade=120.0"), "qualidade_insuficiente"),
+    ],
+)
+def test_worker_devolve_a_etapa_quando_a_captura_esta_escura_ou_borrada(
+    erro: Exception, motivo: str
+) -> None:
     job_id, desafio, refs, _, repositorio = _preparar(1)
     processor = ProcessadorDesafioVerificacao(
         repositorio,
         ReferenciasFake(refs),
         desafio,
-        FaceEscura(),
+        FaceRecusada(erro),
         PoseFake(OrientacaoPose.FRENTE),
         relogio=lambda: AGORA,
         decodificador=lambda content: content,
@@ -296,7 +312,7 @@ def test_worker_devolve_a_etapa_quando_a_captura_esta_escura() -> None:
     registro = repositorio.obter(job_id)
     assert registro.estado is EstadoDesafio.AGUARDANDO_ETAPA
     assert registro.etapa_recebida == registro.etapa_validada == 0
-    assert registro.motivo == "qualidade_insuficiente"
+    assert registro.motivo == motivo
 
 
 def test_worker_recusa_duas_pessoas_ou_face_landmarker_sem_face() -> None:

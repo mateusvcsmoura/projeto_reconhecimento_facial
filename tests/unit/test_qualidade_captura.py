@@ -28,8 +28,17 @@ def _xadrez(tamanho: int = 8) -> np.ndarray:
 
 def test_plano_com_luz_intermediaria_e_recusado_por_falta_de_nitidez() -> None:
     # A mensagem leva o valor medido: é o que o worker registra para calibrar.
-    with pytest.raises(RostoSemNitidez, match=r"^nitidez=0\.0$"):
+    with pytest.raises(RostoSemNitidez, match=r"^nitidez=0\.0 luminosidade=120\.0$"):
         avaliar_qualidade(_patch_constante(120), 80, 80, ParametrosQualidade())
+
+
+def test_falta_de_nitidez_com_pouca_luz_e_recusada_como_escuro() -> None:
+    # Acima de min_brightness (40), mas abaixo de dim_brightness (80): o
+    # cliente usa essa recusa para acender o flash frontal.
+    with pytest.raises(
+        IluminacaoInsuficiente, match=r"^luminosidade=60\.0 nitidez=0\.0$"
+    ):
+        avaliar_qualidade(_patch_constante(60), 80, 80, ParametrosQualidade())
 
 
 def test_padrao_xadrez_nitido_e_aceito() -> None:
@@ -172,6 +181,9 @@ def test_dimensoes_faciais_invalidas_sao_rejeitadas(
         {"min_sharpness": -0.1},
         {"min_sharpness": float("nan")},
         {"min_sharpness": float("inf")},
+        {"dim_brightness": -1},
+        {"dim_brightness": 256},
+        {"dim_brightness": float("nan")},
         {"min_brightness": 215, "max_brightness": 215},
         {"min_brightness": 216, "max_brightness": 215},
     ],

@@ -149,9 +149,13 @@ Qualidade da captura no worker (padrões entre parênteses, heurísticas sem
 calibração com rostos): `WEB_FACE_QUALITY_MIN_FACE_PX` (80),
 `WEB_FACE_QUALITY_MIN_BRIGHTNESS` (40) e `WEB_FACE_QUALITY_MAX_BRIGHTNESS` (215),
 brilho médio do recorte em 0–255, e `WEB_FACE_QUALITY_MIN_SHARPNESS` (100),
-variância do Laplaciano. Cada recusa grava no log do worker o tipo e o valor
-medido (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…)`); calibre
-por esses valores. No compose de `deploy/web`, defina-as no env do host e recrie
+variância do Laplaciano. `WEB_FACE_QUALITY_DIM_BRIGHTNESS` (80) separa o escuro
+do borrado: recorte sem nitidez com brilho abaixo dele é recusado como
+`IluminacaoInsuficiente` (motivo `iluminacao_insuficiente`), e o navegador usa o
+flash frontal (tela branca por cerca de 1 s) nas capturas seguintes daquela
+coleta ou tentativa. Cada recusa grava no log do worker o tipo e os valores
+medidos (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…
+luminosidade=…)`); calibre por esses valores. No compose de `deploy/web`, defina-as no env do host e recrie
 só o `face-worker`.
 
 Limites pensados para uma turma no mesmo Wi-Fi, onde todos saem pelo mesmo IP

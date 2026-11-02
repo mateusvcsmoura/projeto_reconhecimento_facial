@@ -65,6 +65,7 @@ class WebSettings(BaseSettings):
     face_quality_min_brightness: Annotated[float, Field(ge=0, le=255)] = 40.0
     face_quality_max_brightness: Annotated[float, Field(ge=0, le=255)] = 215.0
     face_quality_min_sharpness: Annotated[float, Field(ge=0)] = 100.0
+    face_quality_dim_brightness: Annotated[float, Field(ge=0, le=255)] = 80.0
     # Por link, IP e tipo de envio: uma turma de 20 se cadastrando no mesmo Wi-Fi
     # (ou na mesma operadora com CGNAT) cabe no mesmo minuto.
     public_registration_context_limit_per_minute: Annotated[

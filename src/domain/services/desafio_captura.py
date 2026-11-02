@@ -42,7 +42,13 @@ class EstadoDesafio(StrEnum):
 # Recusas que o aluno corrige sozinho (pose, luz, enquadramento): a etapa volta
 # para nova captura até o prazo do desafio. Identidade e anti-spoofing encerram.
 MOTIVOS_REPETIVEIS = frozenset(
-    {"movimento_nao_confirmado", "qualidade_insuficiente", "face_unica_nao_confirmada"}
+    {
+        "movimento_nao_confirmado",
+        "qualidade_insuficiente",
+        # Rosto escuro: o navegador acende o flash frontal na nova captura.
+        "iluminacao_insuficiente",
+        "face_unica_nao_confirmada",
+    }
 )
 
 
