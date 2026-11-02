@@ -24,6 +24,29 @@ function traduzirErro(error) {
   return new CameraError("indisponivel", "Não foi possível iniciar a câmera. Confira as permissões e tente novamente.");
 }
 
+// Padrão de WEB_FACE_QUALITY_DIM_BRIGHTNESS: abaixo disso o worker recusa o
+// rosto sem nitidez como escuro. Fixo aqui; se o env mudar, ajustar junto.
+export const LUMINOSIDADE_ESCURA = 80;
+
+/** Brilho médio (0–255) de pixels RGBA, com os pesos de luma do worker. */
+export function luminosidadeMedia(pixels) {
+  let soma = 0;
+  for (let i = 0; i < pixels.length; i += 4) soma += 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+  return pixels.length ? soma / (pixels.length / 4) : null;
+}
+
+/** Mede a região {x, y, largura, altura} (frações do quadro) reduzida a 32×32. */
+export function medirLuminosidade(video, canvas, regiao) {
+  if (video.readyState < 2 || video.videoWidth < 1 || video.videoHeight < 1) return null;
+  canvas.width = 32;
+  canvas.height = 32;
+  const contexto = canvas.getContext("2d", { willReadFrequently: true });
+  if (!contexto) return null;
+  const { videoWidth: largura, videoHeight: altura } = video;
+  contexto.drawImage(video, regiao.x * largura, regiao.y * altura, regiao.largura * largura, regiao.altura * altura, 0, 0, 32, 32);
+  return luminosidadeMedia(contexto.getImageData(0, 0, 32, 32).data);
+}
+
 /**
  * Flash frontal: tela branca ilumina o rosto enquanto `acao` captura o quadro.
  * ponytail: espera fixa para a exposição automática da câmera se ajustar;

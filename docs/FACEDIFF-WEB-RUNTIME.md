@@ -153,7 +153,10 @@ variância do Laplaciano. `WEB_FACE_QUALITY_DIM_BRIGHTNESS` (80) separa o escuro
 do borrado: recorte sem nitidez com brilho abaixo dele é recusado como
 `IluminacaoInsuficiente` (motivo `iluminacao_insuficiente`), e o navegador usa o
 flash frontal (tela branca por cerca de 1 s) nas capturas seguintes daquela
-coleta ou tentativa. Cada recusa grava no log do worker o tipo e os valores
+coleta ou tentativa. O guia do navegador mede o rosto com o mesmo limite
+(`LUMINOSIDADE_ESCURA` em `camera.mjs`, fixo em 80) e, abaixo dele por cerca de
+1 s, mostra a dica de brilho e liga o flash já na primeira captura; ao mudar o
+env, ajuste também essa constante. Cada recusa grava no log do worker o tipo e os valores
 medidos (`Captura recusada pela qualidade: RostoSemNitidez (nitidez=…
 luminosidade=…)`); calibre por esses valores. No compose de `deploy/web`, defina-as no env do host e recrie
 só o `face-worker`.

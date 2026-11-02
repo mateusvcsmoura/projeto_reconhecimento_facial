@@ -48,6 +48,21 @@ export function avaliarPose(faces, esperada) {
   return POSE_CERTA;
 }
 
+// Sem um rosto único, mede o centro do quadro, onde o rosto deveria estar.
+const REGIAO_CENTRAL = Object.freeze({ x: 0.3, y: 0.2, largura: 0.4, altura: 0.6 });
+
+/** Caixa do rosto (frações do quadro) para medir a luz onde o worker mede. */
+export function regiaoMedicaoLuz(faces) {
+  const pontos = faces.length === 1 ? faces[0].filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y)) : [];
+  if (!pontos.length) return REGIAO_CENTRAL;
+  const limitar = (valor) => Math.min(1, Math.max(0, valor));
+  const x = limitar(Math.min(...pontos.map((p) => p.x)));
+  const y = limitar(Math.min(...pontos.map((p) => p.y)));
+  const largura = limitar(Math.max(...pontos.map((p) => p.x))) - x;
+  const altura = limitar(Math.max(...pontos.map((p) => p.y))) - y;
+  return largura > 0 && altura > 0 ? { x, y, largura, altura } : REGIAO_CENTRAL;
+}
+
 async function carregarVision() {
   return import(VISION_PACKAGE_URL);
 }

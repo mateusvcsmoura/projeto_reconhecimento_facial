@@ -1,7 +1,7 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
-// ?v= no import: cópia antiga em cache (sem comFlashFrontal) travava o carregamento.
-import { comFlashFrontal, criarControladorCamera } from "./camera.mjs?v=20261102-flash-frontal";
-import { avaliarPose, criarVisualizadorLandmarks } from "./landmarks.mjs";
+// ?v= nos imports: cópia antiga em cache, sem os exports novos, trava o carregamento.
+import { comFlashFrontal, criarControladorCamera, LUMINOSIDADE_ESCURA, medirLuminosidade } from "./camera.mjs?v=20261102-luz-previa";
+import { avaliarPose, criarVisualizadorLandmarks, regiaoMedicaoLuz } from "./landmarks.mjs?v=20261102-luz-previa";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
 import {
@@ -227,13 +227,15 @@ const DICAS_RECUSA = {
 const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "A captura não passou na validação. Tente de novo.";
 // Flash frontal só depois de recusa por rosto escuro; segue ligado até o fim da coleta.
 const pedeFlash = (motivo) => motivo === "iluminacao_insuficiente";
+const AVISO_ESCURO = "Pouca luz no rosto. Aumente o brilho da tela ao máximo: na captura, a tela fica branca por um instante para iluminar o rosto. Mantenha a posição até ela voltar ao normal.";
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas><p class="camera-hint" data-pose-hint aria-hidden="true" hidden></p>` : "";
   // Legenda sobre o vídeo: a orientação fica visível junto da câmera, não só no topo da página.
   const legenda = instrucao ? `<p class="camera-instruction" data-camera-instruction>${escapeHtml(instrucao)}</p>` : "";
   const statusGuia = guiaFacial ? `<p class="field-hint" data-landmarks-status aria-live="polite">O guia facial será iniciado junto com a câmera. Ele é local e não substitui a validação do servidor.</p>` : "";
-  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
+  const avisoLuz = guiaFacial ? `<p class="notice notice--warning" data-light-hint hidden>${escapeHtml(AVISO_ESCURO)}</p>` : "";
+  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div>${avisoLuz}<div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
 function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseEsperada = () => null, flashFrontal = () => false } = {}) {
@@ -252,6 +254,12 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
   let guiaAtivo = false;
   let poseCerta = 0;
   let liberadoEm = Infinity;
+  const lightHint = document.querySelector("[data-light-hint]");
+  const canvasLuz = document.createElement("canvas");
+  let quadrosGuia = 0;
+  let medicoesLuz = 0;
+  let escuras = 0;
+  let escuro = false;
   const landmarks = landmarksCanvas ? criarVisualizadorLandmarks() : null;
   const setStatus = (value, type = "") => {
     status.className = type ? `notice notice--${type}` : "field-hint";
@@ -271,7 +279,21 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     setStatus(`${prefixo}Captura automática em 3 segundos. Você também pode capturar antes ou encerrar a câmera.`, prefixo ? "success" : "");
     automaticTimer = setTimeout(() => { void takeCapture(); }, autoCaptureMs);
   };
+  const medirLuz = (faces) => {
+    let valor = null;
+    try { valor = medirLuminosidade(video, canvasLuz, regiaoMedicaoLuz(faces)); } catch { /* Sem medição: o flash só vem da recusa do servidor. */ }
+    medicoesLuz += 1;
+    escuras = valor !== null && valor < LUMINOSIDADE_ESCURA ? escuras + 1 : 0;
+    // ~1 s abaixo do limite do worker: avisa e liga o flash já na primeira captura.
+    if (escuras >= 3 && !escuro) {
+      escuro = true;
+      if (lightHint) lightHint.hidden = false;
+      avisar(AVISO_ESCURO);
+    }
+  };
   const guiarPose = (faces) => {
+    // A cada 3 quadros do guia (~300 ms); o flash ligado fica até o fim desta tela.
+    if (camera.stream && quadrosGuia++ % 3 === 0) medirLuz(faces);
     const avaliacao = camera.stream ? avaliarPose(faces, poseEsperada()) : null;
     if (poseHint) poseHint.hidden = !avaliacao;
     if (!avaliacao) return false;
@@ -285,7 +307,8 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     }
     // ~0,4 s estável (o guia roda a cada 100 ms) antes de capturar sozinho.
     poseCerta = avaliacao.ok ? poseCerta + 1 : 0;
-    if (poseCerta >= 4 && performance.now() >= liberadoEm && !capturing && !captureButton?.disabled) void takeCapture();
+    // Espera 3 medições de luz para decidir o flash antes da captura automática.
+    if (poseCerta >= 4 && medicoesLuz >= 3 && performance.now() >= liberadoEm && !capturing && !captureButton?.disabled) void takeCapture();
     return true;
   };
   const takeCapture = async () => {
@@ -310,7 +333,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     let proximoStatus = null;
     try {
       const capturarQuadro = () => camera.capturar(video, document.querySelector("#capture-canvas"));
-      const captura = flashFrontal() ? await comFlashFrontal(capturarQuadro) : capturarQuadro();
+      const captura = escuro || flashFrontal() ? await comFlashFrontal(capturarQuadro) : capturarQuadro();
       proximoStatus = await onCapture(captura);
       if (proximoStatus) setStatus(proximoStatus, "success");
       else if (!camera.stream) setStatus("Câmera encerrada.");

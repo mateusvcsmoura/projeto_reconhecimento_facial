@@ -3,11 +3,19 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
-import { CameraError, comFlashFrontal, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
+import {
+  CameraError,
+  comFlashFrontal,
+  criarControladorCamera,
+  LUMINOSIDADE_ESCURA,
+  luminosidadeMedia,
+  medirLuminosidade,
+} from "../../../src/presentation/web/static/camera.mjs";
 import {
   avaliarPose,
   criarVisualizadorLandmarks,
   desenharLandmarks,
+  regiaoMedicaoLuz,
 } from "../../../src/presentation/web/static/landmarks.mjs";
 import { iniciarCursorMagnetico } from "../../../src/presentation/web/static/magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "../../../src/presentation/web/static/scroll_reveal.mjs";
@@ -338,6 +346,31 @@ test("câmera limita a imagem enviada e encerra todas as tracks", async () => {
   camera.encerrar(video);
   assert.equal(tracks[0].stopped, true);
   assert.equal(video.srcObject, null);
+});
+
+test("luz do rosto usa a luma do worker e mede só a caixa do rosto", () => {
+  // Mesmos pesos BGR do worker: (10, 20, 30) em RGB invertido dá 21,85.
+  assert.equal(luminosidadeMedia(new Uint8ClampedArray([30, 20, 10, 255, 30, 20, 10, 255])).toFixed(2), "21.85");
+  assert.equal(LUMINOSIDADE_ESCURA, 80);
+
+  const rosto = [{ x: 0.4, y: 0.3 }, { x: 0.6, y: 0.7 }, { x: Number.NaN, y: 0.1 }];
+  const regiao = regiaoMedicaoLuz([rosto]);
+  assert.deepEqual(Object.values(regiao).map((v) => Number(v.toFixed(2))), [0.4, 0.3, 0.2, 0.4]);
+  // Sem rosto único, mede o centro do quadro.
+  assert.deepEqual(regiaoMedicaoLuz([]), regiaoMedicaoLuz([rosto, rosto]));
+  assert.equal(regiaoMedicaoLuz([]).largura, 0.4);
+
+  let desenho;
+  const canvas = {
+    getContext: () => ({
+      drawImage: (...args) => { desenho = args; },
+      getImageData: () => ({ data: new Uint8ClampedArray(32 * 32 * 4).fill(50) }),
+    }),
+  };
+  const video = { readyState: 2, videoWidth: 1000, videoHeight: 500 };
+  assert.equal(Math.round(medirLuminosidade(video, canvas, regiao)), 50);
+  assert.deepEqual(desenho.slice(1, 5).map(Math.round), [400, 150, 200, 200]);
+  assert.equal(medirLuminosidade({ ...video, readyState: 1 }, canvas, regiao), null);
 });
 
 test("flash frontal cobre a tela só durante a captura, mesmo se ela falhar", async () => {
