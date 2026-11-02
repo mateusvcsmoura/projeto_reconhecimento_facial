@@ -1944,26 +1944,6 @@ tbody tr:last-child td {
   text-align: center;
 }
 
-.challenge-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  max-width: 680px;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-}
-
-.challenge-step__number {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--ink);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
 .progress-list {
   display: flex;
   flex-wrap: wrap;

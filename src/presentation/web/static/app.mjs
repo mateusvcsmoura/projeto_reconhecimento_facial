@@ -218,16 +218,16 @@ const INSTRUCOES_POSE = { frente: "Olhe de frente para a câmera", esquerda: "Vi
 const instrucaoPose = (passo) => INSTRUCOES_POSE[passo] || passo;
 // Recusas corrigíveis: o servidor devolve a etapa (presença) ou reabre a coleta (cadastro).
 const DICAS_RECUSA = {
-  movimento_nao_confirmado: "O servidor não confirmou a posição da cabeça. Siga a faixa sobre a câmera e espere a captura automática.",
-  qualidade_insuficiente: "A imagem ficou sem nitidez. Segure o aparelho parado, limpe a lente e fique de frente para uma fonte de luz.",
-  iluminacao_insuficiente: "O rosto ficou escuro. Nas próximas capturas a tela fica branca por um instante para iluminar o rosto: aumente o brilho da tela e mantenha a posição até ela voltar ao normal.",
-  face_unica_nao_confirmada: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
-  captura_invalida: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
+  movimento_nao_confirmado: "Posição da cabeça não confirmada. Siga a faixa sobre a câmera.",
+  qualidade_insuficiente: "Imagem sem nitidez. Segure o aparelho parado e limpe a lente.",
+  iluminacao_insuficiente: "Rosto escuro. Aumente o brilho da tela; ela pisca em branco na captura.",
+  face_unica_nao_confirmada: "Rosto não encontrado. Aproxime-se e deixe só você na imagem.",
+  captura_invalida: "Rosto não encontrado. Aproxime-se e deixe só você na imagem.",
 };
-const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "A captura não passou na validação. Tente de novo.";
+const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "Captura não aceita. Tente de novo.";
 // Flash frontal só depois de recusa por rosto escuro; segue ligado até o fim da coleta.
 const pedeFlash = (motivo) => motivo === "iluminacao_insuficiente";
-const AVISO_ESCURO = "Pouca luz no rosto. Aumente o brilho da tela ao máximo: na captura, a tela fica branca por um instante para iluminar o rosto. Mantenha a posição até ela voltar ao normal.";
+const AVISO_ESCURO = "Pouca luz: aumente o brilho da tela. Ela pisca em branco na captura; fique parado.";
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas><p class="camera-hint" data-pose-hint aria-hidden="true" hidden></p>` : "";
@@ -235,7 +235,7 @@ function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const legenda = instrucao ? `<p class="camera-instruction" data-camera-instruction>${escapeHtml(instrucao)}</p>` : "";
   const statusGuia = guiaFacial ? `<p class="field-hint" data-landmarks-status aria-live="polite">O guia facial será iniciado junto com a câmera. Ele é local e não substitui a validação do servidor.</p>` : "";
   const avisoLuz = guiaFacial ? `<p class="notice notice--warning" data-light-hint hidden>${escapeHtml(AVISO_ESCURO)}</p>` : "";
-  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div>${avisoLuz}<div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
+  return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p data-camera-intro>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div>${avisoLuz}<div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
 function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseEsperada = () => null, flashFrontal = () => false } = {}) {
@@ -272,11 +272,11 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
       // Com o guia de pose, a captura espera a posição certa em vez do relógio.
       poseCerta = 0;
       liberadoEm = performance.now() + 1000;
-      setStatus(`${prefixo}A captura é automática quando a posição estiver certa. Você também pode usar o botão.`, prefixo ? "success" : "");
+      setStatus(`${prefixo}Captura automática na posição certa.`, prefixo ? "success" : "");
       return;
     }
     if (autoCaptureMs === null) return;
-    setStatus(`${prefixo}Captura automática em 3 segundos. Você também pode capturar antes ou encerrar a câmera.`, prefixo ? "success" : "");
+    setStatus(`${prefixo}Captura automática em 3 segundos.`, prefixo ? "success" : "");
     automaticTimer = setTimeout(() => { void takeCapture(); }, autoCaptureMs);
   };
   const medirLuz = (faces) => {
@@ -300,10 +300,6 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     if (poseHint && poseHint.textContent !== avaliacao.dica) {
       poseHint.textContent = avaliacao.dica;
       poseHint.classList.toggle("camera-hint--ok", avaliacao.ok);
-      if (landmarksStatus) {
-        landmarksStatus.className = avaliacao.ok ? "notice notice--success" : "field-hint";
-        landmarksStatus.textContent = `Guia de posição: ${avaliacao.dica}`;
-      }
     }
     // ~0,4 s estável (o guia roda a cada 100 ms) antes de capturar sozinho.
     poseCerta = avaliacao.ok ? poseCerta + 1 : 0;
@@ -328,7 +324,7 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
       captureButton.disabled = true;
       captureButton.textContent = "Capturando…";
     }
-    setStatus("Registrando esta etapa localmente…");
+    setStatus("Capturando…");
     let falhou = false;
     let proximoStatus = null;
     try {
@@ -362,12 +358,16 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
       if (modo === "environment" || (!modo && deviceSelect.value)) stage?.classList.remove("camera-stage--mirror");
       else stage?.classList.add("camera-stage--mirror");
       placeholder.hidden = true;
-      setStatus("Câmera pronta. Siga a orientação exibida e use o controle de captura.", "success");
+      // Com a câmera ligada, o vídeo e as faixas orientam; a introdução sai.
+      document.querySelector("[data-camera-intro]")?.setAttribute("hidden", "");
+      setStatus("Câmera pronta.", "success");
       if (landmarks) guiaAtivo = await landmarks.iniciar(video, landmarksCanvas, (textoGuia, tipo = "") => {
         if (!landmarksStatus) return;
         landmarksStatus.className = tipo ? `notice notice--${tipo}` : "field-hint";
         landmarksStatus.textContent = textoGuia;
       }, guiarPose);
+      // Guia ativo: a faixa sobre o vídeo já mostra a posição. Sem guia, a linha explica.
+      if (landmarksStatus) landmarksStatus.hidden = guiaAtivo;
       await onStart();
       const devices = await camera.enumerar();
       deviceSelect.replaceChildren(new Option("Câmera padrão", ""));
@@ -1011,7 +1011,7 @@ function repetirColetaCadastro(credencial, id, motivo) {
   // A chave anterior devolveria o job recusado; a nova submissão precisa de outra.
   salvarEstado("cadastro.idempotency", null);
   salvarEstado("cadastro.desafio", null);
-  mostrarColetaCadastro(credencial, id, null, `As capturas não foram aceitas. ${dicaRecusa(motivo)} Inicie a câmera e repita as três etapas.`, pedeFlash(motivo));
+  mostrarColetaCadastro(credencial, id, null, `Capturas não aceitas. ${dicaRecusa(motivo)} Inicie a câmera e repita.`, pedeFlash(motivo));
 }
 
 function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash = false) {
@@ -1022,11 +1022,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
   const instrucao = instrucaoPose;
   const legendaEtapa = (indice) => `Etapa ${indice + 1} de 3: ${instrucao(sequencia[indice])}`;
   const mostrarEtapa = (indice) => {
-    const numero = document.querySelector("[data-stage-number]");
-    const orientacao = document.querySelector("[data-stage-instruction]");
     const legenda = document.querySelector("[data-camera-instruction]");
-    if (numero) numero.textContent = String(indice + 1);
-    if (orientacao) orientacao.textContent = instrucao(sequencia[indice]);
     if (legenda) legenda.textContent = legendaEtapa(indice);
     document.querySelectorAll("[data-progress]").forEach((item, index) => {
       if (index === indice) item.setAttribute("aria-current", "step");
@@ -1044,7 +1040,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
     const result = document.querySelector("[data-capture-result]");
     if (result) result.innerHTML = "";
   };
-  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `${aviso ? mensagem(aviso, "error") : ""}<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol><p class="challenge-step"><span class="challenge-step__number" data-stage-number>1</span><span data-stage-instruction>${texto(instrucao(sequencia[0]))}</span></p><p class="field-hint">Câmera frontal espelhada na prévia. A orientação e a validação são definidas pelo servidor.</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
+  studentLayout("Três capturas guiadas", "Siga a sequência emitida pelo servidor. As imagens permanecem apenas na memória até o envio.", `${aviso ? mensagem(aviso, "error") : ""}<ol class="progress-list" aria-label="Progresso da captura">${sequencia.map((passo, indice) => `<li ${indice === 0 ? 'aria-current="step"' : ""} data-progress="${indice}">Etapa ${indice + 1}</li>`).join("")}</ol>${cameraMarkup({ guiaFacial: true, instrucao: legendaEtapa(0) })}<div class="button-row">${button("Capturar esta etapa", "capture-step", "button--dark")}${button("Interromper", "student-cancel", "button--quiet")}</div><div data-capture-result role="status" aria-live="polite"></div>`, "Cadastro facial");
   bindCamera(async (captura) => {
     capturas.push(captura.base64);
     const etapa = capturas.length;
@@ -1052,7 +1048,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash
     if (etapa < 3) {
       mostrarEtapa(etapa);
       avisar(`Captura ${etapa} recebida localmente. Siga a próxima orientação.`);
-      return `Etapa ${etapa} de 3 registrada. Agora: ${instrucao(sequencia[etapa])}.`;
+      return `Etapa ${etapa} de 3 registrada.`;
     }
     botao.disabled = true;
     const result = document.querySelector("[data-capture-result]");
@@ -1304,7 +1300,7 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
   const legendaDe = (atual) => `Etapa ${texto(atual.etapa)} de 3: ${instrucaoDe(atual)}`;
   const prazoDe = (atual) => `Prazo indicado pelo serviço: ${dataLocal(atual.expira_em || estado["presenca.expira_em"])}`;
   salvarEstado("presenca.desafio", desafio);
-  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação atual emitida pelo servidor. O guia do navegador ajuda a acertar a posição; a validação de movimento e identidade é do servidor.", `<p class="challenge-step"><span class="challenge-step__number" data-stage-number>${texto(desafio.etapa)}</span><strong data-stage-instruction>${escapeHtml(instrucaoDe(desafio))}</strong></p><p class="field-hint" data-stage-deadline>${escapeHtml(prazoDe(desafio))}</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaDe(desafio) })}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}</div><div data-capture-result role="status" aria-live="polite"></div>` , "Presença");
+  studentLayout(`Etapa ${texto(desafio.etapa)}`, "Siga a orientação sobre a câmera. A validação é do servidor.", `<p class="field-hint" data-stage-deadline>${escapeHtml(prazoDe(desafio))}</p>${cameraMarkup({ guiaFacial: true, instrucao: legendaDe(desafio) })}<div class="button-row">${button("Enviar captura desta etapa", "capture-step", "button--dark")}</div><div data-capture-result role="status" aria-live="polite"></div>` , "Presença");
   const controller = new AbortController();
   cleanup.push(() => controller.abort());
   // Atualiza a etapa na mesma tela: a câmera e o guia continuam ligados entre as etapas.
@@ -1313,8 +1309,6 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
     salvarEstado("presenca.desafio", atual);
     const definir = (seletor, valor) => { const elemento = document.querySelector(seletor); if (elemento) elemento.textContent = valor; };
     definir("h1", `Etapa ${texto(atual.etapa)}`);
-    definir("[data-stage-number]", texto(atual.etapa));
-    definir("[data-stage-instruction]", instrucaoDe(atual));
     definir("[data-stage-deadline]", prazoDe(atual));
     definir("[data-camera-instruction]", legendaDe(atual));
   };
@@ -1322,13 +1316,12 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
     const resultado = document.querySelector("[data-capture-result]");
     const etapaEnviada = Number(desafio.etapa);
     resultado.className = "";
-    resultado.textContent = `Enviando a captura da etapa ${etapaEnviada}…`;
+    resultado.textContent = `Validando a etapa ${etapaEnviada}…`;
     try {
       await api.post(apiPath(`/tentativas/${encodeURIComponent(estado["presenca.tentativa_id"])}/capturas`), {
         etapa: etapaEnviada, nonce: desafio.nonce, captura_base64: captura.base64,
       }, { headers: { Authorization: `Bearer ${estado["presenca.credencial_captura"]}` } });
       salvarEstado("presenca.desafio", null);
-      resultado.textContent = `Etapa ${etapaEnviada} enviada. Aguardando a validação do servidor…`;
       // O servidor avança, encerra ou devolve a mesma etapa (recusa corrigível) com o motivo.
       const atual = await acompanharOperacao(() => consultarTentativa(estadoSalvo(), controller.signal), {
         concluida: (valor) => terminalPresenca(valor.estado) || Number(valor.desafio?.etapa) >= etapaEnviada,
@@ -1345,11 +1338,11 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
         const dica = `Etapa ${etapaEnviada} não confirmada. ${dicaRecusa(atual.desafio.motivo)}`;
         resultado.innerHTML = mensagem(dica, "error");
         avisar(dica);
-        return `Repita a etapa ${etapaEnviada}: ${instrucaoDe(atual.desafio)}.`;
+        return `Repita a etapa ${etapaEnviada}.`;
       }
       resultado.textContent = "";
       avisar(`Etapa ${etapaEnviada} validada. ${legendaDe(atual.desafio)}.`);
-      return `Etapa ${etapaEnviada} validada. Agora: ${instrucaoDe(atual.desafio)}.`;
+      return `Etapa ${etapaEnviada} validada.`;
     } catch (erro) {
       resultado.textContent = "";
       throw new Error(mostrarErro(erro));
