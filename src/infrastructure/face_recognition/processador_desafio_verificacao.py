@@ -68,7 +68,9 @@ class LeitorReferencias(Protocol):
 
 
 class AdaptadorFace(Protocol):
-    def gerar_embedding(self, imagem: Any) -> FaceEmbedding: ...
+    def gerar_embedding(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> FaceEmbedding: ...
 
 
 class AdaptadorPose(Protocol):
@@ -184,7 +186,7 @@ class ProcessadorDesafioVerificacao:
         try:
             for conteudo in capturas:
                 imagem = self._decodificador(conteudo)
-                embedding = self._face.gerar_embedding(imagem)
+                embedding = self._embedding(imagem)
                 decisao = self._verificador.executar(embedding, referencias, politica)
                 if not decisao.identidade_ok:
                     return self._falha(
@@ -281,6 +283,16 @@ class ProcessadorDesafioVerificacao:
             aguardando_etapa=True,
             resultado_facial=facial,
         )
+
+    def _embedding(self, imagem: Any) -> FaceEmbedding:
+        try:
+            return self._face.gerar_embedding(imagem)
+        except MultiplosRostosDetectados:
+            # O Haar acha rostos falsos em imagem com ruído; o MediaPipe (até
+            # 2 rostos) decide se há mesmo outra pessoa no quadro.
+            if self._pose.analisar(imagem).quantidade_rostos != 1:
+                raise
+            return self._face.gerar_embedding(imagem, maior_rosto=True)
 
     def _carregar_referencias(
         self, politica: PoliticaVerificacaoIdentidade

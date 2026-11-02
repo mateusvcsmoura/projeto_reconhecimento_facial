@@ -19,7 +19,11 @@ from src.application.services.fila_facial import (
 )
 from src.application.services.worker_facial import CodigoResultadoWorker
 from src.domain.entities.face_embedding import FaceEmbedding
-from src.domain.errors import IluminacaoInsuficiente, RostoSemNitidez
+from src.domain.errors import (
+    IluminacaoInsuficiente,
+    MultiplosRostosDetectados,
+    RostoSemNitidez,
+)
 from src.domain.services.desafio_captura import (
     ContextoDesafio,
     DesafioCaptura,
@@ -269,6 +273,50 @@ def test_worker_confirma_identidade_pose_qualidade_e_antispoofing() -> None:
     assert resultado.resultado_facial.qualidade_ok is True
     assert resultado.resultado_facial.desafio_ok is False
     assert not hasattr(resultado.resultado_facial, "embedding")
+
+
+class FaceComRostoFalso:
+    """Haar vê dois rostos; só a nova detecção com maior_rosto passa."""
+
+    def __init__(self, vetor: FaceEmbedding) -> None:
+        self.vetor = vetor
+        self.chamadas: list[bool] = []
+
+    def gerar_embedding(
+        self, _imagem: bytes, *, maior_rosto: bool = False
+    ) -> FaceEmbedding:
+        self.chamadas.append(maior_rosto)
+        if not maior_rosto:
+            raise MultiplosRostosDetectados(2)
+        return self.vetor
+
+
+@pytest.mark.parametrize(("rostos_mediapipe", "aceita"), [(1, True), (2, False)])
+def test_worker_usa_o_maior_rosto_so_quando_o_mediapipe_conta_um(
+    rostos_mediapipe: int, aceita: bool
+) -> None:
+    job_id, desafio, refs, _, repositorio = _preparar(1)
+    face = FaceComRostoFalso(_embedding(1.0))
+    processor = ProcessadorDesafioVerificacao(
+        repositorio,
+        ReferenciasFake(refs),
+        desafio,
+        face,
+        PoseFake(OrientacaoPose.FRENTE, rostos=rostos_mediapipe),
+        relogio=lambda: AGORA,
+        decodificador=lambda content: content,
+    )
+
+    resultado = processor.processar(_job(job_id, 1, (b"frame-1",)), (b"frame-1",))
+
+    if aceita:
+        assert face.chamadas == [False, True]
+        assert resultado.resultado_facial is not None
+        assert resultado.resultado_facial.identidade_ok is True
+    else:
+        # Duas pessoas para o MediaPipe também: a etapa volta, sem nova detecção.
+        assert face.chamadas == [False]
+        assert repositorio.obter(job_id).motivo == "face_unica_nao_confirmada"
 
 
 class FaceRecusada:

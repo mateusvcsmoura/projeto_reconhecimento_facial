@@ -17,7 +17,12 @@ from src.application.services.fila_facial import (
 from src.application.services.worker_facial import CodigoResultadoWorker
 from src.domain.entities.face_embedding import FaceEmbedding
 from src.domain.entities.solicitacao_cadastro import SolicitacaoCadastro
-from src.domain.errors import IluminacaoInsuficiente, RostoSemNitidez
+from src.domain.errors import (
+    IluminacaoInsuficiente,
+    MultiplosRostosDetectados,
+    PossivelFraude,
+    RostoSemNitidez,
+)
 from src.domain.services.desafio_captura import OrientacaoPose
 from src.domain.services.face_recognition import FacePreparada
 from src.infrastructure.face_recognition.processador_cadastro_web import (
@@ -259,6 +264,38 @@ def test_worker_recusa_quando_pose_nao_confirma_face_unica() -> None:
     assert not repository.anexadas
 
 
+class FaceComRostoFalso(FaceFake):
+    """Haar vê dois rostos; só a nova detecção com maior_rosto passa."""
+
+    def preparar_cadastro(
+        self, imagem: bytes, *, maior_rosto: bool = False
+    ) -> FacePreparada:
+        if not maior_rosto:
+            raise MultiplosRostosDetectados(2)
+        return super().preparar_cadastro(imagem)
+
+
+def test_worker_usa_o_maior_rosto_quando_o_mediapipe_contou_um() -> None:
+    repository = SolicitacoesFake()
+    vetor = [1.0] + [0.0] * 511
+    processor = ProcessadorCadastroWeb(
+        FaceComRostoFalso((vetor, vetor, vetor)),
+        repository,
+        AnexarFake(repository),
+        PoseFake(
+            (OrientacaoPose.FRENTE, OrientacaoPose.DIREITA, OrientacaoPose.FRENTE)
+        ),
+        relogio=lambda: AGORA,
+        decodificador=lambda content: content,
+        codificador=lambda image: b"crop-" + image,
+    )
+
+    resultado = processor.processar(_job(), (b"a", b"b", b"c"))
+
+    assert resultado.sucesso
+    assert not repository.reaberturas
+
+
 class FaceRecusada(FaceFake):
     def __init__(self, erro: Exception) -> None:
         super().__init__(())
@@ -276,6 +313,8 @@ class FaceRecusada(FaceFake):
             "iluminacao_insuficiente",
         ),
         (RostoSemNitidez("nitidez=20.0 luminosidade=120.0"), "qualidade_insuficiente"),
+        # No cadastro o anti-spoofing reabre a coleta; o professor ainda aprova.
+        (PossivelFraude(), "antispoofing_recusado"),
     ],
 )
 def test_worker_reabre_coleta_separando_rosto_escuro_de_borrado(

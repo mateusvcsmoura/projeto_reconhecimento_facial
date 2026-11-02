@@ -69,6 +69,16 @@ def _para_bgr_uint8(face: np.ndarray) -> np.ndarray:
     return (np.clip(face, 0.0, 1.0) * 255).astype(np.uint8)[..., ::-1]
 
 
+def _area_facial(face: dict[str, Any]) -> int:
+    area = face.get("facial_area")
+    if not isinstance(area, dict):
+        return 0
+    largura, altura = area.get("w"), area.get("h")
+    if not isinstance(largura, Integral) or not isinstance(altura, Integral):
+        return 0
+    return int(largura) * int(altura)
+
+
 def _luminosidade_quadro(imagem: Any) -> str:
     """Brilho médio do quadro BGR inteiro, só para o log de rosto ausente."""
     if not isinstance(imagem, np.ndarray) or imagem.ndim != 3 or imagem.shape[2] != 3:
@@ -99,7 +109,9 @@ class DeepFaceAdapter:
     def modelo(self) -> str:
         return self._modelo
 
-    def _detectar_rosto_unico(self, imagem: Any) -> dict[str, Any]:
+    def _detectar_rosto_unico(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> dict[str, Any]:
         """Deteccao, alinhamento e -- quando ligado -- prova de vida.
 
         Um unico ponto de entrada para as duas operacoes publicas, para que
@@ -126,9 +138,16 @@ class DeepFaceAdapter:
         if not faces:
             raise NenhumRostoDetectado("O detector nao devolveu nenhum rosto.")
         if len(faces) != 1:
-            raise MultiplosRostosDetectados(len(faces))
+            if not maior_rosto:
+                raise MultiplosRostosDetectados(len(faces))
+            # Quem chama já confirmou um rosto só por outro detector: as demais
+            # caixas são falsos positivos do Haar (comuns em imagem com ruído).
+            logger.warning(
+                "Detector achou %d rostos com um só confirmado; usando o maior.",
+                len(faces),
+            )
 
-        face = faces[0]
+        face = max(faces, key=_area_facial)
 
         if self._anti_spoofing and self._strict_resultado_antispoofing:
             resultado_real = face.get("is_real")
@@ -206,9 +225,11 @@ class DeepFaceAdapter:
     def extrair_face_unica(self, imagem: Any) -> Any:
         return self._preparar_recorte(imagem)
 
-    def _preparar_recorte(self, imagem: Any) -> np.ndarray:
+    def _preparar_recorte(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> np.ndarray:
         """Detecta uma vez, aplica a politica optativa e devolve o recorte."""
-        face = self._detectar_rosto_unico(imagem)
+        face = self._detectar_rosto_unico(imagem, maior_rosto=maior_rosto)
         recorte = _para_bgr_uint8(np.asarray(face["face"]))
         if self._qualidade is not None:
             area = face.get("facial_area")
@@ -279,13 +300,22 @@ class DeepFaceAdapter:
         # simples 1 - produto escalar em qualquer ponto do sistema.
         return FaceEmbedding.de_valores(representacoes[0]["embedding"], self._modelo)
 
-    def preparar_cadastro(self, imagem: Any) -> FacePreparada:
-        """Detecta uma vez e usa o mesmo recorte no cadastro e no embedding."""
-        recorte = self._preparar_recorte(imagem)
+    def preparar_cadastro(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> FacePreparada:
+        """Detecta uma vez e usa o mesmo recorte no cadastro e no embedding.
+
+        ``maior_rosto`` só quando outro detector já confirmou um rosto único.
+        """
+        recorte = self._preparar_recorte(imagem, maior_rosto=maior_rosto)
         return FacePreparada(imagem=recorte, embedding=self._representar(recorte))
 
-    def gerar_embedding(self, imagem: Any) -> FaceEmbedding:
+    def gerar_embedding(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> FaceEmbedding:
         # Detecta (com prova de vida), valida opcionalmente e gera o vetor
         # sobre o recorte. `detector_backend="skip"` evita redetectar o que
         # acabou de ser detectado.
-        return self._representar(self._preparar_recorte(imagem))
+        return self._representar(
+            self._preparar_recorte(imagem, maior_rosto=maior_rosto)
+        )

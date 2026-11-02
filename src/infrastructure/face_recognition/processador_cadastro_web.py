@@ -41,11 +41,18 @@ from src.infrastructure.face_recognition.processador_desafio_verificacao import 
 logger = logging.getLogger(__name__)
 LIMIAR_CONTINUIDADE = 0.30
 # Recusas corrigíveis pelo aluno: a coleta reabre em vez de cancelar a solicitação.
-MOTIVOS_REPETIVEIS_CADASTRO = MOTIVOS_REPETIVEIS | {"captura_invalida"}
+# No cadastro a recusa do anti-spoofing também reabre a coleta: abrir outra
+# solicitação pelo mesmo link já era livre, e o professor ainda aprova.
+MOTIVOS_REPETIVEIS_CADASTRO = MOTIVOS_REPETIVEIS | {
+    "captura_invalida",
+    "antispoofing_recusado",
+}
 
 
 class AdaptadorCadastro(Protocol):
-    def preparar_cadastro(self, imagem: Any) -> FacePreparada: ...
+    def preparar_cadastro(
+        self, imagem: Any, *, maior_rosto: bool = False
+    ) -> FacePreparada: ...
 
     def preaquecer(self) -> None: ...
 
@@ -200,7 +207,12 @@ class ProcessadorCadastroWeb:
                         "movimento_nao_confirmado",
                         tecnico=False,
                     )
-                preparada = self._face.preparar_cadastro(imagem)
+                try:
+                    preparada = self._face.preparar_cadastro(imagem)
+                except MultiplosRostosDetectados:
+                    # O MediaPipe (até 2 rostos) já contou um só neste quadro:
+                    # as outras caixas do Haar são falsos positivos do ruído.
+                    preparada = self._face.preparar_cadastro(imagem, maior_rosto=True)
                 if not isinstance(preparada, FacePreparada):
                     raise ModeloIndisponivel("O provider não preparou uma face válida.")
                 if any(
@@ -249,7 +261,7 @@ class ProcessadorCadastroWeb:
             return ResultadoWorker(True, CodigoResultadoWorker.CONCLUIDA)
         except PossivelFraude:
             return self._falhar(
-                job, self._id_solicitacao(job), "recusa_biometrica", tecnico=False
+                job, self._id_solicitacao(job), "antispoofing_recusado", tecnico=False
             )
         except IluminacaoInsuficiente:
             return self._falhar(

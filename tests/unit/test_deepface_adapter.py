@@ -180,6 +180,25 @@ def test_varios_rostos_viram_erro_de_dominio(duble: DeepFaceDuble) -> None:
     assert capturado.value.quantidade == 2
 
 
+def test_maior_rosto_so_vale_quando_quem_chama_confirmou_um_rosto(
+    duble: DeepFaceDuble,
+) -> None:
+    # A caixa pequena é falso positivo; se fosse a escolhida, o anti-spoofing recusaria.
+    pequena = face_sintetica(
+        is_real=False, facial_area={"x": 0, "y": 0, "w": 20, "h": 20}
+    )
+    grande = face_sintetica(facial_area={"x": 0, "y": 0, "w": 200, "h": 200})
+    duble.faces = [pequena, grande]
+    duble.representacoes = [{"embedding": [3.0, 4.0]}]
+    adaptador = montar(duble)
+
+    with pytest.raises(MultiplosRostosDetectados):
+        adaptador.gerar_embedding(object())
+    embedding = adaptador.gerar_embedding(object(), maior_rosto=True)
+
+    assert embedding.modelo == "Facenet512"
+
+
 def test_falha_de_infraestrutura_nao_vira_sem_rosto(duble: DeepFaceDuble) -> None:
     """O ponto do problema A6: pesos ausentes nao podem virar 'sem rosto'."""
     duble.erro_extract = OSError("weights file not found")

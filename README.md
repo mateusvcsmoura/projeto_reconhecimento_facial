@@ -92,11 +92,15 @@ resultado em transação. O navegador mostra landmarks com MediaPipe
 worker, com folga, para orientar o aluno e capturar quando a posição estiver
 certa; a decisão é sempre do servidor. Recusas corrigíveis (pose, qualidade da
 imagem, rosto não encontrado) devolvem a etapa na presença ou reabrem a coleta
-no cadastro, com uma dica, até o prazo; identidade e anti-spoofing encerram.
+no cadastro, com uma dica, até o prazo. No cadastro, a recusa do anti-spoofing
+também reabre a coleta (abrir outra solicitação já era livre e o professor ainda
+aprova); na presença, identidade e anti-spoofing encerram a tentativa.
 Se o guia medir pouca luz no rosto (brilho abaixo de 80, o padrão do worker),
 a dica de brilho e o flash frontal valem já na primeira captura: a tela fica
-branca por um instante para iluminar o rosto. Uma recusa por rosto escuro também
-liga o flash nas capturas seguintes.
+branca por um instante para iluminar o rosto. Recusas por rosto escuro, rosto
+não encontrado, rostos a mais ou anti-spoofing também ligam o flash nas
+capturas seguintes. Quando o Haar acha vários rostos e o MediaPipe do worker
+(até 2 rostos) conta um só, o worker usa o maior.
 
 ### Fluxo CLI
 
