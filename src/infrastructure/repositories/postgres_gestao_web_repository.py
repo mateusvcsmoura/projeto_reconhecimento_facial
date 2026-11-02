@@ -1084,7 +1084,18 @@ class PostgresGestaoWebRepository:
                     )
                 )
             )
+            # Reserva de presença cancelada não vira tentativa, mas o dono_id
+            # ("presenca:<sessao>:<aluno>") ainda aponta para o aluno.
+            reservas_presenca = tuple(
+                session.scalars(
+                    select(models.JobFacialWeb.id).where(
+                        models.JobFacialWeb.tipo == "presenca",
+                        models.JobFacialWeb.dono_id.like(f"presenca:%:{aluno_id}"),
+                    )
+                )
+            )
             job_ids = set(tentativa_ids)
+            job_ids.update(reservas_presenca)
             job_ids.update(job_id for job_id in solicitacoes_jobs if job_id is not None)
             jobs = (
                 session.scalars(

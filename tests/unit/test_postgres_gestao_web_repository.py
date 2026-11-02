@@ -739,6 +739,48 @@ def test_exclusao_global_apaga_solicitacao_de_cadastro_aprovada_e_seus_jobs(
         assert session.get(models.JobFacialWeb, aceito) is None
 
 
+def test_exclusao_global_apaga_reserva_de_presenca_cancelada_do_aluno(db: Any) -> None:
+    # Reserva cancelada não cria tentativa; só o dono_id liga o job ao aluno.
+    repository = PostgresGestaoWebRepository(db)
+    do_aluno, de_outro = uuid4(), uuid4()
+    with sessionmaker(bind=db)() as session, session.begin():
+        for job_id, dono in ((do_aluno, "presenca:3:11"), (de_outro, "presenca:3:111")):
+            session.add(
+                models.JobFacialWeb(
+                    id=job_id,
+                    dono_id=dono,
+                    tipo="presenca",
+                    estado="cancelada",
+                    idempotencia_hash=job_id.hex * 2,
+                    credencial_hash="a" * 64,
+                    manifesto=None,
+                    bytes_reservados=1,
+                    prazo_reserva=AGORA + dt.timedelta(minutes=5),
+                    prazo_execucao=AGORA + dt.timedelta(minutes=15),
+                    criada_em=AGORA,
+                    atualizada_em=AGORA,
+                )
+            )
+
+    resultado = repository.excluir_aluno_global(
+        ator=ADMIN,
+        aluno_id=11,
+        confirmacao="EXCLUIR-ALUNO-11",
+        justificativa="Limpeza de cadastros de teste.",
+        agora=AGORA,
+        request_id=None,
+        armazenamento_referencias_disponivel=True,
+        armazenamento_legado_disponivel=True,
+        armazenamento_capturas_disponivel=True,
+    )
+
+    assert str(do_aluno) in resultado["jobs_temporarios"]
+    with sessionmaker(bind=db)() as session:
+        assert session.get(models.JobFacialWeb, do_aluno) is None
+        # Aluno 111 não casa com o sufixo ":11".
+        assert session.get(models.JobFacialWeb, de_outro) is not None
+
+
 def test_reativacao_de_quota_exige_admin_e_registra_evento_auditavel(db: Any) -> None:
     link_id = uuid4()
     set_id = 31

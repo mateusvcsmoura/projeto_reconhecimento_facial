@@ -77,7 +77,8 @@ No banco, a exclusão global apaga presenças, revisões, tentativas, desafios,
 conjuntos de referências, jobs e as solicitações de cadastro do aluno. A
 solicitação de cadastro aprovada fica com `aluno_id` nulo (guarda nome e
 matrícula) e é localizada pelo conjunto de referências, junto com todos os jobs
-de cadastro dela, inclusive envios recusados.
+de cadastro dela, inclusive envios recusados. Reservas de presença canceladas,
+que não chegam a criar tentativa, saem pelo `dono_id` (`presenca:<sessão>:<aluno>`).
 
 A exclusão global tenta remover os arquivos temporários e a imagem legada após
 o commit do banco. A API informa `limpeza_pendente=true` se algum armazenamento
