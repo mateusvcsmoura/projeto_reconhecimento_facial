@@ -24,6 +24,28 @@ function traduzirErro(error) {
   return new CameraError("indisponivel", "Não foi possível iniciar a câmera. Confira as permissões e tente novamente.");
 }
 
+/**
+ * Flash frontal: tela branca ilumina o rosto enquanto `acao` captura o quadro.
+ * ponytail: espera fixa para a exposição automática da câmera se ajustar;
+ * medir o brilho do quadro até estabilizar se 1 s não bastar em algum aparelho.
+ */
+export async function comFlashFrontal(acao, {
+  documento = globalThis.document,
+  esperaMs = 1000,
+  aguardar = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); }),
+} = {}) {
+  const tela = documento.createElement("div");
+  tela.className = "flash-frontal";
+  tela.setAttribute("aria-hidden", "true");
+  documento.body.append(tela);
+  try {
+    await aguardar(esperaMs);
+    return await acao();
+  } finally {
+    tela.remove();
+  }
+}
+
 export function criarControladorCamera({ mediaDevices = globalThis.navigator?.mediaDevices } = {}) {
   let stream = null;
 

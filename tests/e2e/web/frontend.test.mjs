@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { acompanharOperacao, criarClienteApi, criarPollerSerial, esperar } from "../../../src/presentation/web/static/api.mjs";
-import { CameraError, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
+import { CameraError, comFlashFrontal, criarControladorCamera } from "../../../src/presentation/web/static/camera.mjs";
 import {
   avaliarPose,
   criarVisualizadorLandmarks,
@@ -338,6 +338,29 @@ test("câmera limita a imagem enviada e encerra todas as tracks", async () => {
   camera.encerrar(video);
   assert.equal(tracks[0].stopped, true);
   assert.equal(video.srcObject, null);
+});
+
+test("flash frontal cobre a tela só durante a captura, mesmo se ela falhar", async () => {
+  const telas = [];
+  const documento = {
+    body: { append: (elemento) => telas.push(elemento) },
+    createElement: () => ({ atributos: {}, removida: false, setAttribute(nome, valor) { this.atributos[nome] = valor; }, remove() { this.removida = true; } }),
+  };
+  const esperas = [];
+  const aguardar = async (ms) => { esperas.push(ms); };
+
+  const captura = await comFlashFrontal(() => {
+    assert.equal(telas[0].className, "flash-frontal");
+    assert.equal(telas[0].removida, false);
+    return "quadro";
+  }, { documento, aguardar });
+
+  assert.equal(captura, "quadro");
+  assert.deepEqual(esperas, [1000]);
+  assert.equal(telas[0].removida, true);
+  assert.equal(telas[0].atributos["aria-hidden"], "true");
+  await assert.rejects(comFlashFrontal(() => { throw new Error("câmera"); }, { documento, aguardar }), /câmera/);
+  assert.equal(telas[1].removida, true);
 });
 
 test("câmera traduz indisponibilidade sem ocultar o controle acessível", async () => {

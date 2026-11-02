@@ -93,6 +93,8 @@ worker, com folga, para orientar o aluno e capturar quando a posição estiver
 certa; a decisão é sempre do servidor. Recusas corrigíveis (pose, qualidade da
 imagem, rosto não encontrado) devolvem a etapa na presença ou reabrem a coleta
 no cadastro, com uma dica, até o prazo; identidade e anti-spoofing encerram.
+Depois de uma recusa por rosto escuro, as capturas seguintes usam flash frontal:
+a tela fica branca por um instante para iluminar o rosto.
 
 ### Fluxo CLI
 

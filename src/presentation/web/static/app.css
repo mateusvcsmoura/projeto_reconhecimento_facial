@@ -1849,6 +1849,14 @@ tbody tr:last-child td {
   background: rgba(20, 90, 50, 0.9);
 }
 
+/* Flash frontal: a tela inteira vira fonte de luz durante a captura. */
+.flash-frontal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #ffffff;
+}
+
 .camera-stage__placeholder {
   position: absolute;
   inset: 0;

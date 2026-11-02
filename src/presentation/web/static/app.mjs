@@ -1,5 +1,5 @@
 import { ApiError, criarClienteApi, criarPollerSerial, acompanharOperacao } from "./api.mjs";
-import { criarControladorCamera } from "./camera.mjs";
+import { comFlashFrontal, criarControladorCamera } from "./camera.mjs";
 import { avaliarPose, criarVisualizadorLandmarks } from "./landmarks.mjs";
 import { iniciarCursorMagnetico } from "./magnetic_cursor.mjs";
 import { iniciarRevelacaoScroll } from "./scroll_reveal.mjs";
@@ -218,11 +218,14 @@ const instrucaoPose = (passo) => INSTRUCOES_POSE[passo] || passo;
 // Recusas corrigíveis: o servidor devolve a etapa (presença) ou reabre a coleta (cadastro).
 const DICAS_RECUSA = {
   movimento_nao_confirmado: "O servidor não confirmou a posição da cabeça. Siga a faixa sobre a câmera e espere a captura automática.",
-  qualidade_insuficiente: "A imagem ficou escura ou sem nitidez. Fique de frente para uma fonte de luz, segure o aparelho parado e tente de novo.",
+  qualidade_insuficiente: "A imagem ficou sem nitidez. Segure o aparelho parado, limpe a lente e fique de frente para uma fonte de luz.",
+  iluminacao_insuficiente: "O rosto ficou escuro. Nas próximas capturas a tela fica branca por um instante para iluminar o rosto: aumente o brilho da tela e mantenha a posição até ela voltar ao normal.",
   face_unica_nao_confirmada: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
   captura_invalida: "O servidor não encontrou exatamente um rosto. Ilumine o rosto, aproxime-se e deixe só você no enquadramento.",
 };
 const dicaRecusa = (motivo) => DICAS_RECUSA[motivo] || "A captura não passou na validação. Tente de novo.";
+// Flash frontal só depois de recusa por rosto escuro; segue ligado até o fim da coleta.
+const pedeFlash = (motivo) => motivo === "iluminacao_insuficiente";
 
 function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   const guia = guiaFacial ? `<canvas class="camera-landmarks" data-face-landmarks aria-hidden="true"></canvas><p class="camera-hint" data-pose-hint aria-hidden="true" hidden></p>` : "";
@@ -232,7 +235,7 @@ function cameraMarkup({ guiaFacial = false, instrucao = "" } = {}) {
   return `<section class="camera-panel" aria-labelledby="titulo-camera"><h2 id="titulo-camera">Câmera</h2><p>O navegador pedirá permissão quando você iniciar. A imagem fica apenas em memória durante esta etapa.</p><div class="camera-stage camera-stage--mirror"><video id="camera-video" autoplay playsinline muted aria-label="Prévia da câmera"></video>${guia}<div class="camera-stage__placeholder" id="camera-placeholder"><span class="camera-frame" aria-hidden="true"></span><span>A prévia da câmera aparecerá aqui.</span></div><span class="camera-frame" aria-hidden="true"></span>${legenda}</div><div class="field"><label for="camera-device">Dispositivo de câmera</label><select id="camera-device"><option value="">Câmera padrão</option></select></div><div class="button-row">${button("Iniciar câmera", "camera-start", "button--dark")}${button("Encerrar câmera", "camera-stop", "button--quiet")}</div><canvas id="capture-canvas" class="sr-only" aria-hidden="true"></canvas><p class="field-hint" data-camera-status aria-live="polite">Nenhuma câmera está ativa.</p>${statusGuia}</section>`;
 }
 
-function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseEsperada = () => null } = {}) {
+function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseEsperada = () => null, flashFrontal = () => false } = {}) {
   const video = document.querySelector("#camera-video");
   const placeholder = document.querySelector("#camera-placeholder");
   const status = document.querySelector("[data-camera-status]");
@@ -305,7 +308,8 @@ function bindCamera(onCapture, { autoCaptureMs = 3000, onStart = () => {}, poseE
     let falhou = false;
     let proximoStatus = null;
     try {
-      const captura = camera.capturar(video, document.querySelector("#capture-canvas"));
+      const capturarQuadro = () => camera.capturar(video, document.querySelector("#capture-canvas"));
+      const captura = flashFrontal() ? await comFlashFrontal(capturarQuadro) : capturarQuadro();
       proximoStatus = await onCapture(captura);
       if (proximoStatus) setStatus(proximoStatus, "success");
       else if (!camera.stream) setStatus("Câmera encerrada.");
@@ -983,10 +987,10 @@ function repetirColetaCadastro(credencial, id, motivo) {
   // A chave anterior devolveria o job recusado; a nova submissão precisa de outra.
   salvarEstado("cadastro.idempotency", null);
   salvarEstado("cadastro.desafio", null);
-  mostrarColetaCadastro(credencial, id, null, `As capturas não foram aceitas. ${dicaRecusa(motivo)} Inicie a câmera e repita as três etapas.`);
+  mostrarColetaCadastro(credencial, id, null, `As capturas não foram aceitas. ${dicaRecusa(motivo)} Inicie a câmera e repita as três etapas.`, pedeFlash(motivo));
 }
 
-function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "") {
+function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "", flash = false) {
   let desafio = desafioInicial;
   const sequenciaDe = (atual) => Array.isArray(atual?.sequencia) ? atual.sequencia : ["frente", "movimento indicado", "frente"];
   let sequencia = sequenciaDe(desafio);
@@ -1062,6 +1066,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "") {
   }, {
     autoCaptureMs: null,
     poseEsperada: () => sequencia[capturas.length],
+    flashFrontal: () => flash,
     onStart: async () => {
       await renovarDesafio();
       avisar(`Câmera pronta. Etapa 1: ${instrucao(sequencia[0])}. Siga a faixa sobre a câmera: cada etapa é capturada quando a posição estiver certa.`);
@@ -1071,7 +1076,7 @@ function mostrarColetaCadastro(credencial, id, desafioInicial, aviso = "") {
     camera.encerrar(document.querySelector("#camera-video"));
     capturas = [];
     studentLayout("Coleta interrompida", "Nenhuma imagem foi enviada. Você pode retomar a mesma solicitação sem criar outra.", `${mensagem("A etapa atual foi reiniciada; siga novamente a sequência do servidor.")} ${button("Retomar capturas", "cadastro-resume", "button--dark")}`);
-    document.querySelector('[data-action="cadastro-resume"]')?.addEventListener("click", () => mostrarColetaCadastro(credencial, id, desafio));
+    document.querySelector('[data-action="cadastro-resume"]')?.addEventListener("click", () => mostrarColetaCadastro(credencial, id, desafio, "", flash));
   });
 }
 
@@ -1270,6 +1275,7 @@ function mostrarAguardandoPresenca(estado, status) {
 
 function mostrarDesafioPresenca(estado, desafioInicial) {
   let desafio = desafioInicial;
+  let flash = pedeFlash(desafio.motivo);
   const instrucaoDe = (atual) => instrucaoPose(atual.orientacao || atual.direcao_movimento || "siga a orientação do servidor");
   const legendaDe = (atual) => `Etapa ${texto(atual.etapa)} de 3: ${instrucaoDe(atual)}`;
   const prazoDe = (atual) => `Prazo indicado pelo serviço: ${dataLocal(atual.expira_em || estado["presenca.expira_em"])}`;
@@ -1311,6 +1317,7 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
       }
       mostrarEtapa(atual.desafio);
       if (Number(atual.desafio.etapa) === etapaEnviada) {
+        flash ||= pedeFlash(atual.desafio.motivo);
         const dica = `Etapa ${etapaEnviada} não confirmada. ${dicaRecusa(atual.desafio.motivo)}`;
         resultado.innerHTML = mensagem(dica, "error");
         avisar(dica);
@@ -1326,6 +1333,7 @@ function mostrarDesafioPresenca(estado, desafioInicial) {
   }, {
     autoCaptureMs: 3000,
     poseEsperada: () => desafio?.orientacao,
+    flashFrontal: () => flash,
     onStart: () => avisar(`Câmera pronta. ${legendaDe(desafio)}. A captura é automática quando a posição estiver certa; você também pode usar o botão.`),
   });
 }
