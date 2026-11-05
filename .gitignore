@@ -224,7 +224,7 @@ __marimo__/
 # ==========================================================================
 # Projeto — dados sensiveis e artefatos locais
 # ==========================================================================
-# Dados biometricos e pessoais NUNCA vao para o Git (CLAUDE.md secao 8).
+# Dados biometricos e pessoais NUNCA vao para o Git.
 
 # Bancos locais / legado SQLite
 *.db

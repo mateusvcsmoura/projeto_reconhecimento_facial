@@ -1,6 +1,6 @@
 """Configuracao lida do ambiente.
 
-Regra do projeto (CLAUDE.md secao 4): credenciais nunca no codigo. A unica
+Regra do projeto: credenciais nunca no codigo. A unica
 fonte e o ambiente / arquivo .env, e a aplicacao falha no boot se a conexao
 nao estiver definida.
 

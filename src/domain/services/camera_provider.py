@@ -1,8 +1,8 @@
 """Contrato da fonte de imagem.
 
-Existe para que o resto do sistema seja testavel sem webcam
-(CLAUDE.md secao 7.4) e para que a fonte possa ser trocada -- arquivo,
-stream de rede -- sem tocar na orquestracao.
+Existe para que o resto do sistema seja testavel sem webcam e para que a
+fonte possa ser trocada -- arquivo, stream de rede -- sem tocar na
+orquestracao.
 """
 
 from __future__ import annotations

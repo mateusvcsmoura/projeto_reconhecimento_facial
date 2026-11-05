@@ -5,8 +5,7 @@ nas camadas internas. O print() continua existindo,
 mas apenas na camada de apresentacao, para falar com o operador.
 
 Regra de privacidade: log de rotina identifica aluno pelo id interno,
-nunca por nome. Nunca registrar imagem, embedding ou credencial
-(CLAUDE.md secao 8).
+nunca por nome. Nunca registrar imagem, embedding ou credencial.
 """
 
 from __future__ import annotations

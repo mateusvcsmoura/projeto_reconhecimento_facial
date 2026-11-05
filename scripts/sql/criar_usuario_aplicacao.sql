@@ -2,8 +2,7 @@
 --
 -- Ate a Fase 5 a aplicacao conectava com o dono do banco, que pode criar e
 -- destruir tabelas. Um bug -- ou um SQL injetado -- teria alcance de DDL
--- sobre uma base de dado biometrico. Principio do menor privilegio
--- (CLAUDE.md secao 8).
+-- sobre uma base de dado biometrico. Principio do menor privilegio.
 --
 -- Separacao adotada:
 --   * migracoes  -> usuario dono (DDL), usado APENAS por `alembic upgrade`

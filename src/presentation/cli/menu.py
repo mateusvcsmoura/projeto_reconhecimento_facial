@@ -2,8 +2,7 @@
 
 Esta camada decide *o que mostrar e quando*; nao decide regra de negocio e
 nao acessa banco. Camera e janela chegam injetadas, entao o menu inteiro e
-exercitavel em teste com dubles -- sem webcam e sem OpenCV instalado
-(CLAUDE.md secao 7.4).
+exercitavel em teste com dubles -- sem webcam e sem OpenCV instalado.
 """
 
 from __future__ import annotations

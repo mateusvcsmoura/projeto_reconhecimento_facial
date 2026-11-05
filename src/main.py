@@ -7,7 +7,7 @@ sem PostgreSQL real.
     python -m src.main
 
 O schema NAO e criado aqui. Migrations sao comando explicito
-(`alembic upgrade head`), como manda o CLAUDE.md secao 4.
+(`alembic upgrade head`).
 """
 
 from __future__ import annotations
