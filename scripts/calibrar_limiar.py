@@ -9,7 +9,7 @@ A regra de decisao do sistema e um classificador binario de UM parametro
 Calibrar tau com pares rotulados e treinar esse classificador. Os pesos do
 Facenet512 NAO sao tocados: o modelo so gera os vetores.
 
-Protocolo (docs/ML-ETAPA-1-RESULTADO.md):
+Protocolo:
 
   1. Selecao: identidades com 2+ imagens unicas (duplicatas exatas fora),
      no maximo N imagens por identidade, sorteadas com a seed.
@@ -18,7 +18,7 @@ Protocolo (docs/ML-ETAPA-1-RESULTADO.md):
      guardado em avaliacao/cache/, amarrado a configuracao do modelo.
   4. Pares genuinos e impostores DENTRO de cada conjunto.
   5. Calibracao na VALIDACAO: para cada teto de FAR, o maior tau que o
-     respeita (ADR-004). O treino so serve de analise -- o criterio de
+     respeita. O treino so serve de analise -- o criterio de
      escolha e uma regra de negocio fixa, sem hiperparametro, entao nao ha
      "ajuste no treino + selecao na validacao" a fazer neste experimento.
   6. Teste, UMA vez: o baseline (FACE_THRESHOLD) e os limiares calibrados,
@@ -84,9 +84,9 @@ from src.domain.errors import ModeloIndisponivel
 from src.domain.services.matcher import ModeloIncompativel
 
 TETOS_DE_FAR = (0.0, 0.001, 0.01, 0.05)
-# ADR-004 deixa o teto como decisao de negocio. Dos tetos que ele oferece,
+# O teto de FAR e decisao de negocio. Dos tetos oferecidos,
 # 0,1% e o mais frouxo que ainda mantem a FPIR estimada de uma turma de 40
-# alunos em um digito (40 x 0,1% ~ 4%, ML-LEARNING-AUDIT.md secao 7.4); 1%
+# alunos em um digito (40 x 0,1% ~ 4%); 1%
 # daria ~33%.
 TETO_PRINCIPAL = 0.001
 MIN_IMAGENS = 2
@@ -648,7 +648,7 @@ def executar(
         if nome != BASELINE
     }
 
-    # Sanidade (ML-LEARNING-AUDIT.md secao 12.5): sem o rotulo verdadeiro,
+    # Sanidade: sem o rotulo verdadeiro,
     # a distancia nao deveria separar nada. AUC longe de 0,5 = vazamento.
     embaralhado = np.random.default_rng(seed).permutation(validacao.rotulo)
     auc_embaralhado = area_sob_a_curva(

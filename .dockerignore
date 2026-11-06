@@ -18,7 +18,6 @@ models/
 !models/
 !models/face_landmarker.task
 tests/
-docs/
 ops/
 .github/
 .agents/

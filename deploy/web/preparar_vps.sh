@@ -1,6 +1,6 @@
 #!/bin/bash
-# Prepara o host Ubuntu da VPS para o deploy web: passos 4, 6 e 7 do
-# deploy/web/README.md (arquivo de ambiente, segredos, modelos e tmpfs).
+# Prepara o host Ubuntu da VPS para o deploy web: secao "Deploy" do
+# README.md (arquivo de ambiente, segredos, modelos e tmpfs).
 #
 # Uso, com Docker Engine + Compose v2 instalados e o checkout em
 # /opt/facediff/current:
@@ -171,7 +171,7 @@ docker compose --env-file "$ENV" -f "$RAIZ/deploy/web/compose.yaml" config --qui
 
 cat <<EOF
 
-Host preparado. Proximos passos (deploy/web/README.md, passos 8 a 11):
+Host preparado. Proximos passos (README.md, secao "Subir a stack"):
   cd $RAIZ/deploy/web
   sudo docker compose --env-file $ENV build postgres app face-worker migrate backup caddy
   sudo docker compose --env-file $ENV up -d postgres

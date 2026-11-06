@@ -1,32 +1,177 @@
 # FaceDiff — Reconhecimento Facial para Controle de Presença
 
-Projeto acadêmico da disciplina de Inteligência Artificial da Fatec, não um
-TCC. O sistema cadastra referências faciais de alunos e registra presença por
-reconhecimento facial, com PostgreSQL e arquitetura em camadas.
+Projeto acadêmico da disciplina de Inteligência Artificial da Fatec (não é um
+TCC). O FaceDiff registra a presença dos alunos por reconhecimento facial: o
+aluno abre um link no celular, informa a matrícula e olha para a câmera; o
+servidor confirma que o rosto é o mesmo do cadastro e grava a presença.
 
-Há duas interfaces sobre o mesmo domínio:
+- **Interface web (principal):** FastAPI e uma SPA em JavaScript puro. O
+  professor gerencia turmas, aulas, links, cadastros e revisões; o aluno usa a
+  câmera do navegador, sem instalar nada.
+- **CLI:** menu de terminal com webcam local, herdado do protótipo, que faz
+  identificação 1:N na turma selecionada.
+- **Implantação:** máquina virtual Ubuntu na Azure, com Docker Compose e HTTPS
+  (Caddy + Let's Encrypt), usada pela equipe nos testes e na apresentação.
 
-- **Web (FaceDiff):** o professor gerencia turmas, links de cadastro, sessões
-  de presença e revisões; o aluno usa a câmera do navegador. É a interface
-  principal em desenvolvimento.
-- **CLI:** menu de terminal com webcam local, usado desde o protótipo.
+Os testes automatizados usam dados sintéticos: provam que o software faz o que
+promete, não a acurácia biométrica. O que foi e o que não foi medido está em
+[Resultados e limites](#resultados-e-limites).
 
-Os testes usam dados sintéticos e comprovam comportamento funcional, não
-acurácia biométrica. Não houve deploy nem validação com pessoas reais. O
-registro de estado, evidências e pendências está em
-[`docs/ESTADO-ATUAL-E-EVIDENCIAS.md`](docs/ESTADO-ATUAL-E-EVIDENCIAS.md).
+---
 
-| | |
-|---|---|
-| **Índice da documentação** | [`docs/README.md`](docs/README.md) |
-| **Decisões** | [`docs/adr/`](docs/adr/) — ADRs com alternativas descartadas |
-| **Dados pessoais** | [`docs/lgpd.md`](docs/lgpd.md) — o que é tratado, por quê e por quanto tempo |
-| **Web: runtime** | [`docs/FACEDIFF-WEB-RUNTIME.md`](docs/FACEDIFF-WEB-RUNTIME.md) — execução local, Linux e Compose |
-| **Web: contas e gestão** | [`docs/FACEDIFF-WEB-AUTH.md`](docs/FACEDIFF-WEB-AUTH.md), [`docs/FACEDIFF-WEB-GESTAO.md`](docs/FACEDIFF-WEB-GESTAO.md) |
-| **Web: implantação** | [`deploy/web/README.md`](deploy/web/README.md), [`docs/FACEDIFF-WEB-HTTPS-DOMINIO.md`](docs/FACEDIFF-WEB-HTTPS-DOMINIO.md) |
-| **Turmas (CLI)** | [`docs/TURMAS.md`](docs/TURMAS.md) |
-| **Material acadêmico** | [`docs/ML-CONSOLIDACAO-ACADEMICA.md`](docs/ML-CONSOLIDACAO-ACADEMICA.md) |
-| **Baseline histórico** | [`docs/baseline-arquitetura.md`](docs/baseline-arquitetura.md) — o protótipo monolítico de origem |
+## Como funciona
+
+```text
+Professor                         Aluno (navegador)                Worker facial
+─────────                         ─────────────────                ─────────────
+cria turma e link de cadastro ──► abre link, aceita o termo,
+                                  envia 3 fotos guiadas ─────────► detecção, qualidade,
+                                  (frente / virada / frente)       anti-spoofing, pose
+                                                                   e embeddings
+aprova ou rejeita o cadastro  ◄─────────────────────────────────── referências pendentes
+cria aula e link de presença  ──► informa a matrícula, cumpre
+                                  o desafio e envia as fotos ────► verificação 1:1:
+                                                                   mediana de 3 distâncias
+                                                                   cosseno ≤ 0,30
+consulta presenças, revisa,   ◄─────────────────────────────────── presença registrada
+exporta CSV                                                        ou recusa explicada
+```
+
+**Cadastro.** O aluno abre o link da turma, informa nome e matrícula e aceita o
+termo de consentimento; só então a câmera liga. Ele envia três fotos guiadas,
+e o worker confere se há um único rosto, qualidade, anti-spoofing, pose e se
+as três fotos são da mesma pessoa. O cadastro só passa a valer depois que o
+professor o aprova: a câmera confirma o rosto, mas não a identidade civil.
+
+**Presença.** O professor cria a aula (com início e fim) e gera o link. O aluno
+digita a matrícula e cumpre um desafio de três etapas: olhar de frente, virar
+para o lado sorteado e voltar de frente. Cada etapa passa pelas mesmas
+checagens do cadastro e compara o rosto com as três referências do aluno. São
+até três tentativas por aula; depois disso, o aluno pode pedir revisão, e o
+professor decide com justificativa registrada.
+
+**Recusas.** Problemas que o aluno corrige sozinho (pose, luz, nitidez, rosto
+não encontrado) devolvem a mesma etapa com uma dica, até o prazo. Na presença,
+identidade não confirmada e anti-spoofing encerram a tentativa; no cadastro, a
+recusa do anti-spoofing reabre a coleta, porque o professor ainda aprova.
+
+**Professor e administração.** O administrador cria as contas de professor;
+cada professor vê só as próprias turmas. O painel mostra totais e presenças
+por aula, exporta CSV por período ou por aula e lista revisões pendentes. As
+fotos e os embeddings nunca aparecem na interface.
+
+---
+
+## Inteligência artificial
+
+| Etapa | Modelo | Onde roda | Papel |
+|---|---|---|---|
+| Detecção | Haar Cascade (OpenCV) | Worker | Encontra o rosto e recorta |
+| Qualidade | Heurísticas | Worker | Tamanho mínimo (80 px), brilho e nitidez (variância do Laplaciano) |
+| Anti-spoofing | MiniFASNet (PyTorch, via DeepFace) | Worker | Recusa foto impressa e tela |
+| Pose | MediaPipe Face Landmarker | Worker (decide) e navegador (guia, WASM) | Confere frente/esquerda/direita e conta rostos |
+| Embedding | FaceNet512 pré-treinado (TensorFlow, via DeepFace) | Worker | Transforma o rosto em um vetor de 512 números |
+| Decisão | Distância cosseno | Worker | Web: verificação 1:1; CLI: identificação 1:N |
+
+**Nenhum modelo foi treinado pelo projeto.** O FaceNet512 é usado apenas em
+inferência; treinar um modelo facial exigiria milhões de rostos autorizados.
+O aprendizado de máquina do projeto está na calibração do limiar e nos
+experimentos descritos em [Resultados e limites](#resultados-e-limites).
+
+### Decisão de identidade
+
+Rostos da mesma pessoa geram embeddings próximos. A distância usada é
+`1 − similaridade cosseno` entre vetores normalizados: 0 é idêntico, e quanto
+maior, mais diferentes. Na web, o aluno declara quem é pela matrícula, e o
+worker calcula a distância da foto até cada uma das três referências do
+cadastro. A presença é aceita se a **mediana** das três distâncias for no
+máximo **0,30**:
+
+- o mínimo seria permissivo demais (bastaria uma referência parecida);
+- a média sofre com uma referência ruim;
+- a mediana tolera uma foto ruim no cadastro.
+
+Comparar 1:1 com a matrícula declarada evita que o erro cresça com o tamanho da
+turma, como ocorre na identificação 1:N. Na web, o limiar
+(`LIMIAR_VERIFICACAO` em `src/domain/services/verificacao_identidade.py`) e o
+anti-spoofing são fixos no código; não há variável que os desligue.
+
+### Prova de vida
+
+1. **Anti-spoofing:** o MiniFASNet classifica a textura do recorte como rosto
+   real ou apresentação (foto, tela).
+2. **Desafio de pose:** o lado da virada é sorteado no servidor, e a pose de
+   cada etapa é conferida pelo MediaPipe no worker. O MediaPipe do navegador só
+   orienta o enquadramento e dispara a captura; a decisão é sempre do servidor.
+3. **Prazos e nonce:** cada desafio tem prazo e identificador emitidos pelo
+   servidor (HMAC), o que impede reenviar capturas antigas.
+
+### Iluminação e flash frontal
+
+O guia do navegador mede o brilho do rosto antes de capturar. Abaixo de 80 (em
+0–255), ele mostra a dica de luz e acende o **flash frontal**: a tela fica
+branca por um segundo antes da foto, iluminando o rosto. O flash também liga
+depois de recusas por rosto escuro, rosto não encontrado, rostos a mais ou
+anti-spoofing. Ele não altera o limiar nem a decisão.
+
+No worker, uma foto borrada e escura (brilho abaixo de
+`WEB_FACE_QUALITY_DIM_BRIGHTNESS`) é tratada como falta de luz, não como
+desfoque. Quando o Haar enxerga rostos a mais (falsos positivos no fundo) e o
+MediaPipe confirma um único rosto, o worker usa o maior.
+
+---
+
+## Resultados e limites
+
+### Calibração do limiar (verificação 1:1 no LFW)
+
+A Etapa 1 mediu a verificação 1:1 na base pública LFW, com divisão por
+identidade (60/20/20), limiar escolhido na validação e teste aberto uma única
+vez: 336 identidades, 1.099 imagens, 2.001 pares genuínos e 601.350 pares
+impostores. O anti-spoofing ficou desligado nessa medição, e cerca de 11,8% das
+imagens falharam na extração.
+
+| Limiar | FAR (aceita a pessoa errada) | FRR (recusa a pessoa certa) |
+|---|---|---|
+| **0,30 (em uso)** | ~0,0018% | ~38,03% |
+| 0,428 (candidato para FAR ≤ 0,1%) | ~0,063% | ~16,39% |
+
+AUC ~0,983. O limiar 0,30 é conservador: quase nunca aceita a pessoa errada,
+mas recusa muitas fotos genuínas do LFW. Na aplicação, as três referências, a
+mediana e a repetição de etapas compensam parte disso. O candidato 0,428 **não
+foi adotado**: a mudança exige medição com dados representativos da sala de aula.
+
+![Distribuição das distâncias genuínas e impostoras no teste, com os dois limiares](img/ml/histograma-distancias.svg)
+
+![FAR e FRR em função do limiar no teste, em escala log](img/ml/far-frr-por-limiar.svg)
+
+### Outros experimentos de ML
+
+Implementados e testados **apenas com vetores sintéticos**, sem métricas
+biométricas:
+
+- **Supervisionado:** limiar calibrado, regressão logística, Gaussian Naive
+  Bayes e árvore de decisão sobre a distância cosseno.
+- **Identificação aberta 1:N:** galerias de conhecidos e desconhecidos,
+  FPIR/FNIR, top-1, 1 ou 3 referências por identidade e bootstrap.
+- **Não supervisionado:** DBSCAN (cosseno) e K-Means, com Silhouette, ARI/NMI e
+  PCA.
+- **Benchmark de matching:** matriz NumPy vetorizada contra um laço Python, com
+  galerias sintéticas de 10 a 1.000 vetores (`scripts.benchmark_matcher`).
+
+### O que não foi medido
+
+- Acurácia em sala de aula e identificação 1:N com pessoas reais.
+- Eficácia do anti-spoofing contra ataques (APCER/BPCER). Sabe-se que ele dá
+  falso positivo em contraluz.
+- Desempenho por subgrupo (tom de pele, gênero, idade).
+- Os números do LFW vêm de outro domínio e de um teste já consultado; não são
+  métrica operacional.
+
+Além do uso histórico do LFW na Etapa 1, o projeto não usa datasets externos de
+rostos nem reutiliza imagens dos alunos cadastrados para avaliação. FEI, DFW,
+CelebA e Olivetti foram considerados; a decisão foi não importar novos
+datasets faciais.
 
 ---
 
@@ -45,9 +190,9 @@ Infrastructure src/infrastructure/{database,repositories,face_recognition,
 
 O domínio não importa `DeepFace`, `cv2`, MediaPipe nem SQLAlchemy. Ele declara
 protocolos (`FaceRecognitionProvider`, repositórios, armazenamento, câmera,
-desafio de captura), e a infraestrutura os implementa. Os casos de uso
-recebem as dependências prontas, por isso a lógica de negócio é testada sem
-webcam, banco ou modelo.
+desafio de captura), e a infraestrutura os implementa. Os casos de uso recebem
+as dependências prontas; por isso a lógica de negócio é testada sem webcam,
+banco ou modelo, e o modelo pode ser trocado sem mexer nas regras.
 
 | Camada | Conteúdo principal |
 |---|---|
@@ -68,51 +213,104 @@ Pontos de entrada:
 - `src/web_main.py`: fábrica ASGI `create_web_app`, servida pelo Uvicorn.
 - `src/face_worker_main.py`: worker facial que consome a fila.
 
-### Fluxo web
+**API e worker separados.** A API não carrega modelos: grava cada captura em
+armazenamento temporário privado (tmpfs) e enfileira um job no próprio
+PostgreSQL, com reserva, prazo e limite de fila (acima dele, responde 503 com
+`Retry-After`). Um único worker processa os jobs em série e confirma o
+resultado em transação. Assim, o site continua respondendo enquanto o modelo
+roda, e não é preciso um serviço extra de fila. O MediaPipe roda num
+subprocesso isolado, porque traz outro fornecedor de `cv2`.
 
-```text
-Professor                         Aluno (navegador)                Worker facial
-─────────                         ─────────────────                ─────────────
-cria turma e link de cadastro ──► abre link, aceita aviso,
-                                  envia 3 frames com desafio ────► detecção, anti-spoofing,
-                                  de pose (frente/virada/retorno)  pose e embeddings
-aprova ou rejeita o cadastro ◄──────────────────────────────────── referências pendentes
-cria sessão e link de presença ─► informa matrícula, cumpre
-                                  o desafio, envia capturas ─────► verificação 1:1:
-                                                                   mediana de 3 distâncias
-                                                                   cosseno ≤ 0,30
-consulta presenças, revisa,   ◄──────────────────────────────────── presença registrada
-edita/exclui sessões, exporta CSV                                  ou recusa explicada
-```
-
-A API não carrega modelos. Ela grava cada captura em armazenamento temporário
-privado e enfileira um job; o worker processa um job por vez e confirma o
-resultado em transação. O navegador mostra landmarks com MediaPipe
-`tasks-vision` (WASM) apenas como guia: ele aplica a mesma geometria de pose do
-worker, com folga, para orientar o aluno e capturar quando a posição estiver
-certa; a decisão é sempre do servidor. Recusas corrigíveis (pose, qualidade da
-imagem, rosto não encontrado) devolvem a etapa na presença ou reabrem a coleta
-no cadastro, com uma dica, até o prazo. No cadastro, a recusa do anti-spoofing
-também reabre a coleta (abrir outra solicitação já era livre e o professor ainda
-aprova); na presença, identidade e anti-spoofing encerram a tentativa.
-Se o guia medir pouca luz no rosto (brilho abaixo de 80, o padrão do worker),
-a dica de brilho e o flash frontal valem já na primeira captura: a tela fica
-branca por um instante para iluminar o rosto. Recusas por rosto escuro, rosto
-não encontrado, rostos a mais ou anti-spoofing também ligam o flash nas
-capturas seguintes. Quando o Haar acha vários rostos e o MediaPipe do worker
-(até 2 rostos) conta um só, o worker usa o maior.
-
-### Fluxo CLI
+**Fluxo CLI.**
 
 ```text
 Cadastro:   frame → detecção → anti-spoofing → embedding → PostgreSQL
 Presença:   frame → detecção → anti-spoofing → embedding → matcher 1:N → registro
 ```
 
-Os embeddings de referência são calculados no cadastro e persistidos com o
-nome do modelo; o reconhecimento compara cada consulta com a matriz já
-carregada. Detalhes da decisão em
-[`ADR-002`](docs/adr/ADR-002-armazenamento-de-embeddings.md).
+### Decisões técnicas
+
+- **PostgreSQL com SQLAlchemy 2 e Alembic**, no lugar do SQLite do protótipo:
+  concorrência, constraints, papéis com menor privilégio e migrations
+  revisáveis (`0001`–`0011`). A aplicação nunca cria tabelas sozinha.
+- **Embeddings em `BYTEA` (float32 little-endian)**, gravados com o nome do
+  modelo e a dimensão. Comparar vetores de modelos diferentes levanta erro em
+  vez de identificar a pessoa errada em silêncio.
+- **Limiar por teto de FAR:** o critério é quanto de aceitação indevida o
+  sistema tolera. O 0,30 continua em uso até haver calibração com dados
+  representativos.
+- **Recorte do rosto guardado junto do embedding**, para permitir recalcular os
+  vetores se o modelo mudar.
+
+---
+
+## Segurança e privacidade
+
+Dado biométrico é dado pessoal sensível (LGPD, art. 5º, II). O projeto aplica
+os controles abaixo, mas **não declara conformidade integral**; isso depende
+de análise da instituição.
+
+**Coleta e finalidade.**
+
+- O termo de consentimento é exibido antes de a câmera ligar; o aceite e a
+  versão do termo ficam registrados com cada referência.
+- A única finalidade é o registro de presença.
+- `WEB_RETENTION_DAYS` define a retenção dos dados web, e `WEB_PURPOSE_END_AT`
+  define o fim da finalidade do cadastro.
+
+**O que é guardado.**
+
+- **Cadastro:** três recortes do rosto (PNG) num volume privado, fora da raiz
+  HTTP e com nomes aleatórios, além dos embeddings no PostgreSQL. O quadro
+  inteiro da câmera não é guardado.
+- **Presença:** as fotos ficam só na área temporária em memória (tmpfs) e são
+  apagadas depois do processamento.
+- **Professor:** vê alunos, estados e horários, nunca fotos ou embeddings.
+
+**Exclusão.** A exclusão global de um aluno remove referências, embeddings,
+vínculos e arquivos e registra quem excluiu e quando. Um registro à parte,
+encadeado por hash e só com o id, reaplica as exclusões se um backup antigo for
+restaurado.
+
+**Contas.**
+
+- Senhas em Argon2id.
+- O cookie de sessão é `Secure`, `HttpOnly` e `SameSite=Lax`, vale até 8 h e
+  expira após 30 min sem uso; o banco guarda só o hash.
+- Mutações exigem token CSRF e origem conferida.
+- Cinco falhas de login em 15 min bloqueiam a conta ou o IP.
+- O primeiro admin só é criado por comando local.
+
+**Rotas públicas.** Os limites por link e por IP guardam apenas HMAC; usuário e
+IP não ficam gravados.
+
+**Logs.** Identificam o aluno só pelo id interno. Nunca registram imagem,
+embedding, nome ou matrícula, e um teste cobre essa regra.
+
+**Infraestrutura.**
+
+- Só o Caddy publica as portas 80/443; API e banco ficam em rede interna, e o
+  worker não tem rota de saída.
+- A aplicação conecta com um papel só de DML (`facediff_app`); o DDL fica com
+  o papel das migrations.
+- Os segredos são arquivos `0400` fora do repositório.
+
+**No Git.** `*.db`, `/fotos/`, `/storage/`, `.env`, `/models/*.task`,
+`/avaliacao/` e os ambientes virtuais estão no `.gitignore`. O banco SQLite do
+protótipo, que ligava o nome real de uma pessoa a 39 registros de presença, foi
+removido de todo o histórico em 2026-09-07:
+
+```bash
+git rev-list --all --objects | grep escola.db   # não deve retornar nada
+```
+
+**Limites conhecidos.**
+
+- A aplicação não cifra os dados em repouso; eles dependem do disco e do
+  controle de acesso.
+- O sistema não verifica a localização do aluno: o link vale só no horário da
+  aula e pode ser revogado.
+- O anti-spoofing não foi validado contra ataques.
 
 ---
 
@@ -195,18 +393,17 @@ py -3.12 -m scripts.baixar_modelos
 ```
 
 O script usa só a biblioteca padrão e baixa ~103 MB das URLs oficiais (as
-mesmas que o DeepFace usa), conferindo o SHA-256 de cada arquivo:
+mesmas que o DeepFace e o MediaPipe usam), conferindo o SHA-256 fixado de cada
+arquivo:
 
-- `models/face_landmarker.task`: copiado para a imagem no build;
+- `models/face_landmarker.task` (MediaPipe Face Landmarker, float16, versão 1,
+  Apache 2.0): copiado para a imagem no build;
 - pesos do FaceNet512 e do anti-spoofing em `~/.deepface/weights`: montados no
   worker somente para leitura e usados também pela CLI.
 
 Ele também grava no `.env`, se existir, `WEB_LOCAL_DEEPFACE_WEIGHTS_HOST_DIR`
 com a pasta dos pesos deste computador. Arquivos já presentes e íntegros não
-são baixados de novo, então rodar outra vez é seguro. Na VPS, o
-`deploy/web/preparar_vps.sh` roda o script com `--pasta-modelos
-/srv/facediff/models`, que grava no layout do deploy e não mexe em `.env`, junto
-com segredos e tmpfs (ver [`deploy/web/README.md`](deploy/web/README.md)).
+são baixados de novo, então rodar outra vez é seguro.
 
 ### Subir
 
@@ -233,8 +430,8 @@ de mudar só código da API ou do frontend, reconstrua apenas `web`:
 
 No Windows com Docker Desktop, limite a VM do WSL2 em
 `%USERPROFILE%\.wslconfig` (por exemplo `memory=4GB` e
-`autoMemoryReclaim=dropCache`). O motivo está em
-[`docs/FACEDIFF-WEB-RUNTIME.md`](docs/FACEDIFF-WEB-RUNTIME.md).
+`autoMemoryReclaim=dropCache`): o build e o TensorFlow do worker consomem
+bastante memória, e sem limite o WSL pode esgotar a RAM do Windows.
 
 ---
 
@@ -265,14 +462,14 @@ Menu principal:                     Menu de turma ativa:
   distância ao limiar; **não é probabilidade nem foi calibrado**.
 - `FACE_AUTO_CAPTURE_ENABLED=false` volta ao modo manual (ESPAÇO captura,
   ENTER registra, ESC sai).
-- Excluir turma é lógico. A exclusão global de um aluno, com imagem, embedding
-  e presenças, fica na administração e exige confirmação.
+- Um aluno tem matrícula única e pode estar em várias turmas; a presença é
+  única por turma, aluno e dia.
+- Excluir turma é lógico e preserva o histórico. A exclusão global de um
+  aluno, com imagem, embedding e presenças, fica na administração e exige
+  confirmação.
 
 Na primeira execução, o modelo é carregado antes de a câmera abrir, e os pesos
-do DeepFace são baixados nesse momento. Estados e limites da captura estão em
-[`docs/CAPTURA-AUTOMATICA.md`](docs/CAPTURA-AUTOMATICA.md); turmas e vínculos,
-em [`docs/TURMAS.md`](docs/TURMAS.md); o overlay de landmarks, em
-[`docs/FACIAL-LANDMARKS.md`](docs/FACIAL-LANDMARKS.md).
+do DeepFace são baixados nesse momento.
 
 ---
 
@@ -280,7 +477,7 @@ em [`docs/TURMAS.md`](docs/TURMAS.md); o overlay de landmarks, em
 
 Tudo vem do `.env` ou do ambiente. As variáveis obrigatórias não têm default:
 a aplicação falha no boot em vez de apontar silenciosamente para o banco
-errado.
+errado. A lista completa está no `.env.example`.
 
 ### CLI e núcleo de reconhecimento
 
@@ -294,7 +491,7 @@ errado.
 | `CAMERA_BACKEND` | `auto` | DirectShow no Windows; ver *Problemas conhecidos* |
 | `FACE_MODEL` | `Facenet512` | Trocar exige backfill |
 | `FACE_DETECTOR` | `opencv` | |
-| `FACE_THRESHOLD` | `0.30` | Ainda não calibrado; ver [ADR-004](docs/adr/ADR-004-limiar-de-reconhecimento.md) |
+| `FACE_THRESHOLD` | `0.30` | Limiar da CLI; ver [Resultados e limites](#resultados-e-limites) |
 | `FACE_ANTI_SPOOFING` | `true` | Recusa foto impressa e tela |
 | `FACE_AUTO_CAPTURE_ENABLED` | `true` | `false` recupera ESPAÇO/ENTER |
 | `FACE_AUTO_CAPTURE_WAIT_SECONDS` | `5.0` | Duração mínima da sequência válida |
@@ -310,9 +507,8 @@ errado.
 | `RETENCAO_PRESENCAS_DIAS` | `1825` | 5 anos; `0` desliga o expurgo |
 
 Os limites de qualidade, temporais e de ambiguidade são parâmetros de
-engenharia sem calibração biométrica e não alteram o limiar nem o
-anti-spoofing. A lista completa, com os limites de cada checagem, está no
-`.env.example`.
+engenharia, sem calibração biométrica, e não alteram o limiar nem o
+anti-spoofing.
 
 ### Interface web
 
@@ -330,9 +526,96 @@ anti-spoofing. A lista completa, com os limites de cada checagem, está no
 | `WEB_PUBLIC_REGISTRATION_CONTEXT_LIMIT_PER_MINUTE` | `40` | Acessos públicos ao cadastro por minuto |
 | `WEB_CAPTURE_MAX_BYTES_PER_CAPTURE` | `2 MiB` | Tamanho máximo de cada frame |
 | `WEB_CAPTURE_STORAGE_QUOTA_BYTES` | `300 MiB` | Quota temporária; precisa ser ≥ 3 × máximo × (fila + 1) |
+| `WEB_FACE_QUALITY_MIN_FACE_PX` | `80` | Menor lado aceito do rosto, em pixels |
+| `WEB_FACE_QUALITY_MIN_BRIGHTNESS` / `MAX_BRIGHTNESS` | `40` / `215` | Faixa de brilho médio do rosto (0–255) |
+| `WEB_FACE_QUALITY_MIN_SHARPNESS` | `100` | Nitidez mínima (variância do Laplaciano) |
+| `WEB_FACE_QUALITY_DIM_BRIGHTNESS` | `80` | Abaixo disso, foto borrada conta como falta de luz |
 
-Os limites comportam uma turma inteira atrás do mesmo IP (Wi-Fi do campus).
-Os demais parâmetros estão em `src/config/web_settings.py`.
+Os limites comportam uma turma inteira atrás do mesmo IP (Wi-Fi do campus):
+20 alunos × 3 tentativas × 3 etapas = 180 capturas. Para o auditório da
+apresentação, a VM usou `WEB_FACE_QUALITY_MIN_BRIGHTNESS=25` e
+`WEB_FACE_QUALITY_MIN_SHARPNESS=30`. O worker registra em log as medidas de
+cada captura (tamanho, brilho e nitidez), e a API registra se o navegador usou
+o flash: é por esses valores que se calibra. Os demais parâmetros estão em
+`src/config/web_settings.py`.
+
+---
+
+## Deploy
+
+A implantação usa `deploy/web/`: Docker Compose com `caddy`, `app`,
+`face-worker`, `postgres`, `backup` e o comando `migrate`, imagens-base fixadas
+por digest e `WEB_IMAGE_TAG` igual ao commit implantado (nunca `latest`).
+
+A VM da apresentação é uma Azure Standard D2as_v4 (2 vCPU, 8 GB) com Ubuntu
+24.04. O NSG libera SSH só para o IP administrativo e as portas 80/443 para
+todos. O domínio usa o rótulo DNS gratuito da Azure
+(`<rótulo>.<região>.cloudapp.azure.com`), e o Caddy obtém o certificado da
+Let's Encrypt.
+
+### Preparar o host
+
+Com Docker Engine e Compose v2 instalados e o repositório em
+`/opt/facediff/current`:
+
+```sh
+cd /opt/facediff/current
+sudo bash deploy/web/preparar_vps.sh --dominio facediff.exemplo.com --email voce@exemplo.com
+```
+
+O script:
+
+- cria `/etc/facediff/web-deploy.env` a partir de `deploy/web/.env.example`,
+  com `WEB_IMAGE_TAG`, `WEB_DOMAIN` e `CADDY_ACME_EMAIL`;
+- gera os oito segredos em `/etc/facediff/secrets` (modo `0400`, sem
+  sobrescrever os existentes);
+- baixa e confere os modelos em `/srv/facediff/models`;
+- instala o tmpfs `/run/facediff` (1 GiB, `noexec`, perdido no reboot) para
+  capturas e manutenção.
+
+Pode ser executado de novo, por exemplo após um `git pull`, para atualizar o
+`WEB_IMAGE_TAG`.
+
+### Subir a stack
+
+```sh
+cd /opt/facediff/current/deploy/web
+ENV=/etc/facediff/web-deploy.env
+sudo docker compose --env-file $ENV build postgres app face-worker migrate backup caddy
+sudo docker compose --env-file $ENV up -d postgres                       # cria só os papéis
+sudo docker compose --env-file $ENV --profile admin run --rm --no-deps migrate
+sudo docker compose --env-file $ENV up -d app face-worker
+sudo docker compose --env-file $ENV run --rm --no-deps -it app python -m scripts.criar_admin_web
+sudo docker compose --env-file $ENV up -d caddy
+```
+
+A API expõe `/health/live` (processo) e `/health/ready` (banco). O worker só
+fica `healthy` depois de carregar os modelos e confirmar o lock exclusivo no
+PostgreSQL. Migrations nunca rodam no `up`; são sempre o comando explícito
+`migrate`, com o papel migrador.
+
+### Atualizar
+
+Rode `git pull` no checkout e execute `preparar_vps.sh` de novo para atualizar
+o `WEB_IMAGE_TAG`. Depois, faça `build app face-worker migrate`, rode
+`migrate` se houver migration nova e termine com `up -d`. Prefira atualizar com
+a fila ociosa: reiniciar o worker invalida os jobs em andamento.
+
+Recriar o container apaga o log do worker. Se precisar dele, salve antes com
+`docker compose logs face-worker > arquivo.log`.
+
+Para voltar à versão anterior: reconstrua com o `WEB_IMAGE_TAG` do commit
+anterior, preservando volumes. Não use `down -v` nem downgrade Alembic
+automático.
+
+### Backup
+
+`scripts.web_backup` gera um `pg_dump` cifrado com rclone crypt, e
+`scripts.web_restore_check` prova a restauração num destino descartável. O
+ciclo completo (dump cifrado e restauração) foi validado num ambiente local
+descartável. Na VM da apresentação, o timer diário
+(`ops/systemd/facediff-web-backup.*.example`) **não foi ativado**. Guarde fora
+da VM uma cópia do `rclone.conf`: sem ela, o backup não pode ser restaurado.
 
 ---
 
@@ -363,17 +646,15 @@ python -m scripts.backfill_embeddings            # simula
 python -m scripts.backfill_embeddings --apply    # efetiva
 ```
 
-### Retenção e backup
+### Retenção
 
 ```bash
 python -m scripts.expurgar_presencas            # CLI: simula
 python -m scripts.expurgar_presencas --apply    # CLI: efetiva
 ```
 
-A retenção vale para o histórico de presença, nunca para o cadastro. Na web,
-retenção (`scripts.web_retencao`), backup cifrado (`scripts.web_backup`) e
-prova de restauração (`scripts.web_restore_check`) fazem parte do deploy
-descrito em [`deploy/web/README.md`](deploy/web/README.md).
+A retenção vale para o histórico de presença, nunca para o cadastro. Na web, a
+retenção é feita por `scripts.web_retencao`.
 
 ### Menor privilégio no banco
 
@@ -398,17 +679,6 @@ python -m scripts.import_legacy_sqlite --sqlite caminho/escola.db --apply  # efe
 
 Abre a origem somente para leitura, roda em transação única, é idempotente e
 grava em `storage/etl/` um relatório com toda linha rejeitada e o motivo.
-
-### Benchmark de matching
-
-```powershell
-python -m scripts.benchmark_matcher
-python -m scripts.benchmark_matcher --saida-json resultado.json
-```
-
-Compara o matcher vetorizado com um laço Python sobre embeddings sintéticos
-512D (galerias de 10 a 1000 IDs). Mede latência e memória de engenharia, não
-inferência facial nem acurácia.
 
 ---
 
@@ -436,12 +706,20 @@ tests/
 dublês injetados em `sys.modules`. Se um teste passar a exigir esses pacotes,
 uma fronteira vazou.
 
-Os testes de integração PostgreSQL são destrutivos: podem truncar tabelas.
-Eles não leem o `.env` e só rodam com `FACE_TURMAS_TEST_DB_AUTORIZACAO`,
-`FACE_TURMAS_TEST_DATABASE_URL` (e `FACE_TURMAS_MIGRATION_DATABASE_URL` para
-migrations) apontando para bancos descartáveis com marcador; veja
-[`docs/TURMAS.md`](docs/TURMAS.md). Sem isso são ignorados, e um skip não conta
-como validação.
+Os testes de integração PostgreSQL são destrutivos: podem truncar tabelas. Eles
+não leem o `.env` e só rodam com opt-in explícito. Por exemplo, os de turmas
+exigem:
+
+```powershell
+$env:FACE_TURMAS_TEST_DB_AUTORIZACAO = "AUTORIZO_DESTRUIR_BANCO_DESCARTAVEL_TASK_008"
+$env:FACE_TURMAS_TEST_DATABASE_URL = "postgresql+psycopg://.../escola_test"
+$env:FACE_TURMAS_MIGRATION_DATABASE_URL = "postgresql+psycopg://.../escola_migration_test"
+```
+
+Cada banco também precisa de um `COMMENT ON DATABASE` marcando-o como
+descartável; o texto exigido está no topo de cada módulo de integração (por
+exemplo, `tests/conftest.py`). Sem isso, os testes são ignorados, e um skip não
+conta como validação.
 
 ### CI
 
@@ -461,11 +739,9 @@ python -m scripts.calibrar_limiar --dataset avaliacao/datasets/lfw
 ```
 
 A calibração divide por identidade, escolhe o limiar na validação e abre o
-teste uma única vez; ela **não** altera o `FACE_THRESHOLD`. Resultados em
-[`docs/ML-ETAPA-1-RESULTADO.md`](docs/ML-ETAPA-1-RESULTADO.md); fontes de dados
-permitidas e descarte em
-[`docs/ML-EXPERIMENT-SETUP.md`](docs/ML-EXPERIMENT-SETUP.md). `avaliacao/` é
-ignorado pelo Git. **Nunca use imagens dos alunos cadastrados.**
+teste uma única vez; ela **não** altera o `FACE_THRESHOLD`. A estrutura
+esperada do dataset está no docstring de `scripts/evaluate_model.py`.
+`avaliacao/` é ignorado pelo Git. **Nunca use imagens dos alunos cadastrados.**
 
 ---
 
@@ -494,6 +770,13 @@ Falso positivo do MiniFASNet. Na ordem de eficácia:
 Mantenha `FACE_ANTI_SPOOFING=true`. O número no log é a confiança da classe
 escolhida: "96%" num frame recusado significa 96% de confiança de fraude.
 
+### A interface web fica em "Carregando a interface…"
+
+O navegador guardou um módulo JavaScript antigo. Os assets são servidos com
+`Cache-Control: no-cache`, e `index.html` versiona os imports com `?v=`. Ao
+mudar um módulo do frontend, troque o `?v=` em `index.html` e nos imports
+afetados em `app.mjs`.
+
 ### A câmera da CLI demora para abrir
 
 No Windows, o Media Foundation leva ~27 s para abrir e ajustar a resolução; o
@@ -512,17 +795,13 @@ cadastro, os do anti-spoofing (~4 MB).
 
 ---
 
-## Dados sensíveis
+## Limitações e próximos passos
 
-`*.db`, `/fotos/`, `/storage/`, `.env`, `/models/*.task` e os ambientes
-virtuais estão no `.gitignore`. Política completa em
-[`docs/lgpd.md`](docs/lgpd.md).
-
-O banco SQLite do protótipo, que ligava o nome real de uma pessoa a 39
-registros de presença, foi removido de todo o histórico do Git em 2026-09-07.
-Decisão e risco residual em
-[`ADR-003`](docs/adr/ADR-003-limpeza-do-historico.md).
-
-```bash
-git rev-list --all --objects | grep escola.db   # não deve retornar nada
-```
+- Medir a acurácia em condições de sala de aula, com voluntários e autorização
+  institucional, e só então rever o limiar 0,30.
+- Avaliar o anti-spoofing contra ataques reais (foto, tela, vídeo) e o
+  desempenho por subgrupo.
+- Verificar a presença física (por exemplo, rede do campus ou código exibido
+  em sala).
+- Escalar além de uma turma por vez: mais workers, GPU e fila distribuída.
+- Ativar o backup diário e a cópia externa cifrada antes de uso real.

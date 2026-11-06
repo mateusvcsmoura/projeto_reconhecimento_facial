@@ -7,7 +7,7 @@ diferentes.
 Serve para responder com dado uma pergunta que hoje e respondida por
 heranca: quanto deve valer FACE_THRESHOLD?
 
-Estrutura esperada do conjunto (docs/ML-EXPERIMENT-SETUP.md):
+Estrutura esperada do conjunto:
 
     avaliacao/datasets/<nome>/
       pessoa-1/  foto-a.jpg  foto-b.jpg  ...
@@ -290,7 +290,7 @@ def relatar(genuinas: np.ndarray, impostoras: np.ndarray, limiar_atual: float) -
     print(
         "\n*** MODO EXPLORATORIO: limiar sugerido e erro medidos sobre os MESMOS "
         "pares.\n*** Resultado otimista; NAO use para fixar FACE_THRESHOLD. "
-        "Ver docs/ML-EXPERIMENT-SETUP.md."
+        "Ver a secao Avaliacao do modelo no README."
     )
     print(f"\nPares genuinos : {genuinas.size}")
     print(f"Pares impostores: {impostoras.size}")
@@ -394,7 +394,7 @@ def avaliar_exploratorio(dataset: Path) -> int:
 
     # Avaliacao A, sem prova de vida: o conjunto e composto de fotografias, e
     # recusa-las derrotaria a propria medicao. A eficacia do anti-spoofing e
-    # a Avaliacao B, com dataset de ataques (docs/ML-EXPERIMENT-SETUP.md).
+    # outra avaliacao, com dataset de ataques.
     provider = DeepFaceAdapter(
         modelo=settings.face_model,
         detector=settings.face_detector,

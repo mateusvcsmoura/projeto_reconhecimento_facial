@@ -241,7 +241,7 @@ escola.db
 /models/*.task
 *.npy
 
-# Experimentos de ML (docs/ML-EXPERIMENT-SETUP.md): datasets, caches de
+# Experimentos de ML: datasets, caches de
 # embeddings e relatorios ficam TODOS sob /avaliacao/, fora do Git.
 /avaliacao/
 

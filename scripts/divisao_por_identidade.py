@@ -3,7 +3,7 @@
 A divisao e POR IDENTIDADE, e acontece ANTES de formar qualquer par. Se a
 mesma pessoa aparecesse no treino e no teste, o limiar seria calibrado
 sobre rostos que depois servem para medi-lo -- e o erro reportado sairia
-otimista (lacuna G4 de docs/ML-LEARNING-AUDIT.md). Dividir por identidade
+otimista. Dividir por identidade
 simula o caso real: o sistema precisa acertar alunos que nem existiam
 quando o limiar foi escolhido.
 
